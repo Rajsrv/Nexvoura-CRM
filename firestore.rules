@@ -1,0 +1,89 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSameCompany(companyId) {
+      return isAuthenticated() && getUserData().companyId == companyId;
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && getUserData().role == role;
+    }
+
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    function isManager() {
+      return hasRole('manager');
+    }
+
+    function isSales() {
+      return hasRole('sales');
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // Companies
+    match /companies/{companyId} {
+      allow read: if isAuthenticated() && getUserData().companyId == companyId;
+      allow create: if isAuthenticated(); // Allow first user to create company
+      allow update: if isAuthenticated() && getUserData().companyId == companyId && isAdmin();
+    }
+
+    // Users
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || getUserData().companyId == resource.data.companyId);
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (request.auth.uid == userId || (getUserData().companyId == resource.data.companyId && isAdmin()));
+    }
+
+    // Leads
+    match /leads/{leadId} {
+      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId) && (
+        isAdmin() || isManager() || (isSales() && resource.data.assignedTo == request.auth.uid)
+      );
+      allow create: if true; // Public lead submission allowed via API/Form
+      allow update: if isAuthenticated() && isSameCompany(resource.data.companyId) && (
+        isAdmin() || isManager() || (isSales() && resource.data.assignedTo == request.auth.uid)
+      );
+      allow delete: if isAuthenticated() && isSameCompany(resource.data.companyId) && isAdmin();
+    }
+
+    // Invites
+    match /invites/{inviteId} {
+      allow read: if true; // Needed for checking invite token
+      allow create: if isAuthenticated() && isAdmin();
+      allow update: if true; // Needed for accepting invite
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // Tasks
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
+      allow create: if isAuthenticated() && isSameCompany(request.resource.data.companyId);
+      allow update: if isAuthenticated() && isSameCompany(resource.data.companyId);
+      allow delete: if isAuthenticated() && isSameCompany(resource.data.companyId) && (isAdmin() || isManager());
+    }
+
+    // Task Templates
+    match /taskTemplates/{templateId} {
+      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
+      allow create: if isAuthenticated() && isSameCompany(request.resource.data.companyId);
+      allow update: if isAuthenticated() && isSameCompany(resource.data.companyId) && (isAdmin() || isManager());
+      allow delete: if isAuthenticated() && isSameCompany(resource.data.companyId) && (isAdmin() || isManager());
+    }
+  }
+}

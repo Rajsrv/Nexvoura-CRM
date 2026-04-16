@@ -1,0 +1,105 @@
+{
+  "entities": {
+    "Company": {
+      "title": "Company",
+      "description": "A tenant company in the SaaS platform.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "The name of the company." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "notificationSettings": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "dueSoonHours": { "type": "number", "default": 24 }
+          }
+        }
+      },
+      "required": ["name", "createdAt"]
+    },
+    "User": {
+      "title": "User",
+      "description": "A user belonging to a company.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "companyId": { "type": "string", "description": "The ID of the company this user belongs to." },
+        "role": { "type": "string", "enum": ["admin", "manager", "sales"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "companyId", "role", "createdAt"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "A sales lead.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "service": { "type": "string", "enum": ["WordPress", "Shopify", "Custom Development"] },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["New", "Contacted", "Converted"] },
+        "assignedTo": { "type": "string", "description": "UID of the assigned user." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "name", "status", "createdAt"]
+    },
+    "Invite": {
+      "title": "Invite",
+      "description": "An invitation for a new user to join a company.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "manager", "sales"] },
+        "token": { "type": "string" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "accepted"] }
+      },
+      "required": ["companyId", "email", "role", "token", "expiresAt", "status"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A task associated with a lead or project.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["Todo", "In Progress", "Done"] },
+        "priority": { "type": "string", "enum": ["Low", "Medium", "High"] },
+        "assignedTo": { "type": "string" },
+        "leadId": { "type": "string" },
+        "notificationSent": { "type": "boolean", "description": "Whether a due-soon notification has been sent." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "title", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/companies/{companyId}": {
+      "schema": "Company",
+      "description": "Tenant company data."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile and tenant association."
+    },
+    "/leads/{leadId}": {
+      "schema": "Lead",
+      "description": "Lead data isolated by companyId."
+    },
+    "/invites/{inviteId}": {
+      "schema": "Invite",
+      "description": "Pending invitations."
+    },
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Tasks managed by the company."
+    }
+  }
+}
