@@ -3,7 +3,7 @@ import { db } from '../firebase';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { UserProfile, Company } from '../types';
 import { toast } from 'sonner';
-import { Bell, Clock, Globe, Copy, Check, Layout, Plus, Trash2, GripVertical, Edit3 } from 'lucide-react';
+import { Bell, Clock, Globe, Copy, Check, Layout, Plus, Trash2, GripVertical, Edit3, User as UserIcon, Mail } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function SettingsPage({ user }: { user: UserProfile }) {
@@ -88,16 +88,156 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const updateCompanyInfo = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!company) return;
+    const formData = new FormData(e.currentTarget);
+    const updates = {
+      name: formData.get('name') as string,
+      website: formData.get('website') as string,
+      phone: formData.get('phone') as string,
+      industry: formData.get('industry') as string,
+      address: formData.get('address') as string,
+      logoUrl: formData.get('logoUrl') as string,
+      description: formData.get('description') as string,
+    };
+
+    try {
+      await updateDoc(doc(db, 'companies', company.id), updates);
+      toast.success('Company information updated');
+    } catch (error) {
+      toast.error('Failed to update company info');
+    }
+  };
+
   if (loading) return <div className="p-8 text-center text-slate-500">Loading settings...</div>;
 
   return (
-    <div className="space-y-8 max-w-4xl">
+    <div className="space-y-8 max-w-4xl pb-20">
       <div>
         <h2 className="text-2xl font-bold text-slate-900">Settings</h2>
         <p className="text-slate-500">Manage your agency preferences and integrations</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Company Information */}
+        <section className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6 md:col-span-2">
+          <div className="flex items-center space-x-3 text-slate-900 mb-2">
+            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+              <UserIcon size={20} />
+            </div>
+            <h3 className="text-lg font-bold">Company Profile</h3>
+          </div>
+          
+          <div className="mb-8 p-6 bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden relative group">
+            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
+              <Mail size={120} />
+            </div>
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div>
+                <h4 className="text-blue-400 font-black text-xs uppercase tracking-[0.2em] mb-1">General Workspace Invite</h4>
+                <p className="text-slate-400 text-sm leading-relaxed max-w-md">
+                  Share this master code to let team members join as <span className="text-blue-300 font-bold">'Sales'</span> automatically.
+                </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="px-6 py-3 bg-slate-800 text-white font-mono font-black text-xl rounded-xl border border-slate-700 tracking-[0.3em] shadow-inner select-all">
+                  {company?.inviteCode || 'N/A'}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (company?.inviteCode) {
+                      navigator.clipboard.writeText(company.inviteCode);
+                      toast.success('Invite code copied to clipboard');
+                    }
+                  }}
+                  className="p-3.5 bg-blue-600 text-white rounded-xl hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 active:scale-95"
+                  title="Copy Code"
+                >
+                  <Copy size={20} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <form onSubmit={updateCompanyInfo} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Company Name</label>
+              <input
+                name="name"
+                defaultValue={company?.name}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
+                placeholder="Nexvoura Solutions"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Website</label>
+              <input
+                name="website"
+                defaultValue={company?.website}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
+                placeholder="https://nexvoura.com"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Phone Number</label>
+              <input
+                name="phone"
+                defaultValue={company?.phone}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
+                placeholder="+1 234 567 890"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Industry</label>
+              <input
+                name="industry"
+                defaultValue={company?.industry}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
+                placeholder="e.g. Marketing, SaaS"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Office Address</label>
+              <input
+                name="address"
+                defaultValue={company?.address}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
+                placeholder="123 business St, City"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Company Logo URL</label>
+              <input
+                name="logoUrl"
+                defaultValue={company?.logoUrl}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
+                placeholder="https://example.com/logo.png"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Bio / Description</label>
+              <textarea
+                name="description"
+                defaultValue={company?.description}
+                rows={3}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium resize-none"
+                placeholder="Briefly describe your agency..."
+              />
+            </div>
+            <div className="md:col-span-2 flex justify-end">
+              <button
+                type="submit"
+                className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
+              >
+                Save Profile
+              </button>
+            </div>
+          </form>
+        </section>
+
         {/* Task Board Configuration */}
         <section className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6">
           <div className="flex items-center justify-between mb-2">

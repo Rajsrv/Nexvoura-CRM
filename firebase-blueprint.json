@@ -25,7 +25,7 @@
         "name": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "companyId": { "type": "string", "description": "The ID of the company this user belongs to." },
-        "role": { "type": "string", "enum": ["admin", "manager", "sales"] },
+        "role": { "type": "string", "enum": ["admin", "manager", "team_lead", "sales"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "email", "companyId", "role", "createdAt"]
@@ -54,7 +54,7 @@
       "properties": {
         "companyId": { "type": "string" },
         "email": { "type": "string", "format": "email" },
-        "role": { "type": "string", "enum": ["admin", "manager", "sales"] },
+        "role": { "type": "string", "enum": ["admin", "manager", "team_lead", "sales"] },
         "token": { "type": "string" },
         "expiresAt": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["pending", "accepted"] }

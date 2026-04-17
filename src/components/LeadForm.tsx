@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { db } from '../firebase';
 import { collection, addDoc } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../lib/firestore';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 
@@ -27,8 +28,7 @@ export default function LeadForm({ companyId }: { companyId: string }) {
       toast.success('Thank you! We will contact you soon.');
       setFormData({ name: '', email: '', phone: '', service: 'WordPress', message: '' });
     } catch (error) {
-      console.error(error);
-      toast.error('Failed to submit lead.');
+      handleFirestoreError(error, OperationType.WRITE, 'leads');
     } finally {
       setLoading(false);
     }

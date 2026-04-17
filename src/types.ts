@@ -14,6 +14,13 @@ export interface Company {
   id: string;
   name: string;
   createdAt: string;
+  website?: string;
+  phone?: string;
+  address?: string;
+  industry?: string;
+  description?: string;
+  logoUrl?: string;
+  inviteCode?: string;
   notificationSettings?: {
     enabled: boolean;
     dueSoonHours: number;
@@ -23,10 +30,12 @@ export interface Company {
 
 export interface UserProfile {
   uid: string;
+  memberId: string; // Unique human-readable ID
   name: string;
   email: string;
   companyId: string;
   role: UserRole;
+  photoURL?: string;
   createdAt: string;
 }
 

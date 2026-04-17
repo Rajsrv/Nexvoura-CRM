@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
-import { onAuthStateChanged, signOut, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, query, where, onSnapshot, addDoc, getDocs, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { onAuthStateChanged, signOut, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { doc, getDoc, setDoc, collection, query, where, onSnapshot, addDoc, getDocs, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
+import { handleFirestoreError, OperationType } from './lib/firestore';
 import { UserProfile, Company, Invite, Lead, Task, AccessRequest, UserRole } from './types';
-import { LayoutDashboard, Users, MessageSquare, Settings, LogOut, Plus, Search, Filter, Menu, X, CheckSquare, Bell, AlertCircle, Clock as ClockIcon, Download, Mail, Lock, User as UserIcon2, ArrowRight, Shield, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Users, MessageSquare, Settings, LogOut, Plus, Search, Filter, Menu, X, CheckSquare, Bell, AlertCircle, Clock as ClockIcon, Download, Mail, Lock, User as UserIcon2, ArrowRight, Shield, ShieldCheck, ShieldAlert, Globe, Copy } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, isPast, isToday, isBefore, addDays, parseISO } from 'date-fns';
@@ -13,6 +14,15 @@ import TeamPage from './components/TeamPage';
 import LeadForm from './components/LeadForm';
 import TasksPage from './components/TasksPage';
 import SettingsPage from './components/SettingsPage';
+import ProfilePage from './components/ProfilePage';
+
+// Helper to generate member ID
+const generateMemberId = (companyName: string = 'NEX') => {
+  const prefix = companyName.substring(0, 3).toUpperCase().padEnd(3, 'X');
+  const timestamp = Date.now().toString().slice(-4);
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  return `${prefix}-${timestamp}${random}`;
+};
 
 // --- Components ---
 
@@ -22,6 +32,7 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
     { name: 'Leads', path: '/leads', icon: MessageSquare },
     { name: 'Tasks', path: '/tasks', icon: CheckSquare },
     { name: 'Team', path: '/team', icon: Users, roles: ['admin', 'manager', 'team_lead'] },
+    { name: 'Profile', path: '/profile', icon: UserIcon2 },
     { name: 'Settings', path: '/settings', icon: Settings, roles: ['admin'] },
   ];
 
@@ -68,8 +79,12 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
         </nav>
         <div className="p-6 border-t border-slate-800 space-y-4">
           <div className="flex items-center space-x-3 px-1">
-            <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center font-black text-white shadow-lg shadow-blue-500/20">
-              {user.name[0]}
+            <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center font-black text-white shadow-lg shadow-blue-500/20 overflow-hidden border border-slate-700">
+              {user.photoURL ? (
+                <img src={user.photoURL} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                user.name[0]
+              )}
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold truncate">{user.name}</p>
@@ -226,7 +241,7 @@ const NotificationCenter = ({ user }: { user: UserProfile }) => {
   );
 };
 
-const Header = ({ user, onToggleSidebar }: { user: UserProfile; onToggleSidebar: () => void }) => (
+const Header = ({ user, company, onToggleSidebar }: { user: UserProfile; company: Company | null; onToggleSidebar: () => void }) => (
   <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 md:px-8 sticky top-0 z-30">
     <div className="flex items-center space-x-4">
       <button 
@@ -235,29 +250,39 @@ const Header = ({ user, onToggleSidebar }: { user: UserProfile; onToggleSidebar:
       >
         <Menu size={24} />
       </button>
-      <div className="hidden sm:block">
-        <h2 className="text-lg font-bold text-slate-900 tracking-tight">Bonjour, {user.name.split(' ')[0]}</h2>
-        <p className="text-xs font-bold text-slate-400 flex items-center gap-1.5 uppercase tracking-wider">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          {user.role} Account
-        </p>
+      <div className="flex items-center space-x-3">
+        <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center overflow-hidden shadow-lg shadow-slate-200">
+           {company?.logoUrl ? (
+             <img src={company.logoUrl} alt={company.name} className="w-full h-full object-contain p-1.5" referrerPolicy="no-referrer" />
+           ) : (
+             <Globe size={20} className="text-white" />
+           )}
+        </div>
+        <div className="hidden sm:block">
+          <h2 className="text-lg font-bold text-slate-900 tracking-tight">{company?.name || 'NexusVoura'}</h2>
+          <p className="text-[10px] font-black text-slate-400 flex items-center gap-1 uppercase tracking-widest">
+            <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+            {user.role} Portal
+          </p>
+        </div>
       </div>
-      <h1 className="text-xl font-black bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent sm:hidden">
-        Nexus
-      </h1>
     </div>
     <div className="flex items-center space-x-2 md:space-x-4">
       <NotificationCenter user={user} />
       <div className="h-8 w-px bg-slate-100 mx-2 hidden md:block" />
-      <div className="flex items-center space-x-2 md:space-x-3">
+      <Link to="/profile" className="flex items-center space-x-2 md:space-x-3 group transition-all">
         <div className="hidden md:block text-right">
-          <p className="text-xs font-black text-slate-900 leading-none mb-0.5">{user.name}</p>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Agency Admin</p>
+          <p className="text-xs font-black text-slate-900 leading-none mb-0.5 group-hover:text-blue-600 transition-colors">{user.name}</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">My Account</p>
         </div>
-        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 font-black shadow-inner">
-          {user.name[0]}
+        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 font-black shadow-inner overflow-hidden border border-slate-200 group-hover:border-blue-200 transition-all">
+          {user.photoURL ? (
+            <img src={user.photoURL} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          ) : (
+            user.name[0]
+          )}
         </div>
-      </div>
+      </Link>
     </div>
   </header>
 );
@@ -265,6 +290,7 @@ const Header = ({ user, onToggleSidebar }: { user: UserProfile; onToggleSidebar:
 // --- Pages ---
 
 const Dashboard = ({ user }: { user: UserProfile }) => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({ total: 0, new: 0, converted: 0 });
   const [reminders, setReminders] = useState<Task[]>([]);
 
@@ -399,6 +425,19 @@ const Dashboard = ({ user }: { user: UserProfile }) => {
               </div>
               <Filter size={16} />
             </Link>
+            <button 
+              onClick={() => {
+                navigate('/team');
+                toast.info('Head to Team page to generate a specific invite token');
+              }}
+              className="w-full flex items-center justify-between p-4 bg-purple-50 text-purple-700 rounded-xl hover:bg-purple-100 transition-colors font-bold text-sm"
+            >
+              <div className="flex items-center space-x-3">
+                <Mail size={20} />
+                <span>Manage Team Invites</span>
+              </div>
+              <ArrowRight size={16} />
+            </button>
           </div>
         </div>
       </div>
@@ -640,25 +679,20 @@ const Login = () => {
       if (isSignUp) {
         const result = await createUserWithEmailAndPassword(auth, email, password);
         const user = result.user;
-        // Check if user exists (shouldn't for signup, but good for redirect logic)
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (!userDoc.exists()) {
-          // If signup, we MUST setup company or join workspace. 
-          // For now, redirect to setup if not from invite.
-          navigate('/setup-company', { state: { name } });
-        }
+        
+        // Update profile with the name immediately
+        await updateProfile(user, { displayName: name });
+        
+        // The App component's onSnapshot will handle the state and redirect to /setup-company
+        // but we navigate just as secondary safeguard
+        navigate('/setup-company', { state: { name } });
       } else {
-        const result = await signInWithEmailAndPassword(auth, email, password);
-        const user = result.user;
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (!userDoc.exists()) {
-          navigate('/setup-company');
-        } else {
-          navigate('/');
-        }
+        await signInWithEmailAndPassword(auth, email, password);
+        // App component handles redirects based on profile existence
+        navigate('/');
       }
     } catch (error: any) {
-      console.error(error);
+      console.error('Auth Error:', error);
       toast.error(error.message || 'Authentication failed');
     } finally {
       setLoading(false);
@@ -668,18 +702,18 @@ const Login = () => {
   const handleGoogleLogin = async () => {
     setLoading(true);
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (!userDoc.exists()) {
-        navigate('/setup-company');
+      googleProvider.setCustomParameters({ prompt: 'select_account' });
+      await signInWithPopup(auth, googleProvider);
+      navigate('/');
+    } catch (error: any) {
+      console.error('Google Login Error:', error);
+      if (error.code === 'auth/popup-blocked') {
+        toast.error('Popup blocked. Please allow popups for this site.');
+      } else if (error.code === 'auth/cancelled-popup-request') {
+        // Just ignore
       } else {
-        navigate('/');
+        toast.error('Google Login failed. Check if Authorized Domains are configured in Firebase.');
       }
-    } catch (error) {
-      console.error(error);
-      toast.error('Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -694,7 +728,7 @@ const Login = () => {
       >
         <div className="text-center">
           <h1 className="text-4xl font-black text-slate-900 tracking-tight">Nexvoura</h1>
-          <p className="text-slate-500 mt-2 text-sm">The ultimate CRM for web agencies</p>
+          <p className="text-slate-500 mt-2 text-sm italic font-medium">Internal Agency Portal for Staff & Admins</p>
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
@@ -798,51 +832,108 @@ const JoinWorkspace = ({ user }: { user: any }) => {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
 
+  // If not logged in, we save the token and redirect to login
+  useEffect(() => {
+    if (!user && !loading) {
+      sessionStorage.setItem('pendingInviteToken', token || '');
+      // We don't redirect automatically here to allow showing an "Invite valid" message first
+    }
+  }, [user, token, loading]);
+
   useEffect(() => {
     const validateToken = async () => {
       try {
-        const q = query(collection(db, 'invites'), where('token', '==', token), where('status', '==', 'pending'));
-        const snap = await getDocs(q);
-        if (snap.empty) {
-          toast.error('Invalid or expired invite token.');
+        if (!token) {
           navigate('/login');
           return;
         }
-        const inviteData = { id: snap.docs[0].id, ...snap.docs[0].data() } as Invite;
-        setInvite(inviteData);
 
-        const compSnap = await getDoc(doc(db, 'companies', inviteData.companyId));
-        if (compSnap.exists()) {
-          setCompany({ id: compSnap.id, ...compSnap.data() } as Company);
+        // First try specific invite token
+        const q = query(collection(db, 'invites'), where('token', '==', token), where('status', '==', 'pending'));
+        const snap = await getDocs(q);
+        
+        if (!snap.empty) {
+          const inviteData = { id: snap.docs[0].id, ...snap.docs[0].data() } as Invite;
+          setInvite(inviteData);
+          const compSnap = await getDoc(doc(db, 'companies', inviteData.companyId));
+          if (compSnap.exists()) {
+            setCompany({ id: compSnap.id, ...compSnap.data() } as Company);
+          }
+          setLoading(false);
+          return;
         }
+
+        // If not found, try general company invite code
+        const companyQ = query(collection(db, 'companies'), where('inviteCode', '==', token));
+        const companySnap = await getDocs(companyQ);
+
+        if (!companySnap.empty) {
+          const compData = { id: companySnap.docs[0].id, ...companySnap.docs[0].data() } as Company;
+          setCompany(compData);
+          // Create a "virtual" invite for the join process
+          setInvite({
+            id: 'general',
+            companyId: compData.id,
+            email: user?.email || '',
+            role: 'sales', // Default role for general code
+            token: token || '',
+            expiresAt: '',
+            status: 'pending'
+          });
+          setLoading(false);
+          return;
+        }
+
+        toast.error('Invalid or expired invite code.');
+        navigate('/login');
       } catch (error) {
         console.error(error);
         toast.error('Error validating invite.');
+        navigate('/login');
       } finally {
         setLoading(false);
       }
     };
     validateToken();
-  }, [token, navigate]);
+  }, [token, navigate, user?.email]);
 
   const handleJoin = async () => {
-    if (!invite || !user) return;
+    if (!user) {
+      sessionStorage.setItem('pendingInviteToken', token || '');
+      navigate('/login');
+      return;
+    }
+    if (!invite || !company) return;
     setJoining(true);
     try {
-      await setDoc(doc(db, 'users', user.uid), {
+      // Check if user already has a profile
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        toast.error('You already belong to a workspace.');
+        navigate('/');
+        return;
+      }
+
+      const userRef = doc(db, 'users', user.uid);
+      await setDoc(userRef, {
         uid: user.uid,
-        name: user.displayName,
+        memberId: generateMemberId(company.name),
+        name: user.displayName || user.email?.split('@')[0] || 'Anonymous',
         email: user.email,
-        companyId: invite.companyId,
+        companyId: company.id,
         role: invite.role,
         createdAt: new Date().toISOString()
       });
-      await updateDoc(doc(db, 'invites', invite.id), { status: 'accepted' });
-      toast.success(`Welcome to ${company?.name}!`);
-      window.location.href = '/'; // Force reload to refresh profile
+      
+      if (invite.id !== 'general') {
+        await updateDoc(doc(db, 'invites', invite.id), { status: 'accepted' });
+      }
+      
+      toast.success(`Welcome to ${company.name}!`);
+      sessionStorage.removeItem('pendingInviteToken');
+      setTimeout(() => navigate('/'), 1000);
     } catch (error) {
-      console.error(error);
-      toast.error('Failed to join workspace.');
+      handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
     } finally {
       setJoining(false);
     }
@@ -869,7 +960,7 @@ const JoinWorkspace = ({ user }: { user: any }) => {
           disabled={joining}
           className="w-full bg-slate-900 text-white p-4 rounded-xl font-bold hover:bg-slate-800 transition-all disabled:opacity-50"
         >
-          {joining ? 'Joining...' : `Join ${company?.name}`}
+          {joining ? 'Joining...' : user ? `Join ${company?.name}` : 'Login to Join'}
         </button>
         <button
           onClick={() => navigate('/login')}
@@ -886,36 +977,66 @@ const SetupCompany = ({ user }: { user: any }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [name, setName] = useState('');
+  const [website, setWebsite] = useState('');
+  const [phone, setPhone] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [address, setAddress] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name) return;
+    if (!name.trim()) return;
     setLoading(true);
     try {
-      const companyId = crypto.randomUUID();
-      await setDoc(doc(db, 'companies', companyId), {
-        name,
+      const companyId = crypto.randomUUID?.() || Math.random().toString(36).substring(2);
+      const batch = writeBatch(db);
+
+      const companyRef = doc(db, 'companies', companyId);
+      const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      batch.set(companyRef, {
+        id: companyId,
+        name: name.trim(),
+        website: website.trim(),
+        phone: phone.trim(),
+        industry: industry.trim(),
+        address: address.trim(),
+        logoUrl: logoUrl.trim(),
+        description: description.trim(),
+        inviteCode,
         createdAt: new Date().toISOString(),
         notificationSettings: {
           enabled: true,
           dueSoonHours: 24
         }
       });
-      await setDoc(doc(db, 'users', user.uid), {
+
+      const userRef = doc(db, 'users', user.uid);
+      batch.set(userRef, {
         uid: user.uid,
-        name: (location.state as any)?.name || user.displayName || user.email.split('@')[0],
+        memberId: generateMemberId(name),
+        name: (location.state as any)?.name || user.displayName || user.email?.split('@')[0] || 'Anonymous',
         email: user.email,
         companyId,
         role: 'admin',
         createdAt: new Date().toISOString()
       });
+
+      await batch.commit();
+      
       setSuccess(true);
       toast.success('Company setup complete!');
+      
+      // Force a small delay to ensure Firestore propagation before navigation
+      setTimeout(() => {
+        navigate('/', { replace: true });
+        // Optional: window.location.reload() if still stuck, but replace:true should help
+      }, 1500);
     } catch (error) {
-      console.error(error);
-      toast.error('Failed to setup company.');
+      console.error("Setup Error:", error);
+      handleFirestoreError(error, OperationType.WRITE, `setup-company`);
     } finally {
       setLoading(false);
     }
@@ -935,7 +1056,7 @@ const SetupCompany = ({ user }: { user: any }) => {
           <h2 className="text-3xl font-black text-slate-900">Workspace Ready!</h2>
           <p className="text-slate-500">Your company workspace <span className="font-bold text-slate-900">{name}</span> has been created successfully.</p>
           <button
-            onClick={() => window.location.href = '/'}
+            onClick={() => navigate('/')}
             className="w-full bg-blue-600 text-white p-4 rounded-xl font-bold hover:bg-blue-700 transition-all"
           >
             Enter Dashboard
@@ -946,23 +1067,85 @@ const SetupCompany = ({ user }: { user: any }) => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-10 space-y-8">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 py-12">
+      <div className="max-w-xl w-full bg-white rounded-3xl shadow-xl p-10 space-y-8">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-slate-900">Setup Your Company</h2>
           <p className="text-slate-500 mt-2">Create your tenant workspace</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Company Name</label>
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-              placeholder="e.g. Acme Web Solutions"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-bold text-slate-700 mb-2">Company Name *</label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                placeholder="e.g. Nexvoura Solutions"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Website</label>
+              <input
+                type="url"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                placeholder="https://nexvoura.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Phone</label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                placeholder="+1 234 567 890"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Industry</label>
+              <input
+                type="text"
+                value={industry}
+                onChange={(e) => setIndustry(e.target.value)}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                placeholder="e.g. SaaS, Marketing"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-bold text-slate-700 mb-2">Office Address</label>
+              <input
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                placeholder="123 Street, City, Country"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-bold text-slate-700 mb-2">Company Logo URL</label>
+              <input
+                type="url"
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                placeholder="https://example.com/logo.png"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-bold text-slate-700 mb-2">Bio / Description</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"
+                placeholder="Briefly describe your agency..."
+              />
+            </div>
           </div>
           <button
             disabled={loading}
@@ -986,19 +1169,29 @@ const SetupCompany = ({ user }: { user: any }) => {
 
 const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { pathname } = useParams(); // Using useLocation might be better but let's stick to what's available
+  const [company, setCompany] = useState<Company | null>(null);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'companies', user.companyId), (snap) => {
+      if (snap.exists()) {
+        setCompany({ id: snap.id, ...snap.data() } as Company);
+      }
+    });
+    return () => unsub();
+  }, [user.companyId]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
       <Sidebar user={user} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
       <div className="flex-1 lg:ml-72 min-w-0 transition-all duration-300">
-        <Header user={user} onToggleSidebar={() => setIsSidebarOpen(true)} />
+        <Header user={user} company={company} onToggleSidebar={() => setIsSidebarOpen(true)} />
         <main className="p-4 md:p-8 max-w-7xl mx-auto">
           <Routes>
             <Route path="/" element={<Dashboard user={user} />} />
             <Route path="/leads" element={<LeadsPage user={user} />} />
             <Route path="/tasks" element={<TasksPage user={user} />} />
-            <Route path="/team" element={<TeamPage user={user} />} />
+            <Route path="/profile" element={<ProfilePage user={user} />} />
+            <Route path="/team" element={<TeamPage user={user} company={company} />} />
             <Route path="/settings" element={<SettingsPage user={user} />} />
           </Routes>
         </main>
@@ -1013,28 +1206,73 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+    let unsubscribeProfile: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (u) => {
       setUser(u);
+      
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = null;
+      }
+
       if (u) {
         try {
           const docRef = doc(db, 'users', u.uid);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            setProfile(docSnap.data() as UserProfile);
-          } else {
-            setProfile(null);
-          }
+          // Use onSnapshot for real-time profile updates (e.g. after setup or role change)
+          unsubscribeProfile = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+              const data = docSnap.data() as UserProfile;
+              if (!data.memberId) {
+                // Auto-generate missing Member ID for existing users
+                const mid = generateMemberId();
+                updateDoc(docRef, { memberId: mid });
+              }
+              setProfile(data);
+            } else {
+              setProfile(null);
+            }
+            setLoading(false);
+          }, (error) => {
+            handleFirestoreError(error, OperationType.GET, `users/${u.uid}`);
+            setLoading(false);
+          });
         } catch (error) {
-          console.error("Error fetching profile:", error);
+          console.error("Error setting up profile listener:", error);
           setProfile(null);
+          setLoading(false);
         }
       } else {
         setProfile(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
-    return () => unsubscribe();
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) unsubscribeProfile();
+    };
   }, []);
+
+  return (
+    <Router>
+      <Toaster position="top-right" richColors />
+      <MainContent user={user} profile={profile} loading={loading} />
+    </Router>
+  );
+}
+
+function MainContent({ user, profile, loading }: { user: any, profile: UserProfile | null, loading: boolean }) {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user && !profile && !loading && window.location.pathname === '/') {
+      const pendingToken = sessionStorage.getItem('pendingInviteToken');
+      if (pendingToken) {
+        navigate(`/join/${pendingToken}`);
+      }
+    }
+  }, [user, profile, loading, navigate]);
 
   if (loading) {
     return (
@@ -1045,33 +1283,30 @@ export default function App() {
   }
 
   return (
-    <Router>
-      <Toaster position="top-right" richColors />
-      <Routes>
-        <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
-        <Route path="/setup-company" element={user && !profile ? <SetupCompany user={user} /> : <Navigate to="/" />} />
-        <Route path="/join/:token" element={user ? <JoinWorkspace user={user} /> : <Navigate to="/login" />} />
-        <Route path="/submit-lead/:companyId" element={
-          <div className="min-h-screen bg-slate-50 py-20 px-4">
-            <LeadForm companyId={window.location.pathname.split('/').pop() || ''} />
-          </div>
-        } />
-        
-        <Route
-          path="/*"
-          element={
-            user ? (
-              profile ? (
-                <AuthenticatedLayout user={profile} />
-              ) : (
-                <Navigate to="/setup-company" />
-              )
+    <Routes>
+      <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
+      <Route path="/setup-company" element={user && !profile ? <SetupCompany user={user} /> : <Navigate to="/" />} />
+      <Route path="/join/:token" element={<JoinWorkspace user={user} />} />
+      <Route path="/submit-lead/:companyId" element={
+        <div className="min-h-screen bg-slate-50 py-20 px-4">
+          <LeadForm companyId={window.location.pathname.split('/').pop() || ''} />
+        </div>
+      } />
+      
+      <Route
+        path="/*"
+        element={
+          user ? (
+            profile ? (
+              <AuthenticatedLayout user={profile} />
             ) : (
-              <Navigate to="/login" />
+              <Navigate to="/setup-company" />
             )
-          }
-        />
-      </Routes>
-    </Router>
+          ) : (
+            <Navigate to="/login" />
+          )
+        }
+      />
+    </Routes>
   );
 }
