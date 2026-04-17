@@ -5,10 +5,52 @@ import { doc, getDoc, setDoc, collection, query, where, onSnapshot, addDoc, getD
 import { auth, db, googleProvider } from './firebase';
 import { handleFirestoreError, OperationType } from './lib/firestore';
 import { UserProfile, Company, Invite, Lead, Task, AccessRequest, UserRole } from './types';
-import { LayoutDashboard, Users, MessageSquare, Settings, LogOut, Plus, Search, Filter, Menu, X, CheckSquare, Bell, AlertCircle, Clock as ClockIcon, Download, Mail, Lock, User as UserIcon2, ArrowRight, Shield, ShieldCheck, ShieldAlert, Globe, Copy } from 'lucide-react';
+import { 
+  LayoutDashboard, 
+  Users, 
+  MessageSquare, 
+  Settings, 
+  LogOut, 
+  Plus, 
+  Search, 
+  Filter, 
+  Menu, 
+  X, 
+  CheckSquare, 
+  CheckCircle,
+  Bell, 
+  AlertCircle, 
+  Clock,
+  Calendar,
+  Download, 
+  Mail, 
+  Lock, 
+  User as UserIcon, 
+  ArrowRight, 
+  Shield, 
+  ShieldCheck, 
+  ShieldAlert, 
+  Globe, 
+  Copy,
+  BarChart as BarChartIcon,
+  RefreshCcw
+} from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, isPast, isToday, isBefore, addDays, parseISO } from 'date-fns';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip as ReChartsTooltip, 
+  ResponsiveContainer, 
+  PieChart, 
+  Pie, 
+  Cell,
+  Legend
+} from 'recharts';
 
 import TeamPage from './components/TeamPage';
 import LeadForm from './components/LeadForm';
@@ -32,7 +74,7 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
     { name: 'Leads', path: '/leads', icon: MessageSquare },
     { name: 'Tasks', path: '/tasks', icon: CheckSquare },
     { name: 'Team', path: '/team', icon: Users, roles: ['admin', 'manager', 'team_lead'] },
-    { name: 'Profile', path: '/profile', icon: UserIcon2 },
+    { name: 'Profile', path: '/profile', icon: UserIcon },
     { name: 'Settings', path: '/settings', icon: Settings, roles: ['admin'] },
   ];
 
@@ -211,7 +253,7 @@ const NotificationCenter = ({ user }: { user: UserProfile }) => {
                         <div key={task.id} className="p-4 hover:bg-slate-50 transition-colors">
                           <div className="flex items-start space-x-3">
                             <div className={`mt-1 p-1.5 rounded-lg ${isOverdue ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
-                              {isOverdue ? <AlertCircle size={14} /> : <ClockIcon size={14} />}
+                              {isOverdue ? <AlertCircle size={14} /> : <Clock size={14} />}
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-bold text-slate-900 truncate">{task.title}</p>
@@ -293,6 +335,7 @@ const Dashboard = ({ user }: { user: UserProfile }) => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({ total: 0, new: 0, converted: 0 });
   const [reminders, setReminders] = useState<Task[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
 
   useEffect(() => {
     const leadsQ = query(collection(db, 'leads'), where('companyId', '==', user.companyId));
@@ -303,11 +346,12 @@ const Dashboard = ({ user }: { user: UserProfile }) => {
     );
 
     const unsubLeads = onSnapshot(leadsQ, (snapshot) => {
-      const leads = snapshot.docs.map(doc => doc.data());
+      const leadsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Lead));
+      setLeads(leadsData);
       setStats({
-        total: leads.length,
-        new: leads.filter(l => l.status === 'New').length,
-        converted: leads.filter(l => l.status === 'Converted').length
+        total: leadsData.length,
+        new: leadsData.filter(l => l.status === 'New').length,
+        converted: leadsData.filter(l => l.status === 'Converted').length
       });
     });
 
@@ -327,29 +371,117 @@ const Dashboard = ({ user }: { user: UserProfile }) => {
     };
   }, [user.companyId]);
 
+  const services = ['WordPress', 'Shopify', 'Custom Development'];
+  const analyticsData = services.map(service => ({
+    name: service,
+    value: leads.filter(l => l.service === service).length
+  }));
+
+  const statusData = [
+    { name: 'New', value: stats.new, color: '#3b82f6' },
+    { name: 'Contacted', value: leads.filter(l => l.status === 'Contacted').length, color: '#f59e0b' },
+    { name: 'Converted', value: stats.converted, color: '#10b981' },
+  ];
+
+  const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899'];
+
   return (
     <div className="space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">System Dashboard</h2>
+          <p className="text-slate-500 font-medium">Insights and actions for your workspace</p>
+        </div>
+        <div className="flex items-center space-x-2 text-sm font-bold text-slate-500 bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm">
+          <Calendar size={16} className="text-blue-500" />
+          <span>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
-          { label: 'Total Leads', value: stats.total, color: 'bg-blue-500' },
-          { label: 'New Leads', value: stats.new, color: 'bg-emerald-500' },
-          { label: 'Converted', value: stats.converted, color: 'bg-indigo-500' },
+          { label: 'Total Leads', value: stats.total, color: 'bg-blue-500', icon: MessageSquare, textColor: 'text-blue-600' },
+          { label: 'New Leads', value: stats.new, color: 'bg-emerald-500', icon: Clock, textColor: 'text-emerald-600' },
+          { label: 'Converted', value: stats.converted, color: 'bg-indigo-500', icon: CheckCircle, textColor: 'text-indigo-600' },
         ].map((stat, i) => (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
             key={stat.label}
-            className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"
+            className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 group"
           >
+            <div className="flex justify-between items-start mb-4">
+              <div className={`p-2 rounded-xl ${stat.color} bg-opacity-10 ${stat.textColor}`}>
+                <stat.icon size={20} />
+              </div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                Live Status
+              </div>
+            </div>
             <p className="text-slate-500 text-sm font-medium">{stat.label}</p>
             <h3 className="text-3xl font-bold text-slate-900 mt-2">{stat.value}</h3>
-            <div className={`h-1 w-12 mt-4 rounded-full ${stat.color}`} />
+            <div className={`h-1 w-12 mt-4 rounded-full ${stat.color} opacity-30 group-hover:opacity-100 transition-opacity`} />
           </motion.div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Charts Section */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+           <div className="flex justify-between items-center mb-6">
+             <h3 className="text-lg font-bold text-slate-900">Leads by Service</h3>
+             <BarChartIcon size={20} className="text-slate-400" />
+           </div>
+           <div className="h-[250px] w-full">
+             <ResponsiveContainer width="100%" height="100%">
+               <BarChart data={analyticsData}>
+                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                 <XAxis dataKey="name" fontSize={10} fontWeight={600} axisLine={false} tickLine={false} />
+                 <YAxis axisLine={false} tickLine={false} fontSize={10} />
+                 <ReChartsTooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                 />
+                 <Bar dataKey="value" radius={[10, 10, 0, 0]}>
+                    {analyticsData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                 </Bar>
+               </BarChart>
+             </ResponsiveContainer>
+           </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+           <div className="flex justify-between items-center mb-6">
+             <h3 className="text-lg font-bold text-slate-900">Lead Pipeline</h3>
+             <RefreshCcw size={20} className="text-slate-400" />
+           </div>
+           <div className="h-[250px] w-full">
+             <ResponsiveContainer width="100%" height="100%">
+               <PieChart>
+                 <Pie
+                   data={statusData}
+                   cx="50%"
+                   cy="50%"
+                   innerRadius={50}
+                   outerRadius={70}
+                   paddingAngle={8}
+                   dataKey="value"
+                 >
+                   {statusData.map((entry, index) => (
+                     <Cell key={`cell-${index}`} fill={entry.color} />
+                   ))}
+                 </Pie>
+                 <ReChartsTooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                 />
+                 <Legend verticalAlign="bottom" height={36} wrapperStyle={{fontSize: '10px'}} />
+               </PieChart>
+             </ResponsiveContainer>
+           </div>
+        </div>
+
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-slate-900">Active Reminders</h3>
@@ -368,7 +500,7 @@ const Dashboard = ({ user }: { user: UserProfile }) => {
                   <div key={task.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
                     <div className="flex items-start space-x-3">
                       <div className={`mt-1 p-2 rounded-lg ${isOverdue ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
-                        {isOverdue ? <AlertCircle size={16} /> : <ClockIcon size={16} />}
+                        {isOverdue ? <AlertCircle size={16} /> : <Clock size={16} />}
                       </div>
                       <div>
                         <p className="text-sm font-bold text-slate-900">{task.title}</p>
@@ -450,7 +582,16 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
   const [team, setTeam] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newLead, setNewLead] = useState({ name: '', email: '', service: 'WordPress' as any });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [serviceFilter, setServiceFilter] = useState('All');
+  const [newLead, setNewLead] = useState({ 
+    name: '', 
+    email: '', 
+    phone: '',
+    message: '',
+    service: 'WordPress' as any 
+  });
 
   useEffect(() => {
     const leadsQ = query(collection(db, 'leads'), where('companyId', '==', user.companyId));
@@ -482,7 +623,7 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
       });
       toast.success('Lead added successfully');
       setShowAddModal(false);
-      setNewLead({ name: '', email: '', service: 'WordPress' });
+      setNewLead({ name: '', email: '', phone: '', message: '', service: 'WordPress' });
     } catch (error) {
       toast.error('Failed to add lead');
     }
@@ -524,41 +665,89 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
     toast.success('Leads exported successfully');
   };
 
+  const filteredLeads = leads.filter(lead => {
+    const matchesSearch = 
+      lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lead.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'All' || lead.status === statusFilter;
+    const matchesService = serviceFilter === 'All' || lead.service === serviceFilter;
+    return matchesSearch && matchesStatus && matchesService;
+  });
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-slate-900">Leads Management</h2>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Leads Management</h2>
+          <p className="text-slate-500">Track and convert your agency's inquiries</p>
+        </div>
         <div className="flex items-center space-x-3">
           <button
             onClick={exportLeadsToCSV}
-            className="bg-white text-slate-600 border border-slate-200 px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-slate-50 transition-colors"
+            className="flex items-center space-x-2 bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
           >
-            <Download size={20} />
+            <Download size={18} />
             <span>Export CSV</span>
           </button>
           <button 
             onClick={() => setShowAddModal(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors"
+            className="flex items-center space-x-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
           >
-            <Plus size={20} />
+            <Plus size={18} />
             <span>Add Lead</span>
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-slate-50 border-b border-slate-100">
-            <tr>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Name</th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Service</th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned To</th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {leads.map((lead) => (
+      <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
+        <div className="relative flex-1 w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <input 
+            type="text"
+            placeholder="Search by name or email..."
+            value={searchQuery || ''}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+          />
+        </div>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <select 
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="flex-1 md:flex-none p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none"
+          >
+            <option value="All">All Statuses</option>
+            <option value="New">New</option>
+            <option value="Contacted">Contacted</option>
+            <option value="Converted">Converted</option>
+          </select>
+          <select 
+            value={serviceFilter}
+            onChange={(e) => setServiceFilter(e.target.value)}
+            className="flex-1 md:flex-none p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none"
+          >
+            <option value="All">All Services</option>
+            <option value="WordPress">WordPress</option>
+            <option value="Shopify">Shopify</option>
+            <option value="Custom Development">Custom Development</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 border-b border-slate-100">
+              <tr>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Service</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Assigned To</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredLeads.map((lead) => (
               <tr key={lead.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4">
                   <div className="font-medium text-slate-900">{lead.name}</div>
@@ -596,7 +785,7 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
         {leads.length === 0 && !loading && (
           <div className="p-12 text-center text-slate-500">No leads found.</div>
         )}
-      </div>
+      </div></div>
 
       <AnimatePresence>
         {showAddModal && (
@@ -609,48 +798,74 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
             >
               <h3 className="text-2xl font-bold text-slate-900 mb-6">Add New Lead</h3>
               <form onSubmit={handleAddLead} className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Lead Name</label>
+                    <input
+                      type="text"
+                      required
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                      value={newLead.name || ''}
+                      onChange={(e) => setNewLead({ ...newLead, name: e.target.value })}
+                      placeholder="John Doe"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Email</label>
+                    <input
+                      type="email"
+                      required
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                      value={newLead.email || ''}
+                      onChange={(e) => setNewLead({ ...newLead, email: e.target.value })}
+                      placeholder="john@example.com"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Phone Number</label>
+                    <input
+                      type="tel"
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                      value={newLead.phone || ''}
+                      onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
+                      placeholder="+1 234 567 890"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Service</label>
+                    <select
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+                      value={newLead.service || 'WordPress'}
+                      onChange={(e) => setNewLead({ ...newLead, service: e.target.value as any })}
+                    >
+                      <option>WordPress</option>
+                      <option>Shopify</option>
+                      <option>Custom Development</option>
+                    </select>
+                  </div>
+                </div>
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Lead Name</label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                    value={newLead.name}
-                    onChange={(e) => setNewLead({ ...newLead, name: e.target.value })}
+                  <label className="block text-sm font-bold text-slate-700 mb-1.5">Message / Notes</label>
+                  <textarea
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 resize-none font-sans"
+                    rows={3}
+                    value={newLead.message || ''}
+                    onChange={(e) => setNewLead({ ...newLead, message: e.target.value })}
+                    placeholder="Brief description of requirements..."
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Email</label>
-                  <input
-                    type="email"
-                    required
-                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                    value={newLead.email}
-                    onChange={(e) => setNewLead({ ...newLead, email: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Service</label>
-                  <select
-                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
-                    value={newLead.service}
-                    onChange={(e) => setNewLead({ ...newLead, service: e.target.value as any })}
-                  >
-                    <option>WordPress</option>
-                    <option>Shopify</option>
-                    <option>Custom Development</option>
-                  </select>
-                </div>
-                <div className="flex space-x-4">
+                <div className="flex space-x-4 pt-2">
                   <button
                     type="button"
                     onClick={() => setShowAddModal(false)}
-                    className="flex-1 p-4 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all"
+                    className="flex-1 p-3 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all border border-slate-200"
                   >
                     Cancel
                   </button>
                   <button
-                    className="flex-1 bg-blue-600 text-white p-4 rounded-xl font-bold hover:bg-blue-700 transition-all"
+                    className="flex-1 bg-slate-900 text-white p-3 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
                   >
                     Add Lead
                   </button>
@@ -736,13 +951,13 @@ const Login = () => {
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-500 uppercase px-1">Full Name</label>
               <div className="relative">
-                <UserIcon2 size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <UserIcon size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   required
                   placeholder="John Doe"
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  value={name}
+                  value={name || ''}
                   onChange={(e) => setName(e.target.value)}
                 />
               </div>
@@ -757,7 +972,7 @@ const Login = () => {
                 required
                 placeholder="you@example.com"
                 className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                value={email}
+                value={email || ''}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
@@ -771,7 +986,7 @@ const Login = () => {
                 required
                 placeholder="••••••••"
                 className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                value={password}
+                value={password || ''}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
@@ -1080,7 +1295,7 @@ const SetupCompany = ({ user }: { user: any }) => {
               <input
                 type="text"
                 required
-                value={name}
+                value={name || ''}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 placeholder="e.g. Nexvoura Solutions"
@@ -1090,7 +1305,7 @@ const SetupCompany = ({ user }: { user: any }) => {
               <label className="block text-sm font-bold text-slate-700 mb-2">Website</label>
               <input
                 type="url"
-                value={website}
+                value={website || ''}
                 onChange={(e) => setWebsite(e.target.value)}
                 className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 placeholder="https://nexvoura.com"
@@ -1100,7 +1315,7 @@ const SetupCompany = ({ user }: { user: any }) => {
               <label className="block text-sm font-bold text-slate-700 mb-2">Phone</label>
               <input
                 type="tel"
-                value={phone}
+                value={phone || ''}
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 placeholder="+1 234 567 890"
@@ -1110,7 +1325,7 @@ const SetupCompany = ({ user }: { user: any }) => {
               <label className="block text-sm font-bold text-slate-700 mb-2">Industry</label>
               <input
                 type="text"
-                value={industry}
+                value={industry || ''}
                 onChange={(e) => setIndustry(e.target.value)}
                 className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 placeholder="e.g. SaaS, Marketing"
@@ -1120,7 +1335,7 @@ const SetupCompany = ({ user }: { user: any }) => {
               <label className="block text-sm font-bold text-slate-700 mb-2">Office Address</label>
               <input
                 type="text"
-                value={address}
+                value={address || ''}
                 onChange={(e) => setAddress(e.target.value)}
                 className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 placeholder="123 Street, City, Country"
@@ -1130,7 +1345,7 @@ const SetupCompany = ({ user }: { user: any }) => {
               <label className="block text-sm font-bold text-slate-700 mb-2">Company Logo URL</label>
               <input
                 type="url"
-                value={logoUrl}
+                value={logoUrl || ''}
                 onChange={(e) => setLogoUrl(e.target.value)}
                 className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 placeholder="https://example.com/logo.png"
@@ -1139,7 +1354,7 @@ const SetupCompany = ({ user }: { user: any }) => {
             <div className="md:col-span-2">
               <label className="block text-sm font-bold text-slate-700 mb-2">Bio / Description</label>
               <textarea
-                value={description}
+                value={description || ''}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
                 className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"

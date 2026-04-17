@@ -411,7 +411,7 @@ function TaskDetailModal({
               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block px-1">Task Title</label>
               <input 
                 type="text"
-                value={editedTask.title}
+                value={editedTask.title || ''}
                 onChange={e => setEditedTask({ ...editedTask, title: e.target.value })}
                 className="w-full text-lg font-bold p-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
               />
@@ -419,7 +419,7 @@ function TaskDetailModal({
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block px-1">Description</label>
               <textarea 
-                value={editedTask.description}
+                value={editedTask.description || ''}
                 onChange={e => setEditedTask({ ...editedTask, description: e.target.value })}
                 rows={4}
                 className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none resize-none text-sm text-slate-600"
@@ -455,7 +455,7 @@ function TaskDetailModal({
                     <input 
                       type="text"
                       placeholder="e.g. Design Spec"
-                      value={newAttachment.name}
+                      value={newAttachment.name || ''}
                       onChange={e => setNewAttachment({ ...newAttachment, name: e.target.value })}
                       className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white outline-none focus:ring-2 focus:ring-blue-500/50"
                     />
@@ -478,7 +478,7 @@ function TaskDetailModal({
                     <input 
                       type="text"
                       placeholder="https://..."
-                      value={newAttachment.url}
+                      value={newAttachment.url || ''}
                       onChange={e => setNewAttachment({ ...newAttachment, url: e.target.value })}
                       onKeyDown={e => e.key === 'Enter' && addAttachment()}
                       className="flex-1 p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white outline-none focus:ring-2 focus:ring-blue-500/50"
@@ -587,7 +587,7 @@ function TaskDetailModal({
                     <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input 
                       type="date"
-                      value={editedTask.dueDate}
+                      value={editedTask.dueDate || ''}
                       onChange={e => setEditedTask({ ...editedTask, dueDate: e.target.value })}
                       className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
@@ -690,7 +690,7 @@ function TaskDetailModal({
                 <input 
                   type="text"
                   placeholder="New subtask title..."
-                  value={newSubtask}
+                  value={newSubtask || ''}
                   onChange={e => setNewSubtask(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && addSubtask()}
                   className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20"
@@ -1385,7 +1385,7 @@ export default function TasksPage({ user }: { user: UserProfile }) {
                     type="text"
                     required
                     className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                    value={newTask.title}
+                    value={newTask.title || ''}
                     onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                     placeholder="e.g. Follow up with client"
                   />
@@ -1394,7 +1394,7 @@ export default function TasksPage({ user }: { user: UserProfile }) {
                   <label className="block text-sm font-bold text-slate-700 mb-1.5">Description</label>
                   <textarea
                     className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                    value={newTask.description}
+                    value={newTask.description || ''}
                     onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
                     placeholder="Task details..."
                     rows={3}
@@ -1406,7 +1406,7 @@ export default function TasksPage({ user }: { user: UserProfile }) {
                     <input
                       type="date"
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                      value={newTask.dueDate}
+                      value={newTask.dueDate || ''}
                       onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
                     />
                   </div>
@@ -1432,7 +1432,7 @@ export default function TasksPage({ user }: { user: UserProfile }) {
                   <label className="block text-sm font-bold text-slate-700 mb-1.5">Assign To</label>
                   <UserSelector 
                     team={team}
-                    value={newTask.assignedTo}
+                    value={newTask.assignedTo || ''}
                     onChange={(uid) => setNewTask({ ...newTask, assignedTo: uid })}
                   />
                 </div>
@@ -1442,7 +1442,7 @@ export default function TasksPage({ user }: { user: UserProfile }) {
                     <label className="block text-sm font-bold text-slate-700 mb-1.5">Priority</label>
                     <select
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
-                      value={newTask.priority}
+                      value={newTask.priority || 'Medium'}
                       onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as any })}
                     >
                       <option value="Low">Low</option>
@@ -1454,7 +1454,7 @@ export default function TasksPage({ user }: { user: UserProfile }) {
                     <label className="block text-sm font-bold text-slate-700 mb-1.5">Related Lead</label>
                     <select
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 appearance-none text-sm"
-                      value={newTask.leadId}
+                      value={newTask.leadId || ''}
                       onChange={(e) => setNewTask({ ...newTask, leadId: e.target.value })}
                     >
                       <option value="">None</option>
