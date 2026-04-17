@@ -164,7 +164,7 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
             <h3 className="text-lg font-bold">Public Lead Form</h3>
           </div>
           <p className="text-sm text-slate-500">
-            Share this URL with clients or embed it in your website to receive leads directly in NexusCRM.
+            Share this URL with clients or embed it in your website to receive leads directly in Nexvoura.
           </p>
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between group">
             <code className="text-blue-600 font-mono text-xs truncate mr-4">
@@ -237,7 +237,7 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
         <div className="relative z-10">
           <h3 className="text-xl font-bold mb-2">Agency Branding</h3>
           <p className="text-slate-400 mb-6 text-sm max-w-lg">
-            NexusCRM for Agencies is built for scale. Customize your workspace, add team members, and automate lead follow-ups.
+            Nexvoura for Agencies is built for scale. Customize your workspace, add team members, and automate lead follow-ups.
           </p>
           <div className="flex items-center space-x-4">
              <div className="px-4 py-2 bg-white/10 rounded-lg text-xs font-bold border border-white/10">Plan: Enterprise</div>

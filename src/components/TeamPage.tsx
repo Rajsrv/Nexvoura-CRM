@@ -1,34 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc } from 'firebase/firestore';
-import { UserProfile, Invite } from '../types';
-import { Plus, Trash2, Mail, Shield, User as UserIcon } from 'lucide-react';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { UserProfile, Invite, AccessRequest, UserRole } from '../types';
+import { Plus, Trash2, Mail, Shield, User as UserIcon, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function TeamPage({ user }: { user: UserProfile }) {
   const [team, setTeam] = useState<UserProfile[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
+  const [requests, setRequests] = useState<AccessRequest[]>([]);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'sales'>('sales');
+  const [inviteRole, setInviteRole] = useState<UserRole>('sales');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const teamQ = query(collection(db, 'users'), where('companyId', '==', user.companyId));
     const inviteQ = query(collection(db, 'invites'), where('companyId', '==', user.companyId), where('status', '==', 'pending'));
+    const requestsQ = query(collection(db, 'accessRequests'), where('companyId', '==', user.companyId), where('status', '==', 'pending'));
 
     const unsubTeam = onSnapshot(teamQ, (snap) => {
-      setTeam(snap.docs.map(d => d.data() as UserProfile));
+      setTeam(snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile)));
     });
 
     const unsubInvites = onSnapshot(inviteQ, (snap) => {
       setInvites(snap.docs.map(d => ({ id: d.id, ...d.data() } as Invite)));
     });
 
+    const unsubRequests = onSnapshot(requestsQ, (snap) => {
+      setRequests(snap.docs.map(d => ({ id: d.id, ...d.data() } as AccessRequest)));
+    });
+
     return () => {
       unsubTeam();
       unsubInvites();
+      unsubRequests();
     };
   }, [user.companyId]);
 
@@ -69,8 +76,66 @@ export default function TeamPage({ user }: { user: UserProfile }) {
     }
   };
 
+  const handleRequest = async (request: AccessRequest, approve: boolean) => {
+    try {
+      if (approve) {
+        await updateDoc(doc(db, 'users', request.userId), {
+          role: request.requestedRole
+        });
+        toast.success(`Role ${request.requestedRole} approved for ${request.userName}`);
+      }
+      await updateDoc(doc(db, 'accessRequests', request.id!), {
+        status: approve ? 'approved' : 'rejected'
+      });
+    } catch (error) {
+      toast.error('Failed to process request');
+    }
+  };
+
+  const updateMemberRole = async (memberId: string, newRole: UserRole) => {
+    try {
+      await updateDoc(doc(db, 'users', memberId), { role: newRole });
+      toast.success('Role updated successfully');
+    } catch (error) {
+      toast.error('Failed to update role');
+    }
+  };
+
   return (
     <div className="space-y-8">
+      {user.role === 'admin' && requests.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-slate-800 flex items-center space-x-2">
+            <Shield size={20} className="text-blue-500" />
+            <span>Access Requests</span>
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {requests.map((req) => (
+              <div key={req.id} className="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex justify-between items-center shadow-sm">
+                <div>
+                  <div className="font-bold text-slate-900">{req.userName}</div>
+                  <div className="text-xs text-slate-600">Requests <span className="text-blue-600 font-bold uppercase">{req.requestedRole}</span></div>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleRequest(req, true)}
+                    className="p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+                  >
+                    <Check size={18} />
+                  </button>
+                  <button
+                    onClick={() => handleRequest(req, false)}
+                    className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Team Management</h2>
@@ -110,13 +175,27 @@ export default function TeamPage({ user }: { user: UserProfile }) {
                       <div className="text-sm text-slate-500">{member.email}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${
-                        member.role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                        member.role === 'manager' ? 'bg-blue-100 text-blue-700' :
-                        'bg-slate-100 text-slate-700'
-                      }`}>
-                        {member.role}
-                      </span>
+                      {user.role === 'admin' && member.uid !== user.uid ? (
+                        <select
+                          className="px-2 py-1 rounded-lg text-xs font-bold uppercase bg-slate-100 border-none outline-none focus:ring-1 focus:ring-slate-300"
+                          value={member.role}
+                          onChange={(e) => updateMemberRole(member.uid, e.target.value as UserRole)}
+                        >
+                          <option value="sales">Sales</option>
+                          <option value="team_lead">Team Lead</option>
+                          <option value="manager">Manager</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      ) : (
+                        <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${
+                          member.role === 'admin' ? 'bg-purple-100 text-purple-700' :
+                          member.role === 'manager' ? 'bg-blue-100 text-blue-700' :
+                          member.role === 'team_lead' ? 'bg-emerald-100 text-emerald-700' :
+                          'bg-slate-100 text-slate-700'
+                        }`}>
+                          {member.role.replace('_', ' ')}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500">
                       {new Date(member.createdAt).toLocaleDateString()}
@@ -196,6 +275,7 @@ export default function TeamPage({ user }: { user: UserProfile }) {
                     onChange={(e) => setInviteRole(e.target.value as any)}
                   >
                     <option value="sales">Sales</option>
+                    <option value="team_lead">Team Lead</option>
                     <option value="manager">Manager</option>
                     <option value="admin">Admin</option>
                   </select>

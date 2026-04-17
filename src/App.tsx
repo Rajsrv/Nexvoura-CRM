@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate, useParams } from 'react-router-dom';
-import { onAuthStateChanged, signOut, signInWithPopup } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, query, where, onSnapshot, addDoc, getDocs, updateDoc } from 'firebase/firestore';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { onAuthStateChanged, signOut, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc, setDoc, collection, query, where, onSnapshot, addDoc, getDocs, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
-import { UserProfile, Company, Invite, Lead, Task } from './types';
-import { LayoutDashboard, Users, MessageSquare, Settings, LogOut, Plus, Search, Filter, Menu, X, CheckSquare, Bell, AlertCircle, Clock as ClockIcon, Download } from 'lucide-react';
+import { UserProfile, Company, Invite, Lead, Task, AccessRequest, UserRole } from './types';
+import { LayoutDashboard, Users, MessageSquare, Settings, LogOut, Plus, Search, Filter, Menu, X, CheckSquare, Bell, AlertCircle, Clock as ClockIcon, Download, Mail, Lock, User as UserIcon2, ArrowRight, Shield, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, isPast, isToday, isBefore, addDays, parseISO } from 'date-fns';
@@ -21,9 +21,11 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Leads', path: '/leads', icon: MessageSquare },
     { name: 'Tasks', path: '/tasks', icon: CheckSquare },
-    { name: 'Team', path: '/team', icon: Users },
-    { name: 'Settings', path: '/settings', icon: Settings },
+    { name: 'Team', path: '/team', icon: Users, roles: ['admin', 'manager', 'team_lead'] },
+    { name: 'Settings', path: '/settings', icon: Settings, roles: ['admin'] },
   ];
+
+  const filteredNavItems = navItems.filter(item => !item.roles || item.roles.includes(user.role));
 
   return (
     <>
@@ -42,7 +44,7 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
       <div className={`w-72 bg-slate-900 text-white h-screen fixed left-0 top-0 flex flex-col z-50 transition-transform duration-300 ease-in-out transform ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="p-6 border-b border-slate-800 flex items-center justify-between">
           <h1 className="text-2xl font-black bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent tracking-tight">
-            NexusCRM
+            Nexvoura
           </h1>
           <button 
             onClick={() => setIsOpen(false)}
@@ -52,7 +54,7 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
           </button>
         </div>
         <nav className="flex-1 p-4 space-y-2 mt-4">
-          {navItems.map((item) => (
+          {filteredNavItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
@@ -72,6 +74,44 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
             <div className="min-w-0">
               <p className="text-sm font-bold truncate">{user.name}</p>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{user.role}</p>
+            </div>
+            <div className="hidden lg:flex items-center space-x-4">
+              {user.role !== 'admin' && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const q = query(
+                        collection(db, 'accessRequests'),
+                        where('userId', '==', user.uid),
+                        where('status', '==', 'pending')
+                      );
+                      const snap = await getDocs(q);
+                      if (!snap.empty) {
+                        toast.error('You already have a pending request');
+                        return;
+                      }
+                      
+                      const role = prompt('Request which role? (manager/team_lead/admin)');
+                      if (role && ['manager', 'team_lead', 'admin'].includes(role)) {
+                        await addDoc(collection(db, 'accessRequests'), {
+                          companyId: user.companyId,
+                          userId: user.uid,
+                          userName: user.name,
+                          requestedRole: role,
+                          status: 'pending',
+                          createdAt: new Date().toISOString()
+                        });
+                        toast.success('Access request raised successfully');
+                      }
+                    } catch (e) {
+                      toast.error('Failed to raise request');
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600/10 text-blue-400 border border-blue-500/20 rounded-xl text-xs font-bold hover:bg-blue-600/20 transition-all"
+                >
+                  Raise Access Request
+                </button>
+              )}
             </div>
           </div>
           <button
@@ -588,6 +628,42 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
 const Login = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (isSignUp) {
+        const result = await createUserWithEmailAndPassword(auth, email, password);
+        const user = result.user;
+        // Check if user exists (shouldn't for signup, but good for redirect logic)
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (!userDoc.exists()) {
+          // If signup, we MUST setup company or join workspace. 
+          // For now, redirect to setup if not from invite.
+          navigate('/setup-company', { state: { name } });
+        }
+      } else {
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        const user = result.user;
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (!userDoc.exists()) {
+          navigate('/setup-company');
+        } else {
+          navigate('/');
+        }
+      }
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || 'Authentication failed');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -595,10 +671,8 @@ const Login = () => {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       
-      // Check if user exists in Firestore
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       if (!userDoc.exists()) {
-        // New user - need to setup company
         navigate('/setup-company');
       } else {
         navigate('/');
@@ -616,46 +690,100 @@ const Login = () => {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="max-w-md w-full bg-white rounded-3xl shadow-xl p-10 space-y-8"
+        className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 space-y-6"
       >
         <div className="text-center">
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">NexusCRM</h1>
-          <p className="text-slate-500 mt-2">The ultimate CRM for web agencies</p>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tight">Nexvoura</h1>
+          <p className="text-slate-500 mt-2 text-sm">The ultimate CRM for web agencies</p>
         </div>
 
-        <div className="space-y-4">
-          <button
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full flex items-center justify-center space-x-3 bg-white border border-slate-200 p-4 rounded-xl hover:bg-slate-50 transition-all font-medium text-slate-700 shadow-sm"
-          >
-            <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-            <span>{loading ? 'Connecting...' : 'Continue with Google'}</span>
-          </button>
-
-          <div className="relative py-4">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-100"></div>
+        <form onSubmit={handleAuth} className="space-y-4">
+          {isSignUp && (
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-500 uppercase px-1">Full Name</label>
+              <div className="relative">
+                <UserIcon2 size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  required
+                  placeholder="John Doe"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-slate-400">Or</span>
+          )}
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-500 uppercase px-1">Email Address</label>
+            <div className="relative">
+              <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="email"
+                required
+                placeholder="you@example.com"
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-500 uppercase px-1">Password</label>
+            <div className="relative">
+              <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="password"
+                required
+                placeholder="••••••••"
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
           </div>
 
           <button
-            onClick={() => {
-              const code = prompt('Enter invite code:');
-              if (code) navigate(`/join/${code}`);
-            }}
-            className="w-full flex items-center justify-center space-x-3 bg-slate-50 border border-slate-100 p-4 rounded-xl hover:bg-slate-100 transition-all font-medium text-slate-600 shadow-sm"
+            type="submit"
+            disabled={loading}
+            className="w-full bg-slate-900 text-white p-4 rounded-xl font-bold hover:bg-slate-800 transition-all flex items-center justify-center space-x-2"
           >
-            <Users size={20} />
-            <span>Join Existing Workspace</span>
+            <span>{loading ? 'Processing...' : isSignUp ? 'Create Account' : 'Sign In'}</span>
+            {!loading && <ArrowRight size={18} />}
+          </button>
+        </form>
+
+        <div className="relative py-2">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-slate-100"></div>
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-white px-2 text-slate-400">Or continue with</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3">
+          <button
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="w-full flex items-center justify-center space-x-3 bg-white border border-slate-200 p-3.5 rounded-xl hover:bg-slate-50 transition-all font-medium text-slate-700 shadow-sm"
+          >
+            <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+            <span>Google</span>
           </button>
         </div>
 
-        <p className="text-center text-xs text-slate-400">
-          By continuing, you agree to our Terms of Service and Privacy Policy.
+        <div className="text-center">
+          <button
+            onClick={() => setIsSignUp(!isSignUp)}
+            className="text-sm font-bold text-blue-600 hover:underline"
+          >
+            {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+          </button>
+        </div>
+
+        <p className="text-center text-[10px] text-slate-400 leading-relaxed">
+          By continuing, you agree to our <span className="underline cursor-pointer">Terms of Service</span> and <span className="underline cursor-pointer">Privacy Policy</span>.
         </p>
       </motion.div>
     </div>
@@ -756,6 +884,7 @@ const JoinWorkspace = ({ user }: { user: any }) => {
 
 const SetupCompany = ({ user }: { user: any }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -776,7 +905,7 @@ const SetupCompany = ({ user }: { user: any }) => {
       });
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
-        name: user.displayName,
+        name: (location.state as any)?.name || user.displayName || user.email.split('@')[0],
         email: user.email,
         companyId,
         role: 'admin',

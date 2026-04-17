@@ -16,7 +16,7 @@ async function startServer() {
 
   // API Routes
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", message: "NexusCRM API is running" });
+    res.json({ status: "ok", message: "Nexvoura API is running" });
   });
 
   // Multi-tenant Lead Submission API (Public)

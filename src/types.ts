@@ -1,4 +1,14 @@
-export type UserRole = 'admin' | 'manager' | 'sales';
+export type UserRole = 'admin' | 'manager' | 'team_lead' | 'sales';
+
+export interface AccessRequest {
+  id: string;
+  companyId: string;
+  userId: string;
+  userName: string;
+  requestedRole: UserRole;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+}
 
 export interface Company {
   id: string;

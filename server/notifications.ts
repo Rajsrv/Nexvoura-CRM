@@ -103,10 +103,10 @@ async function sendEmail(to: string, taskTitle: string, dueDate: string) {
   }
 
   const mailOptions = {
-    from: process.env.SMTP_FROM || '"NexusCRM" <noreply@nexuscrm.com>',
+    from: process.env.SMTP_FROM || '"Nexvoura" <noreply@nexvoura.com>',
     to,
     subject: `Task Reminder: ${taskTitle} is due soon!`,
-    text: `Hello,\n\nThis is a reminder that the task "${taskTitle}" is due on ${new Date(dueDate).toLocaleDateString()}.\n\nPlease make sure to complete it on time.\n\nBest regards,\nNexusCRM Team`,
+    text: `Hello,\n\nThis is a reminder that the task "${taskTitle}" is due on ${new Date(dueDate).toLocaleDateString()}.\n\nPlease make sure to complete it on time.\n\nBest regards,\nNexvoura Team`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; rounded: 12px;">
         <h2 style="color: #1e293b;">Task Reminder</h2>
@@ -117,7 +117,7 @@ async function sendEmail(to: string, taskTitle: string, dueDate: string) {
         </div>
         <p style="color: #64748b; font-size: 14px;">Please check your dashboard for more details.</p>
         <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-        <p style="color: #94a3b8; font-size: 12px;">This is an automated message from NexusCRM. Please do not reply.</p>
+        <p style="color: #94a3b8; font-size: 12px;">This is an automated message from Nexvoura. Please do not reply.</p>
       </div>
     `,
   };
