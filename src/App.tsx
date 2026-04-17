@@ -27,13 +27,18 @@ import {
   Lock, 
   User as UserIcon, 
   ArrowRight, 
-  Shield, 
   ShieldCheck, 
   ShieldAlert, 
   Globe, 
   Copy,
   BarChart as BarChartIcon,
-  RefreshCcw
+  RefreshCcw,
+  ChevronDown,
+  Building2,
+  Link as LinkIcon,
+  Wallet,
+  Shield,
+  Briefcase
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
@@ -52,7 +57,8 @@ import {
   Legend
 } from 'recharts';
 
-import TeamPage from './components/TeamPage';
+import EmployeesPage from './components/EmployeesPage';
+import PayrollPage from './components/PayrollPage';
 import LeadForm from './components/LeadForm';
 import TasksPage from './components/TasksPage';
 import SettingsPage from './components/SettingsPage';
@@ -73,12 +79,18 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Leads', path: '/leads', icon: MessageSquare },
     { name: 'Tasks', path: '/tasks', icon: CheckSquare },
-    { name: 'Team', path: '/team', icon: Users, roles: ['admin', 'manager', 'team_lead'] },
     { name: 'Profile', path: '/profile', icon: UserIcon },
-    { name: 'Settings', path: '/settings', icon: Settings, roles: ['admin'] },
+    { name: 'Settings', path: '/settings', icon: Settings, roles: ['admin', 'manager'] },
+  ];
+
+  const trackingItems = [
+    { name: 'Employees', path: '/employees', icon: Users },
+    { name: 'Payroll', path: '/payroll', icon: Wallet, roles: ['admin'] },
   ];
 
   const filteredNavItems = navItems.filter(item => !item.roles || item.roles.includes(user.role));
+  const filteredTrackingItems = trackingItems.filter(item => !item.roles || item.roles.includes(user.role));
+  const location = useLocation();
 
   return (
     <>
@@ -89,97 +101,157 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden"
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-40 lg:hidden"
           />
         )}
       </AnimatePresence>
 
-      <div className={`w-72 bg-slate-900 text-white h-screen fixed left-0 top-0 flex flex-col z-50 transition-transform duration-300 ease-in-out transform ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="p-6 border-b border-slate-800 flex items-center justify-between">
-          <h1 className="text-2xl font-black bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent tracking-tight">
-            Nexvoura
-          </h1>
-          <button 
-            onClick={() => setIsOpen(false)}
-            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 lg:hidden transition-colors"
-          >
-            <X size={20} />
-          </button>
+      <aside className={`w-80 lg:w-[380px] bg-slate-950 text-white h-screen fixed left-0 top-0 flex flex-col z-50 transition-all duration-500 ease-in-out transform ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        {/* Visual Brand Layer */}
+        <div className="absolute inset-0 opacity-20 pointer-events-none">
+          <img 
+            src="https://picsum.photos/seed/crm-bg/800/1200?blur=10" 
+            alt="" 
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-950/80 to-slate-950" />
         </div>
-        <nav className="flex-1 p-4 space-y-2 mt-4">
-          {filteredNavItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
+
+        <div className="relative flex flex-col h-full z-10">
+          <div className="p-8 border-b border-white/5 flex items-center justify-between">
+            <h1 className="text-3xl font-black font-display tracking-tight flex items-center space-x-2">
+              <span className="bg-gradient-to-tr from-blue-500 to-indigo-400 bg-clip-text text-transparent italic">Nex</span>
+              <span>voura</span>
+            </h1>
+            <button 
               onClick={() => setIsOpen(false)}
-              className="flex items-center space-x-3 p-3.5 rounded-xl hover:bg-slate-800 transition-all group font-medium text-slate-400 hover:text-white"
+              className="p-2 text-white/40 hover:text-white rounded-xl hover:bg-white/5 lg:hidden transition-colors"
             >
-              <item.icon size={20} className="group-hover:scale-110 transition-transform" />
-              <span>{item.name}</span>
-            </Link>
-          ))}
-        </nav>
-        <div className="p-6 border-t border-slate-800 space-y-4">
-          <div className="flex items-center space-x-3 px-1">
-            <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center font-black text-white shadow-lg shadow-blue-500/20 overflow-hidden border border-slate-700">
-              {user.photoURL ? (
-                <img src={user.photoURL} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                user.name[0]
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-bold truncate">{user.name}</p>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{user.role}</p>
-            </div>
-            <div className="hidden lg:flex items-center space-x-4">
-              {user.role !== 'admin' && (
-                <button
-                  onClick={async () => {
-                    try {
-                      const q = query(
-                        collection(db, 'accessRequests'),
-                        where('userId', '==', user.uid),
-                        where('status', '==', 'pending')
-                      );
-                      const snap = await getDocs(q);
-                      if (!snap.empty) {
-                        toast.error('You already have a pending request');
-                        return;
-                      }
-                      
-                      const role = prompt('Request which role? (manager/team_lead/admin)');
-                      if (role && ['manager', 'team_lead', 'admin'].includes(role)) {
-                        await addDoc(collection(db, 'accessRequests'), {
-                          companyId: user.companyId,
-                          userId: user.uid,
-                          userName: user.name,
-                          requestedRole: role,
-                          status: 'pending',
-                          createdAt: new Date().toISOString()
-                        });
-                        toast.success('Access request raised successfully');
-                      }
-                    } catch (e) {
-                      toast.error('Failed to raise request');
-                    }
-                  }}
-                  className="px-4 py-2 bg-blue-600/10 text-blue-400 border border-blue-500/20 rounded-xl text-xs font-bold hover:bg-blue-600/20 transition-all"
-                >
-                  Raise Access Request
-                </button>
-              )}
-            </div>
+              <X size={20} />
+            </button>
           </div>
-          <button
-            onClick={() => signOut(auth)}
-            className="flex items-center space-x-3 p-3.5 w-full rounded-xl hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 transition-all font-bold text-sm"
-          >
-            <LogOut size={20} />
-            <span>Sign Out</span>
-          </button>
+
+          <div className="px-8 pt-8">
+             <div className="bg-gradient-to-br from-blue-600/20 to-indigo-600/5 border border-white/5 rounded-3xl p-6 mb-8 overflow-hidden relative group">
+                <div className="relative z-10">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-2">Modern CRM Solution</p>
+                  <h3 className="text-xl font-bold font-display leading-tight mb-2">Empower your sales with AI.</h3>
+                  <div className="flex -space-x-2 mt-4">
+                    {[1,2,3].map(i => (
+                      <img 
+                        key={i}
+                        src={`https://picsum.photos/seed/user${i}/40/40`} 
+                        className="w-8 h-8 rounded-full border-2 border-slate-950 object-cover"
+                        referrerPolicy="no-referrer"
+                        alt="User"
+                      />
+                    ))}
+                    <div className="w-8 h-8 rounded-full border-2 border-slate-950 bg-blue-600 flex items-center justify-center text-[10px] font-bold">+12</div>
+                  </div>
+                </div>
+                <Globe className="absolute -bottom-4 -right-4 w-24 h-24 text-blue-500/10 group-hover:scale-110 transition-transform duration-700" />
+             </div>
+          </div>
+
+          <nav className="flex-1 px-4 space-y-8 overflow-y-auto custom-scrollbar">
+            <div className="space-y-1">
+              {filteredNavItems.map((item) => {
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setIsOpen(false)}
+                    className={`flex items-center space-x-4 p-4 rounded-2xl transition-all group relative overflow-hidden ${
+                      isActive 
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
+                        : 'text-slate-500 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <item.icon size={20} className={`${isActive ? 'scale-110' : 'group-hover:scale-110'} transition-transform`} />
+                    <span className={`font-bold tracking-tight ${isActive ? '' : 'group-hover:translate-x-1'} transition-transform duration-300`}>
+                      {item.name}
+                    </span>
+                    {isActive && (
+                      <motion.div 
+                        layoutId="activeTabIndicator"
+                        className="absolute left-0 top-0 bottom-0 w-1 bg-white"
+                      />
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="space-y-4">
+              <p className="px-4 text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">What You Should Track</p>
+              <div className="space-y-1">
+                {filteredTrackingItems.map((item) => {
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setIsOpen(false)}
+                      className={`flex items-center space-x-4 p-4 rounded-2xl transition-all group relative overflow-hidden ${
+                        isActive 
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
+                          : 'text-slate-500 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <item.icon size={20} className={`${isActive ? 'scale-110' : 'group-hover:scale-110'} transition-transform`} />
+                      <span className={`font-bold tracking-tight ${isActive ? '' : 'group-hover:translate-x-1'} transition-transform duration-300`}>
+                        {item.name}
+                      </span>
+                      {isActive && (
+                        <motion.div 
+                          layoutId="activeTabIndicatorTrack"
+                          className="absolute left-0 top-0 bottom-0 w-1 bg-white"
+                        />
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </nav>
+
+          <div className="p-6 border-t border-white/5 space-y-4">
+            <div className="flex items-center space-x-4 p-3 bg-white/5 rounded-2xl border border-white/5">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white shadow-xl shadow-blue-500/10 overflow-hidden shrink-0">
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  user.name[0]
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold truncate leading-tight">{user.name}</p>
+                <p className="text-[10px] font-black text-blue-400/80 uppercase tracking-widest mt-1">{user.role}</p>
+              </div>
+              <button 
+                onClick={() => signOut(auth)}
+                className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all"
+                title="Sign Out"
+              >
+                <LogOut size={18} />
+              </button>
+            </div>
+            
+            {user.role !== 'admin' && (
+              <button
+                onClick={async () => {
+                  /* Request Access Logic */
+                }}
+                className="w-full py-3 bg-white/5 border border-white/10 hover:border-blue-500/50 hover:bg-blue-500/5 text-slate-400 hover:text-blue-400 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+              >
+                Request Elevated Access
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      </aside>
     </>
   );
 };
@@ -284,45 +356,50 @@ const NotificationCenter = ({ user }: { user: UserProfile }) => {
 };
 
 const Header = ({ user, company, onToggleSidebar }: { user: UserProfile; company: Company | null; onToggleSidebar: () => void }) => (
-  <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 md:px-8 sticky top-0 z-30">
+  <header className="h-20 flex items-center justify-between px-8 bg-brand-surface border-b border-slate-100">
     <div className="flex items-center space-x-4">
       <button 
         onClick={onToggleSidebar}
-        className="p-2.5 text-slate-600 hover:bg-slate-100 rounded-xl lg:hidden transition-all"
+        className="p-2.5 text-slate-600 hover:bg-slate-200/50 rounded-xl lg:hidden transition-all"
       >
         <Menu size={24} />
       </button>
-      <div className="flex items-center space-x-3">
-        <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center overflow-hidden shadow-lg shadow-slate-200">
-           {company?.logoUrl ? (
-             <img src={company.logoUrl} alt={company.name} className="w-full h-full object-contain p-1.5" referrerPolicy="no-referrer" />
-           ) : (
-             <Globe size={20} className="text-white" />
-           )}
-        </div>
-        <div className="hidden sm:block">
-          <h2 className="text-lg font-bold text-slate-900 tracking-tight">{company?.name || 'NexusVoura'}</h2>
-          <p className="text-[10px] font-black text-slate-400 flex items-center gap-1 uppercase tracking-widest">
-            <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-            {user.role} Portal
+      <div>
+        <h2 className="text-xl font-bold font-display text-slate-900 tracking-tight">
+          {company?.name || 'Nexvoura CRM'}
+        </h2>
+        <div className="flex items-center space-x-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            {user.role.replace('_', ' ')} Portal
           </p>
         </div>
       </div>
     </div>
-    <div className="flex items-center space-x-2 md:space-x-4">
+    <div className="flex items-center space-x-6">
+      <div className="hidden md:flex items-center bg-white border border-slate-200 rounded-xl px-3 py-1.5">
+        <Search size={16} className="text-slate-400 mr-2" />
+        <input 
+          type="text" 
+          placeholder="Global search..." 
+          className="bg-transparent border-none outline-none text-xs w-48 font-medium" 
+        />
+      </div>
       <NotificationCenter user={user} />
-      <div className="h-8 w-px bg-slate-100 mx-2 hidden md:block" />
-      <Link to="/profile" className="flex items-center space-x-2 md:space-x-3 group transition-all">
-        <div className="hidden md:block text-right">
-          <p className="text-xs font-black text-slate-900 leading-none mb-0.5 group-hover:text-blue-600 transition-colors">{user.name}</p>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">My Account</p>
+      <div className="w-px h-6 bg-slate-200" />
+      <Link to="/profile" className="flex items-center space-x-3 group">
+        <div className="text-right hidden sm:block">
+          <p className="text-xs font-bold text-slate-900 leading-none group-hover:text-blue-600 transition-colors uppercase tracking-tight">{user.name}</p>
+          <p className="text-[10px] font-medium text-slate-400 lowercase">@{user.name.split(' ')[0].toLowerCase()}</p>
         </div>
-        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 font-black shadow-inner overflow-hidden border border-slate-200 group-hover:border-blue-200 transition-all">
-          {user.photoURL ? (
-            <img src={user.photoURL} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-          ) : (
-            user.name[0]
-          )}
+        <div className="w-10 h-10 rounded-2xl bg-white border border-slate-200 p-0.5 shadow-sm group-hover:border-blue-400 transition-all">
+          <div className="w-full h-full rounded-[14px] bg-slate-100 flex items-center justify-center overflow-hidden">
+            {user.photoURL ? (
+              <img src={user.photoURL} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            ) : (
+              <span className="font-bold text-slate-500 uppercase">{user.name[0]}</span>
+            )}
+          </div>
         </div>
       </Link>
     </div>
@@ -338,12 +415,27 @@ const Dashboard = ({ user }: { user: UserProfile }) => {
   const [leads, setLeads] = useState<Lead[]>([]);
 
   useEffect(() => {
-    const leadsQ = query(collection(db, 'leads'), where('companyId', '==', user.companyId));
-    const tasksQ = query(
+    let leadsQ = query(collection(db, 'leads'), where('companyId', '==', user.companyId));
+    let tasksQ = query(
       collection(db, 'tasks'),
       where('companyId', '==', user.companyId),
       where('status', '!=', 'Done')
     );
+
+    // Sales can only see their own assignments
+    if (user.role === 'sales') {
+      leadsQ = query(
+        collection(db, 'leads'), 
+        where('companyId', '==', user.companyId),
+        where('assignedTo', '==', user.uid)
+      );
+      tasksQ = query(
+        collection(db, 'tasks'),
+        where('companyId', '==', user.companyId),
+        where('assignedTo', '==', user.uid),
+        where('status', '!=', 'Done')
+      );
+    }
 
     const unsubLeads = onSnapshot(leadsQ, (snapshot) => {
       const leadsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Lead));
@@ -386,190 +478,259 @@ const Dashboard = ({ user }: { user: UserProfile }) => {
   const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899'];
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">System Dashboard</h2>
-          <p className="text-slate-500 font-medium">Insights and actions for your workspace</p>
+    <div className="flex flex-col lg:flex-row gap-12 min-h-screen relative pb-28 animate-in fade-in duration-700">
+      {/* Sidebar Intel */}
+      <div className="w-full lg:w-1/4 space-y-8 shrink-0">
+        <div className="relative group">
+           <div className="absolute -inset-4 bg-gradient-to-r from-blue-600/5 to-indigo-600/5 rounded-[40px] blur-2xl group-hover:blur-3xl transition-all duration-700 opacity-0 group-hover:opacity-100" />
+           <div className="relative bg-white border border-slate-100 p-8 rounded-[40px] shadow-sm overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/50 rounded-bl-[80px] -z-10" />
+              <div className="w-16 h-16 bg-slate-950 text-white rounded-[24px] flex items-center justify-center mb-6 shadow-xl shadow-slate-200">
+                <LayoutDashboard size={32} className="text-blue-500" />
+              </div>
+              <h1 className="text-4xl font-black text-slate-950 tracking-tighter leading-[0.9] font-display mb-4 italic">
+                System <br /><span className="text-blue-600 italic">Pulse.</span>
+              </h1>
+              <p className="text-slate-500 font-medium text-sm leading-relaxed mb-8 opacity-80">
+                Nexus Engine is monitoring <b>{stats.total}</b> global leads with high-fidelity analytics.
+              </p>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                   <div className="flex items-center space-x-3">
+                      <Clock size={16} className="text-blue-600" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Uptime</span>
+                   </div>
+                   <span className="text-xs font-black text-slate-900">99.9%</span>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                   <div className="flex items-center space-x-3">
+                      <CheckCircle size={16} className="text-emerald-600" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Health</span>
+                   </div>
+                   <span className="text-xs font-black text-emerald-600">Optimal</span>
+                </div>
+              </div>
+           </div>
         </div>
-        <div className="flex items-center space-x-2 text-sm font-bold text-slate-500 bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm">
-          <Calendar size={16} className="text-blue-500" />
-          <span>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+
+        <div className="bg-slate-950 rounded-[40px] p-8 text-white relative overflow-hidden group shadow-xl shadow-slate-900/20">
+           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+              <BarChartIcon size={120} />
+           </div>
+           <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-4 px-1">Agency Performance</p>
+           <h3 className="text-2xl font-bold font-display leading-tight mb-6 text-white">Nexvoura <br />Intelligence</h3>
+           <p className="text-xs text-slate-400 font-medium italic leading-relaxed">Leverage data-driven decision making to accelerate your agency's pipeline and conversion velocity.</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[
-          { label: 'Total Leads', value: stats.total, color: 'bg-blue-500', icon: MessageSquare, textColor: 'text-blue-600' },
-          { label: 'New Leads', value: stats.new, color: 'bg-emerald-500', icon: Clock, textColor: 'text-emerald-600' },
-          { label: 'Converted', value: stats.converted, color: 'bg-indigo-500', icon: CheckCircle, textColor: 'text-indigo-600' },
-        ].map((stat, i) => (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            key={stat.label}
-            className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 group"
-          >
-            <div className="flex justify-between items-start mb-4">
-              <div className={`p-2 rounded-xl ${stat.color} bg-opacity-10 ${stat.textColor}`}>
-                <stat.icon size={20} />
-              </div>
-              <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                Live Status
-              </div>
+      {/* Main Content Area */}
+      <div className="flex-1 space-y-10 min-w-0">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+          <div className="space-y-1">
+            <div className="inline-flex items-center space-x-2 text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+               <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+               <span>Nexus Live Stats</span>
             </div>
-            <p className="text-slate-500 text-sm font-medium">{stat.label}</p>
-            <h3 className="text-3xl font-bold text-slate-900 mt-2">{stat.value}</h3>
-            <div className={`h-1 w-12 mt-4 rounded-full ${stat.color} opacity-30 group-hover:opacity-100 transition-opacity`} />
-          </motion.div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Charts Section */}
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-           <div className="flex justify-between items-center mb-6">
-             <h3 className="text-lg font-bold text-slate-900">Leads by Service</h3>
-             <BarChartIcon size={20} className="text-slate-400" />
-           </div>
-           <div className="h-[250px] w-full">
-             <ResponsiveContainer width="100%" height="100%">
-               <BarChart data={analyticsData}>
-                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                 <XAxis dataKey="name" fontSize={10} fontWeight={600} axisLine={false} tickLine={false} />
-                 <YAxis axisLine={false} tickLine={false} fontSize={10} />
-                 <ReChartsTooltip 
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                 />
-                 <Bar dataKey="value" radius={[10, 10, 0, 0]}>
-                    {analyticsData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                 </Bar>
-               </BarChart>
-             </ResponsiveContainer>
-           </div>
+            <h2 className="text-5xl font-black font-display text-slate-950 tracking-tighter leading-tight italic">
+              Global Overview
+            </h2>
+          </div>
+          <div className="flex items-center space-x-3 text-sm font-bold text-slate-600 bg-white px-5 py-4 rounded-[24px] border border-slate-100 shadow-xl shadow-slate-200/20">
+            <Calendar size={18} className="text-blue-500" />
+            <span className="font-display tracking-tight text-slate-900">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+          </div>
         </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-           <div className="flex justify-between items-center mb-6">
-             <h3 className="text-lg font-bold text-slate-900">Lead Pipeline</h3>
-             <RefreshCcw size={20} className="text-slate-400" />
-           </div>
-           <div className="h-[250px] w-full">
-             <ResponsiveContainer width="100%" height="100%">
-               <PieChart>
-                 <Pie
-                   data={statusData}
-                   cx="50%"
-                   cy="50%"
-                   innerRadius={50}
-                   outerRadius={70}
-                   paddingAngle={8}
-                   dataKey="value"
-                 >
-                   {statusData.map((entry, index) => (
-                     <Cell key={`cell-${index}`} fill={entry.color} />
-                   ))}
-                 </Pie>
-                 <ReChartsTooltip 
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                 />
-                 <Legend verticalAlign="bottom" height={36} wrapperStyle={{fontSize: '10px'}} />
-               </PieChart>
-             </ResponsiveContainer>
-           </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {[
+            { label: 'Total Leads', value: stats.total, color: 'bg-blue-600', icon: MessageSquare, textColor: 'text-blue-600', labelColor: 'bg-blue-50' },
+            { label: 'New Leads', value: stats.new, color: 'bg-emerald-600', icon: Clock, textColor: 'text-emerald-600', labelColor: 'bg-emerald-50' },
+            { label: 'Converted', value: stats.converted, color: 'bg-indigo-600', icon: CheckCircle, textColor: 'text-indigo-600', labelColor: 'bg-indigo-50' },
+          ].map((stat, i) => (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: i * 0.1, duration: 0.5 }}
+              key={stat.label}
+              className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 group hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-500 relative overflow-hidden"
+            >
+              <div className="flex justify-between items-start mb-6">
+                <div className={`w-14 h-14 rounded-2xl ${stat.color} bg-opacity-10 ${stat.textColor} flex items-center justify-center group-hover:rotate-12 transition-transform`}>
+                  <stat.icon size={26} />
+                </div>
+                <div className={`px-3 py-1 rounded-full ${stat.labelColor} ${stat.textColor} text-[9px] font-black uppercase tracking-widest`}>
+                  Analytics
+                </div>
+              </div>
+              <p className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mb-1">{stat.label}</p>
+              <h3 className="text-5xl font-black font-display text-slate-950 tracking-tighter leading-none italic">{stat.value}</h3>
+              
+              <div className={`absolute bottom-0 left-0 h-1.5 transition-all duration-700 ${stat.color} w-0 group-hover:w-full opacity-60`} />
+            </motion.div>
+          ))}
         </div>
 
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-bold text-slate-900">Active Reminders</h3>
-            {reminders.length > 0 && (
-              <span className="bg-rose-100 text-rose-600 px-3 py-1 rounded-full text-xs font-bold">
-                {reminders.length} Action Items
-              </span>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Charts Section */}
+          <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/20">
+             <div className="flex justify-between items-center mb-10">
+               <div>
+                 <h3 className="text-xl font-black text-slate-950 font-display italic">Lead Segment Map</h3>
+                 <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Cross-Platform Distribution</p>
+               </div>
+               <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400">
+                 <BarChartIcon size={20} />
+               </div>
+             </div>
+             <div className="h-[280px] w-full">
+               <ResponsiveContainer width="100%" height="100%">
+                 <BarChart data={analyticsData}>
+                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                   <XAxis dataKey="name" fontSize={10} fontWeight={800} axisLine={false} tickLine={false} tick={{fill: '#94a3b8'}} />
+                   <YAxis axisLine={false} tickLine={false} fontSize={10} fontWeight={800} tick={{fill: '#94a3b8'}} />
+                   <ReChartsTooltip 
+                      cursor={{fill: '#f8fafc', radius: 10}}
+                      contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.15)', padding: '16px' }}
+                   />
+                   <Bar dataKey="value" radius={[12, 12, 0, 0]} barSize={40}>
+                      {analyticsData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} fillOpacity={0.8} />
+                      ))}
+                   </Bar>
+                 </BarChart>
+               </ResponsiveContainer>
+             </div>
+          </div>
+
+          <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/20">
+             <div className="flex justify-between items-center mb-10">
+               <div>
+                 <h3 className="text-xl font-black text-slate-950 font-display italic">Lead Lifecycle</h3>
+                 <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Pipeline Stage Analysis</p>
+               </div>
+               <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400">
+                 <RefreshCcw size={20} />
+               </div>
+             </div>
+             <div className="h-[280px] w-full">
+               <ResponsiveContainer width="100%" height="100%">
+                 <PieChart>
+                   <Pie
+                     data={statusData}
+                     cx="50%"
+                     cy="50%"
+                     innerRadius={65}
+                     outerRadius={90}
+                     paddingAngle={10}
+                     dataKey="value"
+                     stroke="none"
+                   >
+                     {statusData.map((entry, index) => (
+                       <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} />
+                     ))}
+                   </Pie>
+                   <ReChartsTooltip 
+                      contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.15)', padding: '16px' }}
+                   />
+                   <Legend 
+                     verticalAlign="bottom" 
+                     height={40} 
+                     iconType="circle"
+                     formatter={(value) => <span className="text-[10px] font-black uppercase text-slate-500 tracking-tighter">{value}</span>}
+                   />
+                 </PieChart>
+               </ResponsiveContainer>
+             </div>
+          </div>
+
+          <div className="bg-white p-10 rounded-[40px] shadow-xl shadow-slate-200/20 border border-slate-100">
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                <h3 className="text-2xl font-black text-slate-950 font-display italic">Operations Alert</h3>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Critical Time-Sensitive Tasks</p>
+              </div>
+              {reminders.length > 0 && (
+                <div className="flex items-center space-x-2 bg-rose-50 text-rose-600 px-4 py-2 rounded-full border border-rose-100">
+                  <AlertCircle size={14} className="animate-bounce" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">
+                    {reminders.length} High Priority
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            {reminders.length > 0 ? (
+              <div className="space-y-4">
+                {reminders.map((task, i) => {
+                  const isOverdue = isPast(parseISO(task.dueDate)) && !isToday(parseISO(task.dueDate));
+                  return (
+                    <motion.div 
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      key={task.id} 
+                      className="group flex items-center justify-between p-5 bg-slate-50/50 hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 rounded-3xl border border-transparent hover:border-slate-100 transition-all duration-300"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${isOverdue ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
+                          {isOverdue ? <AlertCircle size={20} /> : <Clock size={20} />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-slate-950 leading-tight group-hover:text-blue-600 transition-colors uppercase tracking-tight">{task.title}</p>
+                          <div className="flex items-center space-x-2 mt-1">
+                             <div className={`text-[9px] font-black uppercase tracking-widest ${isOverdue ? 'text-rose-500' : 'text-amber-500'}`}>
+                                {isOverdue ? 'Overdue Protocol' : 'Upcoming Directive'} 
+                             </div>
+                             <span className="text-slate-300 text-[10px]">•</span>
+                             <p className="text-[10px] font-bold text-slate-400 uppercase">
+                               {format(parseISO(task.dueDate), 'MMM d, yyyy')}
+                             </p>
+                          </div>
+                        </div>
+                      </div>
+                      <Link 
+                        to="/tasks" 
+                        className="w-10 h-10 flex items-center justify-center bg-white rounded-xl border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-100 hover:shadow-lg transition-all"
+                      >
+                        <ArrowRight size={18} />
+                      </Link>
+                    </motion.div>
+                  );
+                })}
+                <Link 
+                  to="/tasks" 
+                  className="w-full flex items-center justify-center p-4 border-2 border-dashed border-slate-100 rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:bg-slate-50 hover:text-blue-600 hover:border-blue-100 transition-all"
+                >
+                  Enter Nexus Workspace
+                </Link>
+              </div>
+            ) : (
+              <div className="text-center py-20 bg-slate-50/50 rounded-[40px] border border-dashed border-slate-100">
+                <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center mx-auto mb-4 border border-slate-100 shadow-sm">
+                  <CheckSquare size={32} className="text-slate-200" />
+                </div>
+                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic">All Operations Synchronized</p>
+              </div>
             )}
           </div>
           
-          {reminders.length > 0 ? (
-            <div className="space-y-4">
-              {reminders.map((task) => {
-                const isOverdue = isPast(parseISO(task.dueDate)) && !isToday(parseISO(task.dueDate));
-                return (
-                  <div key={task.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                    <div className="flex items-start space-x-3">
-                      <div className={`mt-1 p-2 rounded-lg ${isOverdue ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
-                        {isOverdue ? <AlertCircle size={16} /> : <Clock size={16} />}
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">{task.title}</p>
-                        <p className={`text-[10px] font-bold uppercase ${isOverdue ? 'text-rose-500' : 'text-amber-500'}`}>
-                          {isOverdue ? 'Overdue' : 'Due Soon'} • {format(parseISO(task.dueDate), 'MMM d, yyyy')}
-                        </p>
-                      </div>
-                    </div>
-                    <Link 
-                      to="/tasks" 
-                      className="bg-white px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                    >
-                      Handle
-                    </Link>
-                  </div>
-                );
-              })}
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[40px] blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200" />
+            <div className="relative bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 h-full flex flex-col justify-center">
+              <div className="w-16 h-16 bg-blue-600 rounded-3xl flex items-center justify-center mb-8 shadow-xl shadow-blue-500/20 text-white">
+                <Globe size={32} />
+              </div>
+              <h4 className="text-2xl font-black font-display text-slate-950 italic mb-4">Neural Network Integration</h4>
+              <p className="text-slate-500 font-medium text-sm leading-relaxed mb-8 opacity-80">Your Nexvoura workspace is connected to the Nexus Neural Link for automated directive optimization.</p>
+              <button 
+                onClick={() => navigate('/tasks')}
+                className="group flex items-center justify-between bg-slate-950 text-white px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all"
+              >
+                <span>Synchronize Commands</span>
+                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+              </button>
             </div>
-          ) : (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckSquare size={32} className="text-slate-300" />
-              </div>
-              <p className="text-slate-500 italic">No urgent tasks at the moment.</p>
-            </div>
-          )}
-        </div>
-
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-bold text-slate-900">Quick Tools</h3>
-          </div>
-          <div className="space-y-4">
-            <button 
-              onClick={() => {
-                navigator.clipboard.writeText(`${window.location.origin}/submit-lead/${user.companyId}`);
-                toast.success('Lead submission URL copied');
-              }}
-              className="w-full flex items-center justify-between p-4 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition-colors font-bold text-sm"
-            >
-              <div className="flex items-center space-x-3">
-                <Plus size={20} />
-                <span>Copy Lead Submission URL</span>
-              </div>
-              <Search size={16} />
-            </button>
-            <Link
-              to="/leads"
-              className="w-full flex items-center justify-between p-4 bg-emerald-50 text-emerald-700 rounded-xl hover:bg-emerald-100 transition-colors font-bold text-sm"
-            >
-              <div className="flex items-center space-x-3">
-                <Users size={20} />
-                <span>Go to Leads Management</span>
-              </div>
-              <Filter size={16} />
-            </Link>
-            <button 
-              onClick={() => {
-                navigate('/team');
-                toast.info('Head to Team page to generate a specific invite token');
-              }}
-              className="w-full flex items-center justify-between p-4 bg-purple-50 text-purple-700 rounded-xl hover:bg-purple-100 transition-colors font-bold text-sm"
-            >
-              <div className="flex items-center space-x-3">
-                <Mail size={20} />
-                <span>Manage Team Invites</span>
-              </div>
-              <ArrowRight size={16} />
-            </button>
           </div>
         </div>
       </div>
@@ -594,8 +755,16 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
   });
 
   useEffect(() => {
-    const leadsQ = query(collection(db, 'leads'), where('companyId', '==', user.companyId));
+    let leadsQ = query(collection(db, 'leads'), where('companyId', '==', user.companyId));
     const teamQ = query(collection(db, 'users'), where('companyId', '==', user.companyId));
+
+    if (user.role === 'sales') {
+      leadsQ = query(
+        collection(db, 'leads'), 
+        where('companyId', '==', user.companyId),
+        where('assignedTo', '==', user.uid)
+      );
+    }
 
     const unsubLeads = onSnapshot(leadsQ, (snapshot) => {
       setLeads(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Lead)));
@@ -610,7 +779,7 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
       unsubLeads();
       unsubTeam();
     };
-  }, [user.companyId]);
+  }, [user.companyId, user.role, user.uid]);
 
   const handleAddLead = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -657,7 +826,7 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `nexus_leads_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `nexvoura_leads_${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -675,87 +844,112 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Leads Management</h2>
-          <p className="text-slate-500">Track and convert your agency's inquiries</p>
+    <div className="space-y-8 md:space-y-12">
+      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
+        <div className="space-y-4">
+          <div className="inline-flex items-center space-x-2 text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+            <span>Demand & Inquiry Pipeline</span>
+          </div>
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-black font-display text-slate-950 tracking-tight leading-[0.85] italic">
+            Prospect <br /><span className="text-blue-600">Inventory</span>
+          </h2>
         </div>
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={exportLeadsToCSV}
-            className="flex items-center space-x-2 bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
-          >
-            <Download size={18} />
-            <span>Export CSV</span>
-          </button>
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center space-x-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
-          >
-            <Plus size={18} />
-            <span>Add Lead</span>
-          </button>
+        
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full xl:w-auto">
+          <div className="relative flex-1 sm:w-64">
+             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+             <input 
+                type="text"
+                placeholder="Search Identity..."
+                value={searchQuery || ''}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-4 py-4 bg-white border-2 border-slate-100 rounded-2xl text-xs font-bold text-slate-600 outline-none focus:border-blue-500/20 focus:ring-4 focus:ring-blue-600/5 transition-all shadow-sm"
+              />
+          </div>
+          <div className="flex gap-4">
+            <div className="relative flex-1 sm:w-40">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
+                <select 
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-600 outline-none appearance-none hover:border-slate-300 transition-colors"
+                  >
+                    <option value="All">All Stages</option>
+                    <option value="New">New Discovery</option>
+                    <option value="Contacted">Active Outreach</option>
+                    <option value="Converted">Locked Partnership</option>
+                  </select>
+              </div>
+              <div className="relative flex-1 sm:w-40">
+                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
+                  <select 
+                      value={serviceFilter}
+                      onChange={(e) => setServiceFilter(e.target.value)}
+                      className="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-600 outline-none appearance-none hover:border-slate-300 transition-colors"
+                    >
+                      <option value="All">All Solutions</option>
+                      <option value="WordPress">WordPress</option>
+                      <option value="Shopify">Shopify</option>
+                      <option value="Custom Development">Custom Forge</option>
+                    </select>
+              </div>
+          </div>
+          <div className="flex gap-2">
+            {(user.role === 'admin' || user.role === 'manager') && (
+              <button 
+                onClick={exportLeadsToCSV}
+                className="p-4 bg-slate-100 text-slate-600 rounded-2xl hover:bg-slate-200 transition-all active:scale-95"
+                title="Export Signal Data"
+              >
+                <Download size={20} />
+              </button>
+            )}
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="flex-1 sm:flex-none flex items-center justify-center space-x-2 bg-blue-600 text-white px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95 whitespace-nowrap"
+            >
+              <Plus size={18} />
+              <span>Register Lead</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
-        <div className="relative flex-1 w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text"
-            placeholder="Search by name or email..."
-            value={searchQuery || ''}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-          />
-        </div>
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <select 
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="flex-1 md:flex-none p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none"
-          >
-            <option value="All">All Statuses</option>
-            <option value="New">New</option>
-            <option value="Contacted">Contacted</option>
-            <option value="Converted">Converted</option>
-          </select>
-          <select 
-            value={serviceFilter}
-            onChange={(e) => setServiceFilter(e.target.value)}
-            className="flex-1 md:flex-none p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none"
-          >
-            <option value="All">All Services</option>
-            <option value="WordPress">WordPress</option>
-            <option value="Shopify">Shopify</option>
-            <option value="Custom Development">Custom Development</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b border-slate-100">
-              <tr>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Service</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Assigned To</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</th>
+      <div className="bg-white rounded-[40px] shadow-xl shadow-slate-200/5 border border-slate-100 overflow-hidden relative">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full text-left border-collapse min-w-[1000px]">
+            <thead>
+              <tr className="bg-slate-50/50 border-b border-slate-100">
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Client Identity</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Service Inquiry</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Pipeline Stage</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Assigned Specialist</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Engagement</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-50">
               {filteredLeads.map((lead) => (
-              <tr key={lead.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="font-medium text-slate-900">{lead.name}</div>
-                  <div className="text-sm text-slate-500">{lead.email}</div>
+              <tr key={lead.id} className="hover:bg-blue-50/30 transition-all group">
+                <td className="px-8 py-6">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-500 font-black font-display group-hover:from-blue-100 group-hover:to-blue-200 group-hover:text-blue-600 transition-all">
+                      {lead.name[0]}
+                    </div>
+                    <div>
+                      <div className="font-bold text-slate-900 font-display text-base leading-tight">{lead.name}</div>
+                      <div className="text-xs font-medium text-slate-400 mt-0.5">{lead.email}</div>
+                    </div>
+                  </div>
                 </td>
-                <td className="px-6 py-4 text-sm text-slate-600">{lead.service}</td>
-                <td className="px-6 py-4">
-                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                <td className="px-8 py-6">
+                   <div className="flex items-center space-x-2">
+                     <div className="w-2 h-2 rounded-full bg-blue-400" />
+                     <span className="text-sm font-bold text-slate-600">{lead.service}</span>
+                   </div>
+                </td>
+                <td className="px-8 py-6">
+                  <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
                     lead.status === 'Converted' ? 'bg-emerald-100 text-emerald-700' :
                     lead.status === 'Contacted' ? 'bg-blue-100 text-blue-700' :
                     'bg-slate-100 text-slate-700'
@@ -763,111 +957,139 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
                     {lead.status}
                   </span>
                 </td>
-                <td className="px-6 py-4">
-                  <select
-                    className="text-sm bg-transparent border-none focus:ring-0 text-slate-600 font-medium cursor-pointer hover:text-blue-600 transition-colors"
-                    value={lead.assignedTo || ''}
-                    onChange={(e) => handleAssignLead(lead.id, e.target.value)}
-                  >
-                    <option value="">Unassigned</option>
-                    {team.map(member => (
-                      <option key={member.uid} value={member.uid}>{member.name}</option>
-                    ))}
-                  </select>
+                <td className="px-8 py-6">
+                  {(user.role === 'admin' || user.role === 'manager') ? (
+                    <div className="relative inline-block w-full">
+                      <select
+                        className="w-full text-sm bg-transparent border-none focus:ring-0 text-slate-600 font-bold cursor-pointer hover:text-blue-600 transition-colors appearance-none"
+                        value={lead.assignedTo || ''}
+                        onChange={(e) => handleAssignLead(lead.id, e.target.value)}
+                      >
+                        <option value="">Public Queue</option>
+                        {team.map(member => (
+                          <option key={member.uid} value={member.uid}>{member.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-hover:text-blue-500 transition-colors" />
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">
+                        {(team.find(m => m.uid === lead.assignedTo)?.name || 'U')[0]}
+                      </div>
+                      <span className="text-sm text-slate-600 font-bold">
+                        {team.find(m => m.uid === lead.assignedTo)?.name || 'Unassigned'}
+                      </span>
+                    </div>
+                  )}
                 </td>
-                <td className="px-6 py-4">
-                  <button className="text-blue-600 hover:underline text-sm font-medium">View Details</button>
+                <td className="px-8 py-6 text-right">
+                  <button className="text-blue-600 hover:text-blue-700 text-xs font-black uppercase tracking-widest p-2 hover:bg-blue-100/50 rounded-xl transition-all">
+                    Intel Analysis
+                  </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
         {leads.length === 0 && !loading && (
-          <div className="p-12 text-center text-slate-500">No leads found.</div>
+          <div className="p-20 text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-slate-50 text-slate-300 mb-4">
+              <Search size={32} />
+            </div>
+            <p className="text-slate-400 font-bold font-display text-xl">No entities found in this sector</p>
+            <p className="text-slate-400 text-sm mt-1">Adjust your filters or add a new lead to populate the nexus.</p>
+          </div>
         )}
       </div></div>
 
       <AnimatePresence>
         {showAddModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-xl">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-[40px] p-10 max-w-xl w-full shadow-2xl relative overflow-hidden"
             >
-              <h3 className="text-2xl font-bold text-slate-900 mb-6">Add New Lead</h3>
-              <form onSubmit={handleAddLead} className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Lead Name</label>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+              
+              <h3 className="text-3xl font-black font-display text-slate-950 mb-2">Lead Integration</h3>
+              <p className="text-slate-500 font-medium mb-8">Register a new inquiry into the Nexvoura system.</p>
+              
+              <form onSubmit={handleAddLead} className="space-y-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Full Identity</label>
                     <input
                       type="text"
                       required
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-medium"
                       value={newLead.name || ''}
                       onChange={(e) => setNewLead({ ...newLead, name: e.target.value })}
-                      placeholder="John Doe"
+                      placeholder="e.g. Alex Rivera"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Email</label>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Comm Protocol (Email)</label>
                     <input
                       type="email"
                       required
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-medium"
                       value={newLead.email || ''}
                       onChange={(e) => setNewLead({ ...newLead, email: e.target.value })}
-                      placeholder="john@example.com"
+                      placeholder="alex@nexus.com"
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Phone Number</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Phone Nexus</label>
                     <input
                       type="tel"
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-medium"
                       value={newLead.phone || ''}
                       onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
-                      placeholder="+1 234 567 890"
+                      placeholder="+1 (555) 000-0000"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Service</label>
-                    <select
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
-                      value={newLead.service || 'WordPress'}
-                      onChange={(e) => setNewLead({ ...newLead, service: e.target.value as any })}
-                    >
-                      <option>WordPress</option>
-                      <option>Shopify</option>
-                      <option>Custom Development</option>
-                    </select>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Core Service</label>
+                    <div className="relative">
+                      <select
+                        className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-bold text-slate-700 appearance-none"
+                        value={newLead.service || 'WordPress'}
+                        onChange={(e) => setNewLead({ ...newLead, service: e.target.value as any })}
+                      >
+                        <option>WordPress</option>
+                        <option>Shopify</option>
+                        <option>Custom Development</option>
+                      </select>
+                      <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1.5">Message / Notes</label>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Inquiry Specs</label>
                   <textarea
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 resize-none font-sans"
-                    rows={3}
+                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-medium resize-none min-h-[120px]"
                     value={newLead.message || ''}
                     onChange={(e) => setNewLead({ ...newLead, message: e.target.value })}
-                    placeholder="Brief description of requirements..."
+                    placeholder="Provide context for this lead..."
                   />
                 </div>
-                <div className="flex space-x-4 pt-2">
+                <div className="flex space-x-4 pt-4">
                   <button
                     type="button"
                     onClick={() => setShowAddModal(false)}
-                    className="flex-1 p-3 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all border border-slate-200"
+                    className="flex-1 p-4 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all border border-slate-100"
                   >
-                    Cancel
+                    Discard
                   </button>
                   <button
-                    className="flex-1 bg-slate-900 text-white p-3 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
+                    className="flex-1 bg-slate-950 text-white p-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-900 transition-all shadow-xl shadow-slate-200"
                   >
-                    Add Lead
+                    Integrate Lead
                   </button>
                 </div>
               </form>
@@ -935,106 +1157,170 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 space-y-6"
-      >
-        <div className="text-center">
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">Nexvoura</h1>
-          <p className="text-slate-500 mt-2 text-sm italic font-medium">Internal Agency Portal for Staff & Admins</p>
+    <div className="min-h-screen flex bg-white font-sans overflow-hidden">
+      {/* Brand Column */}
+      <div className="hidden lg:flex lg:w-3/5 relative overflow-hidden bg-slate-950 p-20 flex-col justify-between">
+        <div className="absolute inset-0 z-0">
+          <img 
+            src="https://picsum.photos/seed/agency/1920/1080?blur=4" 
+            alt="Agency Context" 
+            className="w-full h-full object-cover opacity-40 mix-blend-overlay"
+            referrerPolicy="no-referrer"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-900/40 via-transparent to-indigo-950/60" />
+        </div>
+        
+        <div className="relative z-10 flex items-center space-x-3">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white shadow-2xl shadow-blue-500/20">N</div>
+          <span className="text-3xl font-black text-white tracking-tighter font-display italic">Nexvoura</span>
         </div>
 
-        <form onSubmit={handleAuth} className="space-y-4">
-          {isSignUp && (
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-500 uppercase px-1">Full Name</label>
+        <div className="relative z-10 space-y-8 max-w-2xl translate-y-20">
+          <motion.h2 
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-7xl font-black text-white tracking-tight leading-[0.9] font-display"
+          >
+            Smarter Leads. <br />
+            <span className="text-blue-500">Faster Closure.</span>
+          </motion.h2>
+          <motion.p 
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            className="text-xl text-slate-400 font-medium leading-relaxed"
+          >
+            The next generation of agency management. Centralize your pipeline, coordinate your team, and scale your operations with Nexvoura's intelligence-driven workspace.
+          </motion.p>
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="flex items-center space-x-8 pt-4"
+          >
+            <div className="flex -space-x-3">
+              {[1,2,3,4].map(i => (
+                <div key={i} className="w-12 h-12 rounded-full border-4 border-slate-950 overflow-hidden ring-1 ring-white/10 shadow-xl">
+                  <img src={`https://i.pravatar.cc/150?u=${i}`} alt="user" />
+                </div>
+              ))}
+            </div>
+            <p className="text-sm font-bold text-slate-300">Join 500+ elite agencies scaling with precision.</p>
+          </motion.div>
+        </div>
+
+        <div className="relative z-10 flex items-center space-x-6 text-slate-500 text-xs font-black uppercase tracking-widest">
+          <span>v2.0 Nexus Engine</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-slate-800" />
+          <span>Privacy Secured</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-slate-800" />
+          <span>ISO 27001</span>
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col justify-center p-8 lg:p-16 xl:p-24 bg-white overflow-y-auto custom-scrollbar">
+        <div className="max-w-md w-full mx-auto space-y-10 md:space-y-12">
+          <div>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-950 tracking-tighter font-display italic">
+              {isSignUp ? 'Empower Your Team' : 'Welcome Back'}
+            </h1>
+            <p className="text-slate-500 font-medium mt-3 text-base md:text-lg opacity-80 leading-relaxed">
+              {isSignUp 
+                ? 'Join Nexvoura and transform your client acquisition cycle.' 
+                : 'Access your specialized workspace and active pipelines.'
+              }
+            </p>
+          </div>
+
+          <form onSubmit={handleAuth} className="space-y-6">
+            {isSignUp && (
+              <div className="space-y-2 group">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Full Identity</label>
+                <div className="relative">
+                  <UserIcon size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="John Doe"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent rounded-[24px] outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600/20 focus:bg-white transition-all font-bold text-slate-900 placeholder:text-slate-300"
+                    value={name || ''}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+            
+            <div className="space-y-2 group">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Email Port</label>
               <div className="relative">
-                <UserIcon size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Mail size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
                 <input
-                  type="text"
+                  type="email"
                   required
-                  placeholder="John Doe"
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  value={name || ''}
-                  onChange={(e) => setName(e.target.value)}
+                  placeholder="agent@agency.com"
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent rounded-[24px] outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600/20 focus:bg-white transition-all font-bold text-slate-900 placeholder:text-slate-300"
+                  value={email || ''}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
             </div>
-          )}
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-500 uppercase px-1">Email Address</label>
-            <div className="relative">
-              <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="email"
-                required
-                placeholder="you@example.com"
-                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                value={email || ''}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+
+            <div className="space-y-2 group">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Security Key</label>
+              <div className="relative">
+                <Lock size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••••••"
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent rounded-[24px] outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600/20 focus:bg-white transition-all font-bold text-slate-900 placeholder:text-slate-300"
+                  value={password || ''}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
             </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-500 uppercase px-1">Password</label>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-slate-950 text-white p-5 rounded-[24px] font-black hover:bg-slate-900 hover:shadow-2xl hover:shadow-slate-300/50 hover:-translate-y-1 transition-all flex items-center justify-center space-x-3 text-lg shadow-xl shadow-slate-200"
+            >
+              <span>{loading ? 'Processing Protocol...' : isSignUp ? 'Initialize Account' : 'Authenticate'}</span>
+              {!loading && <ArrowRight size={22} />}
+            </button>
+          </form>
+
+          <div className="flex flex-col space-y-4">
             <div className="relative">
-              <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="password"
-                required
-                placeholder="••••••••"
-                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                value={password || ''}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-100"></div>
+              </div>
+              <div className="relative flex justify-center text-[10px] uppercase font-black tracking-widest">
+                <span className="bg-white px-4 text-slate-400">Cross-Cloud Sign In</span>
+              </div>
             </div>
+
+            <button
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="w-full flex items-center justify-center space-x-3 bg-white border-2 border-slate-100 py-4 rounded-[24px] hover:bg-slate-50 hover:border-slate-200 transition-all font-black text-slate-900 shadow-sm"
+            >
+              <img src="https://www.google.com/favicon.ico" className="w-5 h-5 grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all" alt="Google" />
+              <span>Continue with Google</span>
+            </button>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-slate-900 text-white p-4 rounded-xl font-bold hover:bg-slate-800 transition-all flex items-center justify-center space-x-2"
-          >
-            <span>{loading ? 'Processing...' : isSignUp ? 'Create Account' : 'Sign In'}</span>
-            {!loading && <ArrowRight size={18} />}
-          </button>
-        </form>
-
-        <div className="relative py-2">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-100"></div>
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white px-2 text-slate-400">Or continue with</span>
+          <div className="text-center pt-8 border-t border-slate-50">
+            <button
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-sm font-black text-blue-600 hover:text-blue-700 underline underline-offset-8 decoration-2 decoration-blue-200 hover:decoration-blue-500 transition-all"
+            >
+              {isSignUp ? 'Existing Operative? Authenticate Here' : "New Agent? Initialize Access"}
+            </button>
           </div>
         </div>
-
-        <div className="grid grid-cols-1 gap-3">
-          <button
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full flex items-center justify-center space-x-3 bg-white border border-slate-200 p-3.5 rounded-xl hover:bg-slate-50 transition-all font-medium text-slate-700 shadow-sm"
-          >
-            <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-            <span>Google</span>
-          </button>
-        </div>
-
-        <div className="text-center">
-          <button
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-sm font-bold text-blue-600 hover:underline"
-          >
-            {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
-          </button>
-        </div>
-
-        <p className="text-center text-[10px] text-slate-400 leading-relaxed">
-          By continuing, you agree to our <span className="underline cursor-pointer">Terms of Service</span> and <span className="underline cursor-pointer">Privacy Policy</span>.
-        </p>
-      </motion.div>
+      </div>
     </div>
   );
 };
@@ -1244,10 +1530,8 @@ const SetupCompany = ({ user }: { user: any }) => {
       setSuccess(true);
       toast.success('Company setup complete!');
       
-      // Force a small delay to ensure Firestore propagation before navigation
       setTimeout(() => {
         navigate('/', { replace: true });
-        // Optional: window.location.reload() if still stuck, but replace:true should help
       }, 1500);
     } catch (error) {
       console.error("Setup Error:", error);
@@ -1263,18 +1547,18 @@ const SetupCompany = ({ user }: { user: any }) => {
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md w-full bg-white rounded-3xl shadow-xl p-10 space-y-8 text-center"
+          className="max-w-md w-full bg-white rounded-[40px] shadow-2xl p-12 space-y-8 text-center border-2 border-slate-50"
         >
-          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <Plus size={32} />
+          <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner ring-4 ring-emerald-500/5">
+            <Plus size={40} className="animate-pulse" />
           </div>
-          <h2 className="text-3xl font-black text-slate-900">Workspace Ready!</h2>
-          <p className="text-slate-500">Your company workspace <span className="font-bold text-slate-900">{name}</span> has been created successfully.</p>
+          <h2 className="text-4xl font-black text-slate-950 font-display italic">Nexus Initialized</h2>
+          <p className="text-slate-500 font-medium">Your company workspace <span className="font-black text-blue-600 underline underline-offset-4 decoration-2 decoration-blue-100">{name}</span> is ready for deployment.</p>
           <button
             onClick={() => navigate('/')}
-            className="w-full bg-blue-600 text-white p-4 rounded-xl font-bold hover:bg-blue-700 transition-all"
+            className="w-full bg-slate-950 text-white p-5 rounded-[24px] font-black hover:bg-slate-900 transition-all shadow-xl shadow-slate-200"
           >
-            Enter Dashboard
+            Enter Workspace
           </button>
         </motion.div>
       </div>
@@ -1282,98 +1566,112 @@ const SetupCompany = ({ user }: { user: any }) => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 py-12">
-      <div className="max-w-xl w-full bg-white rounded-3xl shadow-xl p-10 space-y-8">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-slate-900">Setup Your Company</h2>
-          <p className="text-slate-500 mt-2">Create your tenant workspace</p>
+    <div className="min-h-screen bg-white flex items-center justify-center p-6 md:p-12 lg:p-20 font-sans overflow-x-hidden relative">
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" />
+      
+      <div className="max-w-[1400px] w-full grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-32 items-center">
+        <div className="space-y-12 animate-in fade-in slide-in-from-left-8 duration-700">
+          <div className="inline-flex items-center space-x-3 bg-slate-50 px-5 py-2.5 rounded-full border border-slate-100 shadow-sm">
+             <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+             <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Workspace Initialization</span>
+          </div>
+          
+          <div className="space-y-6">
+            <h2 className="text-6xl md:text-8xl font-black text-slate-950 tracking-tighter leading-[0.85] font-display italic">Setup Your <br /><span className="text-blue-600 italic">Command Center.</span></h2>
+            <p className="text-xl md:text-2xl text-slate-500 font-medium leading-relaxed max-w-xl">Scale your agency operations with Nexvoura's high-performance ecosystem.</p>
+          </div>
+          
+          <div className="space-y-10 pt-4">
+            {[
+              { icon: Building2, label: 'Centralize Data', desc: 'Every lead, task, and team metric in one low-latency hub.' },
+              { icon: Shield, label: 'Secure Framework', desc: 'Encryption and role-based access for complete data sovereignty.' },
+            ].map((item, i) => (
+              <div key={i} className="flex items-start space-x-6 group">
+                <div className="p-4 bg-blue-50 rounded-2xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all duration-500">
+                  <item.icon size={28} />
+                </div>
+                <div>
+                  <p className="font-black text-slate-900 text-xl font-display tracking-tight uppercase">{item.label}</p>
+                  <p className="text-base text-slate-400 font-medium">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-bold text-slate-700 mb-2">Company Name *</label>
+
+        <div className="bg-white border-2 border-slate-100 shadow-2xl shadow-slate-200/50 rounded-[64px] p-10 md:p-16 relative overflow-hidden animate-in fade-in slide-in-from-right-8 duration-700">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-slate-50 rounded-bl-full -z-10" />
+          
+          <form onSubmit={handleSubmit} className="space-y-10">
+            <div className="space-y-2 group">
+              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Entity Name *</label>
               <input
                 type="text"
                 required
                 value={name || ''}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[32px] outline-none focus:ring-8 focus:ring-blue-600/5 focus:border-blue-600/20 focus:bg-white transition-all font-bold text-slate-900 placeholder:text-slate-300 text-lg font-display"
                 placeholder="e.g. Nexvoura Solutions"
               />
             </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Website</label>
-              <input
-                type="url"
-                value={website || ''}
-                onChange={(e) => setWebsite(e.target.value)}
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                placeholder="https://nexvoura.com"
-              />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-2 group">
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Industry</label>
+                <input
+                  type="text"
+                  value={industry || ''}
+                  onChange={(e) => setIndustry(e.target.value)}
+                  className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[32px] outline-none focus:ring-8 focus:ring-blue-600/5 focus:border-blue-600/20 focus:bg-white transition-all font-bold text-slate-900 placeholder:text-slate-300 text-base font-display"
+                  placeholder="e.g. SaaS"
+                />
+              </div>
+              <div className="space-y-2 group">
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Phone</label>
+                <input
+                  type="tel"
+                  value={phone || ''}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[32px] outline-none focus:ring-8 focus:ring-blue-600/5 focus:border-blue-600/20 focus:bg-white transition-all font-bold text-slate-900 placeholder:text-slate-300 text-base font-display"
+                  placeholder="+1 234..."
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Phone</label>
-              <input
-                type="tel"
-                value={phone || ''}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                placeholder="+1 234 567 890"
-              />
+
+            <div className="space-y-2 group">
+              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">External Domain (Optional)</label>
+              <div className="relative">
+                 <LinkIcon size={20} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                 <input
+                  type="url"
+                  value={website || ''}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  className="w-full pl-14 pr-6 py-6 bg-slate-50 border-2 border-transparent rounded-[32px] outline-none focus:ring-8 focus:ring-blue-600/5 focus:border-blue-600/20 focus:bg-white transition-all font-bold text-slate-900 placeholder:text-slate-300 text-base font-display"
+                  placeholder="https://your-domain.com"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Industry</label>
-              <input
-                type="text"
-                value={industry || ''}
-                onChange={(e) => setIndustry(e.target.value)}
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                placeholder="e.g. SaaS, Marketing"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-bold text-slate-700 mb-2">Office Address</label>
+
+            <div className="space-y-2 group">
+              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Primary HQ</label>
               <input
                 type="text"
                 value={address || ''}
                 onChange={(e) => setAddress(e.target.value)}
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                placeholder="123 Street, City, Country"
+                className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[32px] outline-none focus:ring-8 focus:ring-blue-600/5 focus:border-blue-600/20 focus:bg-white transition-all font-bold text-slate-900 placeholder:text-slate-300 text-base font-display"
+                placeholder="City, Country"
               />
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-bold text-slate-700 mb-2">Company Logo URL</label>
-              <input
-                type="url"
-                value={logoUrl || ''}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                placeholder="https://example.com/logo.png"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-bold text-slate-700 mb-2">Bio / Description</label>
-              <textarea
-                value={description || ''}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"
-                placeholder="Briefly describe your agency..."
-              />
-            </div>
-          </div>
-          <button
-            disabled={loading}
-            className="w-full bg-slate-900 text-white p-4 rounded-xl font-bold hover:bg-slate-800 transition-all disabled:opacity-50"
-          >
-            {loading ? 'Creating...' : 'Create Workspace'}
-          </button>
-        </form>
-        <div className="text-center">
-          <p className="text-sm text-slate-500">Have an invite code? <button onClick={() => {
-            const code = prompt('Enter invite code:');
-            if (code) navigate(`/join/${code}`);
-          }} className="text-blue-600 font-bold hover:underline">Join Workspace</button></p>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-slate-950 text-white p-6 rounded-[32px] font-black hover:bg-slate-900 hover:shadow-2xl hover:shadow-slate-300/50 hover:-translate-y-1 transition-all flex items-center justify-center space-x-3 text-xl shadow-xl shadow-slate-200 mt-10 font-display italic tracking-tight"
+            >
+              <span>{loading ? 'Processing Workspace...' : 'Initialize Workspace'}</span>
+              {!loading && <ArrowRight size={28} />}
+            </button>
+          </form>
         </div>
       </div>
     </div>
@@ -1396,21 +1694,27 @@ const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
   }, [user.companyId]);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="flex h-screen bg-brand-surface overflow-hidden font-sans">
       <Sidebar user={user} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
-      <div className="flex-1 lg:ml-72 min-w-0 transition-all duration-300">
+      
+      <main className="flex-1 lg:ml-[380px] h-screen overflow-hidden flex flex-col relative w-full">
         <Header user={user} company={company} onToggleSidebar={() => setIsSidebarOpen(true)} />
-        <main className="p-4 md:p-8 max-w-7xl mx-auto">
+        
+        <div className="flex-1 overflow-y-auto px-4 py-6 md:px-8 xl:px-12 md:py-10 custom-scrollbar relative z-10 scroll-smooth">
           <Routes>
             <Route path="/" element={<Dashboard user={user} />} />
             <Route path="/leads" element={<LeadsPage user={user} />} />
             <Route path="/tasks" element={<TasksPage user={user} />} />
             <Route path="/profile" element={<ProfilePage user={user} />} />
-            <Route path="/team" element={<TeamPage user={user} company={company} />} />
+            <Route path="/employees" element={<EmployeesPage user={user} company={company} />} />
+            <Route path="/payroll" element={<PayrollPage user={user} company={company} />} />
             <Route path="/settings" element={<SettingsPage user={user} />} />
           </Routes>
-        </main>
-      </div>
+        </div>
+
+        {/* Dynamic Decorative Graphic */}
+        <div className="fixed bottom-0 right-0 w-[60vh] h-[60vh] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none -z-0 translate-x-1/3 translate-y-1/3" />
+      </main>
     </div>
   );
 };

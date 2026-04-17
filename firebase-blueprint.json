@@ -19,16 +19,40 @@
     },
     "User": {
       "title": "User",
-      "description": "A user belonging to a company.",
+      "description": "A user belonging to a company with employee details.",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "companyId": { "type": "string", "description": "The ID of the company this user belongs to." },
         "role": { "type": "string", "enum": ["admin", "manager", "team_lead", "sales"] },
+        "phone": { "type": "string" },
+        "department": { "type": "string", "enum": ["Sales", "Dev", "Support"] },
+        "joiningDate": { "type": "string", "format": "date" },
+        "salary": { "type": "number" },
+        "status": { "type": "string", "enum": ["Active", "On Leave", "Left"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "email", "companyId", "role", "createdAt"]
+    },
+    "Payroll": {
+      "title": "Payroll",
+      "description": "Monthly payroll records.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "month": { "type": "string" },
+        "baseSalary": { "type": "number" },
+        "bonus": { "type": "number" },
+        "deduction": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["Paid", "Pending"] },
+        "paidAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "employeeId", "month", "baseSalary", "totalAmount", "status", "createdAt"]
     },
     "Lead": {
       "title": "Lead",
@@ -87,7 +111,11 @@
     },
     "/users/{userId}": {
       "schema": "User",
-      "description": "User profile and tenant association."
+      "description": "User profile with employee details, isolated by companyId."
+    },
+    "/payroll/{payrollId}": {
+      "schema": "Payroll",
+      "description": "Payroll records isolated by companyId."
     },
     "/leads/{leadId}": {
       "schema": "Lead",

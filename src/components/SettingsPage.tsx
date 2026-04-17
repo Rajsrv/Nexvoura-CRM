@@ -12,6 +12,7 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    if (user.role !== 'admin' && user.role !== 'manager') return;
     const unsub = onSnapshot(doc(db, 'companies', user.companyId), (snap) => {
       if (snap.exists()) {
         setCompany({ id: snap.id, ...snap.data() } as Company);
@@ -109,6 +110,15 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
       toast.error('Failed to update company info');
     }
   };
+
+  if (user.role !== 'admin' && user.role !== 'manager') {
+    return (
+      <div className="p-8 text-center text-slate-500">
+        <h2 className="text-xl font-bold text-slate-900 mb-2">Access Denied</h2>
+        <p>You do not have permission to view this page.</p>
+      </div>
+    );
+  }
 
   if (loading) return <div className="p-8 text-center text-slate-500">Loading settings...</div>;
 

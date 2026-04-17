@@ -111,5 +111,13 @@ service cloud.firestore {
       allow update: if isAuthenticated() && isSameCompany(resource.data.companyId) && (isAdmin() || isManager() || isTeamLead());
       allow delete: if isAuthenticated() && isSameCompany(resource.data.companyId) && (isAdmin() || isManager() || isTeamLead());
     }
+
+    // Payroll
+    match /payroll/{payrollId} {
+      allow read: if isAuthenticated() && isAdmin() && isSameCompany(resource.data.companyId);
+      allow create: if isAuthenticated() && isAdmin() && isSameCompany(request.resource.data.companyId);
+      allow update: if isAuthenticated() && isAdmin() && isSameCompany(resource.data.companyId);
+      allow delete: if isAuthenticated() && isAdmin() && isSameCompany(resource.data.companyId);
+    }
   }
 }

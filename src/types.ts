@@ -1,4 +1,6 @@
 export type UserRole = 'admin' | 'manager' | 'team_lead' | 'sales';
+export type EmployeeStatus = 'Active' | 'On Leave' | 'Left';
+export type Department = 'Sales' | 'Dev' | 'Support';
 
 export interface AccessRequest {
   id: string;
@@ -37,6 +39,14 @@ export interface UserProfile {
   role: UserRole;
   photoURL?: string;
   createdAt: string;
+  // Employee fields
+  phone?: string;
+  department?: Department;
+  joiningDate?: string;
+  salary?: number;
+  status?: EmployeeStatus;
+  leadCount?: number;
+  conversionRate?: number;
 }
 
 export interface Lead {
@@ -103,5 +113,20 @@ export interface TaskTemplate {
   description: string;
   priority: 'Low' | 'Medium' | 'High';
   subtasks: { title: string }[];
+  createdAt: string;
+}
+
+export interface PayrollRecord {
+  id: string;
+  companyId: string;
+  employeeId: string;
+  employeeName: string;
+  month: string; // YYYY-MM
+  baseSalary: number;
+  bonus?: number;
+  deduction?: number;
+  totalAmount: number;
+  status: 'Paid' | 'Pending';
+  paidAt?: string;
   createdAt: string;
 }

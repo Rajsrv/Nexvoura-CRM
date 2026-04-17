@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch, getDocs } from 'firebase/firestore';
 import { UserProfile, Task, Lead, TaskTemplate, Company, Attachment } from '../types';
-import { Plus, Trash2, CheckCircle2, Circle, Clock, Calendar, User as UserIcon, MessageSquare, Flag, CheckSquare, Square, UserPlus, X, RefreshCcw, ChevronDown, Download, Search, Info, Bell, BellOff, Edit2, PlayCircle, CheckCircle, Save, Copy, Paperclip, Link as LinkIcon, ExternalLink, File as FileIcon } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Circle, Clock, Calendar, Filter, User as UserIcon, MessageSquare, Flag, CheckSquare, Square, UserPlus, X, RefreshCcw, ChevronDown, Download, Search, Info, Bell, BellOff, Edit2, PlayCircle, CheckCircle, Save, Copy, Paperclip, Link as LinkIcon, ExternalLink, File as FileIcon, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
+import { isPast, parseISO } from 'date-fns';
 import { 
   DndContext, 
   DragOverlay, 
@@ -124,7 +125,8 @@ function UserSelector({
   );
 }
 
-function DraggableTaskCard({ task, leads, team, deleteTask, toggleStatus, isSelected, onToggleSelect, updateSubtasks, onOpenDetail }: { 
+function DraggableTaskCard({ user, task, leads, team, deleteTask, toggleStatus, isSelected, onToggleSelect, updateSubtasks, onOpenDetail }: { 
+  user: UserProfile;
   task: Task; 
   leads: Lead[]; 
   team: UserProfile[]; 
@@ -175,6 +177,8 @@ function DraggableTaskCard({ task, leads, team, deleteTask, toggleStatus, isSele
     updateSubtasks(task.id, updatedSubtasks || []);
   };
 
+  const canDelete = user.role === 'admin' || user.role === 'manager' || user.role === 'team_lead';
+
   return (
     <div
       ref={setNodeRef}
@@ -182,19 +186,12 @@ function DraggableTaskCard({ task, leads, team, deleteTask, toggleStatus, isSele
       {...listeners}
       {...attributes}
       onClick={() => onOpenDetail(task)}
-      className={`bg-white p-4 rounded-xl border transition-all group relative cursor-pointer active:cursor-grabbing hover:translate-y-[-2px] ${
-        isSelected ? 'border-blue-500 ring-2 ring-blue-100 shadow-md' : 'border-slate-100 shadow-sm hover:shadow-lg'
+      className={`bg-white p-6 rounded-[32px] border transition-all group relative cursor-pointer active:cursor-grabbing hover:shadow-2xl hover:shadow-slate-200/50 ${
+        isSelected ? 'border-blue-500 ring-4 ring-blue-500/5 shadow-xl shadow-blue-500/10' : 'border-slate-50 shadow-sm'
       }`}
     >
-      {/* Priority Border Accent */}
-      <div className={`absolute left-0 top-4 bottom-4 w-1 rounded-r-full ${
-        task.priority === 'High' ? 'bg-rose-500' :
-        task.priority === 'Medium' ? 'bg-amber-500' :
-        'bg-blue-500'
-      }`} />
-      
-      <div className="flex justify-between items-start mb-2 ml-1">
-        <div className="flex items-start space-x-2">
+      <div className="flex justify-between items-start mb-4">
+        <div className="flex items-start space-x-3">
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); onToggleSelect(task.id); }}
@@ -203,88 +200,75 @@ function DraggableTaskCard({ task, leads, team, deleteTask, toggleStatus, isSele
             {isSelected ? <CheckSquare size={18} /> : <Square size={18} />}
           </button>
           <div className="min-w-0">
-            <h4 className="font-bold text-slate-900 leading-tight truncate">{task.title}</h4>
-            <div className="flex items-center space-x-1 mt-0.5">
-               {task.reminderEnabled && <Bell size={10} className="text-blue-500" />}
-               {task.status === 'In Progress' && <PlayCircle size={10} className="text-amber-500" />}
-               {task.status === 'Done' && <CheckCircle size={10} className="text-emerald-500" />}
+            <h4 className="font-black font-display text-slate-900 leading-tight text-lg group-hover:text-blue-600 transition-colors">
+              {task.title}
+            </h4>
+            <div className="flex items-center space-x-2 mt-1">
+               {task.reminderEnabled && <Bell size={12} className="text-blue-500" />}
+               <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                 task.priority === 'High' ? 'bg-rose-100 text-rose-600' :
+                 task.priority === 'Medium' ? 'bg-amber-100 text-amber-600' :
+                 'bg-blue-100 text-blue-600'
+               }`}>
+                 {task.priority || 'Normal'}
+               </span>
             </div>
           </div>
         </div>
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
-          className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1"
-        >
-          <Trash2 size={16} />
-        </button>
+        {canDelete && (
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
+            className="text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all p-1"
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
       </div>
-      <p className="text-sm text-slate-500 line-clamp-2 mb-3 ml-1">{task.description}</p>
+      
+      <p className="text-sm text-slate-500 line-clamp-2 mb-4 font-medium opacity-80 leading-relaxed">
+        {task.description}
+      </p>
       
       {/* Subtasks Summary */}
       {totalSubtasks > 0 && (
-        <div className="mb-3 ml-1">
-           <div className="flex justify-between items-center mb-1">
-             <span className="text-[10px] font-bold text-slate-400 uppercase">Progress</span>
-             <span className="text-[10px] font-bold text-slate-600">{Math.round((completedSubtasks/totalSubtasks)*100)}%</span>
+        <div className="mb-5 bg-slate-50 p-3 rounded-2xl border border-slate-100/50">
+           <div className="flex justify-between items-center mb-2">
+             <div className="flex items-center space-x-2">
+                <CheckSquare size={12} className="text-emerald-500" />
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress</span>
+             </div>
+             <span className="text-[10px] font-black text-slate-900">{completedSubtasks}/{totalSubtasks}</span>
            </div>
-           <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+           <div className="w-full bg-slate-200/50 h-1.5 rounded-full overflow-hidden">
              <motion.div 
                initial={{ width: 0 }}
                animate={{ width: `${(completedSubtasks/totalSubtasks)*100}%` }}
-               className="h-full bg-blue-500 rounded-full"
+               className="h-full bg-blue-600 rounded-full"
              />
            </div>
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2 mb-4 ml-1">
-        <div className={`flex items-center space-x-1 text-[10px] font-bold px-2 py-1 rounded-md ${
-          task.priority === 'High' ? 'text-rose-600 bg-rose-50' :
-          task.priority === 'Medium' ? 'text-amber-600 bg-amber-50' :
-          'text-blue-600 bg-blue-50'
-        }`}>
-          <Flag size={10} />
-          <span>{task.priority}</span>
+      <div className="flex items-center justify-between mt-auto">
+        <div className="flex -space-x-2">
+          {task.assignedTo ? (
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-[10px] font-black text-white border-2 border-white shadow-sm ring-1 ring-slate-100" title={team.find(m => m.uid === task.assignedTo)?.name}>
+              {team.find(m => m.uid === task.assignedTo)?.name[0]}
+            </div>
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 border-2 border-white italic">
+               ?
+            </div>
+          )}
         </div>
-        {task.leadId && (
-          <div className="flex items-center space-x-1 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
-            <MessageSquare size={10} />
-            <span>{leads.find(l => l.id === task.leadId)?.name || 'Lead'}</span>
-          </div>
-        )}
+        
         {task.dueDate && (
-          <div className="flex items-center space-x-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md">
-            <Calendar size={10} />
-            <span>{new Date(task.dueDate).toLocaleDateString()}</span>
+          <div className="flex items-center space-x-1.5 text-xs font-bold text-slate-400">
+            <Clock size={12} />
+            <span className="tracking-tight">{new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
           </div>
         )}
-        {task.attachments && task.attachments.length > 0 && (
-          <div className="flex items-center space-x-1 text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-md">
-            <Paperclip size={10} />
-            <span>{task.attachments.length}</span>
-          </div>
-        )}
-      </div>
-
-      <div className="flex justify-between items-center pt-4 border-t border-slate-50">
-        <div className="flex items-center space-x-2">
-          <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">
-            {team.find(m => m.uid === task.assignedTo)?.name[0] || '?'}
-          </div>
-          <span className="text-xs text-slate-500 truncate max-w-[80px]">
-            {team.find(m => m.uid === task.assignedTo)?.name || 'Unassigned'}
-          </span>
-        </div>
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); toggleStatus(task); }}
-          className={`p-1.5 rounded-lg transition-colors ${
-            task.status === 'Done' ? 'text-emerald-500 bg-emerald-50' : 'text-slate-400 bg-slate-50 hover:text-blue-500'
-          }`}
-        >
-          {task.status === 'Done' ? <CheckCircle2 size={18} /> : <Circle size={18} />}
-        </button>
       </div>
     </div>
   );
@@ -725,23 +709,41 @@ function TaskDetailModal({
   );
 }
 
-function DroppableColumn({ status, children, count }: { status: string; children: React.ReactNode; count: number; key?: React.Key }) {
-  const { isOver, setNodeRef } = useDroppable({
-    id: status,
+function DroppableColumn({ status, children, count }: { status: string, children: React.ReactNode, count: number }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: status
   });
+
+  const getStatusColor = (s: string) => {
+    switch(s) {
+      case 'Todo': return 'from-slate-400 to-slate-500';
+      case 'In Progress': return 'from-blue-500 to-indigo-600';
+      case 'Review': return 'from-amber-400 to-amber-500';
+      case 'Done': return 'from-emerald-400 to-emerald-500';
+      default: return 'from-slate-400 to-slate-500';
+    }
+  };
 
   return (
     <div 
       ref={setNodeRef}
-      className={`space-y-4 min-h-[500px] p-2 rounded-2xl transition-colors ${isOver ? 'bg-blue-50/50 ring-2 ring-blue-200 ring-dashed' : ''}`}
+      className={`flex flex-col h-full min-h-[500px] rounded-[40px] p-6 transition-all duration-300 bg-slate-100/30 border-2 border-transparent ${
+        isOver ? 'bg-blue-50/50 border-blue-200 border-dashed scale-[0.98]' : ''
+      }`}
     >
-      <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider flex items-center space-x-2 px-2">
-        <span>{status}</span>
-        <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full text-[10px]">
-          {count}
-        </span>
-      </h3>
-      <div className="space-y-3">
+      <div className="flex items-center justify-between mb-8 px-2">
+        <div className="flex items-center space-x-3">
+          <div className={`w-3 h-3 rounded-full bg-gradient-to-br ${getStatusColor(status)} shadow-lg`} />
+          <h3 className="font-black font-display text-xl text-slate-900 tracking-tight">{status}</h3>
+          <span className="bg-white px-3 py-1 rounded-full text-[10px] font-black text-slate-400 shadow-sm border border-slate-100">
+            {count}
+          </span>
+        </div>
+        <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-xl transition-all">
+          <Plus size={18} />
+        </button>
+      </div>
+      <div className="space-y-6 flex-1 h-full overflow-y-auto no-scrollbar pb-10">
         {children}
       </div>
     </div>
@@ -796,8 +798,21 @@ export default function TasksPage({ user }: { user: UserProfile }) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   useEffect(() => {
-    const tasksQ = query(collection(db, 'tasks'), where('companyId', '==', user.companyId));
-    const leadsQ = query(collection(db, 'leads'), where('companyId', '==', user.companyId));
+    let tasksQ = query(collection(db, 'tasks'), where('companyId', '==', user.companyId));
+    let leadsQ = query(collection(db, 'leads'), where('companyId', '==', user.companyId));
+
+    if (user.role === 'sales') {
+      tasksQ = query(
+        collection(db, 'tasks'),
+        where('companyId', '==', user.companyId),
+        where('assignedTo', '==', user.uid)
+      );
+      leadsQ = query(
+        collection(db, 'leads'),
+        where('companyId', '==', user.companyId),
+        where('assignedTo', '==', user.uid)
+      );
+    }
     const teamQ = query(collection(db, 'users'), where('companyId', '==', user.companyId));
     const templatesQ = query(collection(db, 'taskTemplates'), where('companyId', '==', user.companyId));
     const companyRef = doc(db, 'companies', user.companyId);
@@ -1106,7 +1121,7 @@ export default function TasksPage({ user }: { user: UserProfile }) {
     });
 
   return (
-    <div className="space-y-6 md:space-y-8 relative pb-28 min-h-screen">
+    <div className="flex flex-col lg:flex-row gap-12 min-h-screen relative pb-28 animate-in fade-in duration-700">
       {/* Task Detail Modal */}
       <AnimatePresence>
         {selectedTask && (
@@ -1120,68 +1135,123 @@ export default function TasksPage({ user }: { user: UserProfile }) {
           />
         )}
       </AnimatePresence>
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
-        <div>
-          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">Project Board</h2>
-          <p className="text-slate-500 text-sm mt-1">Manage tasks, deadlines, and team assignments</p>
+      {/* Sidebar Intel */}
+      <div className="w-full lg:w-1/4 space-y-8 shrink-0">
+        <div className="relative group">
+           <div className="absolute -inset-4 bg-gradient-to-r from-blue-600/5 to-indigo-600/5 rounded-[40px] blur-2xl group-hover:blur-3xl transition-all duration-700 opacity-0 group-hover:opacity-100" />
+           <div className="relative bg-white border border-slate-100 p-8 rounded-[40px] shadow-sm overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/50 rounded-bl-[80px] -z-10" />
+              <div className="w-16 h-16 bg-slate-950 text-white rounded-[24px] flex items-center justify-center mb-6 shadow-xl shadow-slate-200">
+                <CheckSquare size={32} className="text-blue-500" />
+              </div>
+              <h1 className="text-4xl font-black text-slate-950 tracking-tighter leading-[0.9] font-display mb-4 italic">
+                Project <br /><span className="text-blue-600 italic">Command.</span>
+              </h1>
+              <p className="text-slate-500 font-medium text-sm leading-relaxed mb-8 opacity-80">
+                Nexus Engine is coordinating <b>{tasks.length}</b> active operations across your workspace.
+              </p>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                   <div className="flex items-center space-x-3">
+                      <Clock size={16} className="text-blue-600" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Velocity</span>
+                   </div>
+                   <span className="text-xs font-black text-slate-900">Steady</span>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-rose-50 rounded-2xl border border-rose-100">
+                   <div className="flex items-center space-x-3">
+                      <AlertCircle size={16} className="text-rose-600" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-rose-400">Overdue</span>
+                   </div>
+                   <span className="text-xs font-black text-rose-600">
+                     {tasks.filter(t => t.dueDate && isPast(parseISO(t.dueDate)) && t.status !== 'Done').length}
+                   </span>
+                </div>
+              </div>
+           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+
+        <div className="bg-blue-600 rounded-[40px] p-8 text-white relative overflow-hidden group shadow-xl shadow-blue-500/20">
+           <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:rotate-12 transition-transform">
+              <Calendar size={120} />
+           </div>
+           <p className="text-[10px] font-black uppercase tracking-widest text-white/60 mb-4 px-1">Pipeline Status</p>
+           <h3 className="text-2xl font-bold font-display leading-tight mb-6">Precision <br />Tracking</h3>
+           <p className="text-xs text-blue-100 font-medium italic opacity-80">Maintain operational excellence through rigorous standard operating procedures.</p>
+        </div>
+      </div>
+
+      {/* Main Board Area */}
+      <div className="flex-1 space-y-8 min-w-0">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-4">
+        <div className="space-y-2">
+          <div className="inline-flex items-center space-x-2 text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+            <span>Mission Control</span>
+          </div>
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-950 tracking-tight font-display italic">Project <span className="text-blue-600">Board</span></h2>
+          <p className="text-slate-500 font-medium italic opacity-70">Scale your operations with precision tracking.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-4">
           <button
             onClick={exportTasksToCSV}
-            className="flex-1 sm:flex-none justify-center bg-white text-slate-600 border border-slate-200 px-4 py-2.5 rounded-xl flex items-center space-x-2 hover:bg-slate-50 hover:border-slate-300 transition-all text-sm font-semibold shadow-sm"
+            className="flex-1 sm:flex-none justify-center bg-white text-slate-900 border-2 border-slate-100 px-8 py-4 rounded-2xl flex items-center space-x-3 hover:bg-slate-50 hover:border-slate-200 transition-all text-xs font-black shadow-sm active:scale-95 whitespace-nowrap"
           >
             <Download size={18} />
-            <span className="hidden sm:inline">Export CSV</span>
+            <span className="uppercase tracking-widest">Export Signal</span>
           </button>
-          <button
-            onClick={refreshTeam}
-            disabled={refreshingTeam}
-            className={`p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all border border-transparent hover:border-blue-100 ${refreshingTeam ? 'animate-spin text-blue-600' : ''}`}
-            title="Refresh Team List"
-          >
-            <RefreshCcw size={20} />
-          </button>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex-1 sm:flex-none justify-center bg-slate-900 text-white px-5 py-2.5 rounded-xl flex items-center space-x-2 hover:bg-slate-800 transition-all text-sm font-semibold shadow-xl shadow-slate-200"
-          >
-            <Plus size={20} />
-            <span>New Task</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={refreshTeam}
+              disabled={refreshingTeam}
+              className={`p-4 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-2xl transition-all border border-transparent hover:border-blue-100 ${refreshingTeam ? 'animate-spin text-blue-600' : ''}`}
+              title="Sync Assets"
+            >
+              <RefreshCcw size={20} />
+            </button>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex-1 sm:flex-none justify-center bg-slate-950 text-white px-8 py-4 rounded-2xl flex items-center space-x-3 hover:bg-blue-600 transition-all text-xs font-black uppercase tracking-widest shadow-xl shadow-slate-900/10 active:scale-95 whitespace-nowrap"
+            >
+              <Plus size={20} />
+              <span>Initiate Operation</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Filters & Search Row */}
-      <div className="bg-white p-3 md:p-4 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-        <div className="flex flex-col xl:flex-row xl:items-center gap-4">
+      <div className="bg-white p-6 rounded-[32px] border-2 border-slate-100 shadow-sm space-y-4">
+        <div className="flex flex-col xl:flex-row xl:items-center gap-6">
           <div className="flex-1 relative group w-full">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+            <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
             <input
               type="text"
               placeholder="Search by title or description..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all text-sm"
+              className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600/20 focus:bg-white transition-all text-sm font-bold text-slate-900 placeholder:text-slate-400"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-2 md:gap-3">
-            <div className="flex-1 min-w-[140px] flex items-center space-x-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
-              <span className="text-[10px] font-bold text-slate-400 uppercase ml-2 hidden sm:inline">Assignee</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex-1 min-w-[140px] flex items-center space-x-2 bg-slate-50 p-1.5 rounded-2xl border-2 border-transparent hover:border-slate-100 transition-all">
+              <UserIcon size={18} className="text-slate-400 ml-2" />
               <select
                 value={filterAssignee}
                 onChange={(e) => setFilterAssignee(e.target.value)}
-                className="bg-transparent text-xs sm:text-sm font-semibold text-slate-700 outline-none border-none py-1 focus:ring-0 cursor-pointer w-full"
+                className="bg-transparent text-sm font-black text-slate-900 outline-none border-none py-2 focus:ring-0 cursor-pointer w-full"
               >
                 <option value="All font-bold">All Team</option>
                 {team.map(m => <option key={m.uid} value={m.uid}>{m.name}</option>)}
               </select>
             </div>
-            <div className="flex-1 min-w-[140px] flex items-center space-x-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
-              <span className="text-[10px] font-bold text-slate-400 uppercase ml-2 hidden sm:inline">Priority</span>
+            <div className="flex-1 min-w-[140px] flex items-center space-x-2 bg-slate-50 p-1.5 rounded-2xl border-2 border-transparent hover:border-slate-100 transition-all">
+              <Filter size={18} className="text-slate-400 ml-2" />
               <select
                 value={filterPriority}
                 onChange={(e) => setFilterPriority(e.target.value)}
-                className="bg-transparent text-xs sm:text-sm font-semibold text-slate-700 outline-none border-none py-1 focus:ring-0 cursor-pointer w-full"
+                className="bg-transparent text-sm font-black text-slate-900 outline-none border-none py-2 focus:ring-0 cursor-pointer w-full"
               >
                 <option value="All">All Levels</option>
                 <option value="High">High</option>
@@ -1189,23 +1259,13 @@ export default function TasksPage({ user }: { user: UserProfile }) {
                 <option value="Low">Low</option>
               </select>
             </div>
-            <div className="flex-1 min-w-[180px] flex items-center space-x-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
-              <span className="text-[10px] font-bold text-slate-400 uppercase ml-2 hidden sm:inline">Sort</span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="bg-transparent text-xs sm:text-sm font-semibold text-slate-700 outline-none border-none py-1 focus:ring-0 cursor-pointer flex-1"
-              >
-                <option value="createdAt">Date Created</option>
-                <option value="dueDate">Due Date</option>
-                <option value="priority">Priority Level</option>
-              </select>
+            <div className="flex items-center space-x-2 bg-slate-50 p-1.5 rounded-2xl border-2 border-transparent hover:border-slate-100 transition-all">
               <button 
                 onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-                className="p-1 px-2 text-slate-400 hover:text-blue-600 transition-colors border-l border-slate-200"
+                className="p-2.5 bg-white text-slate-900 rounded-xl shadow-sm border border-slate-100 hover:text-blue-600 transition-colors"
                 title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
               >
-                {sortOrder === 'asc' ? <Flag size={14} className="rotate-180" /> : <Flag size={14} />}
+                <Flag size={18} className={sortOrder === 'asc' ? 'rotate-180' : ''} />
               </button>
             </div>
           </div>
@@ -1249,6 +1309,7 @@ export default function TasksPage({ user }: { user: UserProfile }) {
                 {filteredTasks.filter(t => t.status === status).map((task) => (
                   <DraggableTaskCard 
                     key={task.id} 
+                    user={user}
                     task={task} 
                     leads={leads} 
                     team={team}
@@ -1270,6 +1331,7 @@ export default function TasksPage({ user }: { user: UserProfile }) {
           ))}
         </div>
       </DndContext>
+    </div>
 
       {/* Bulk Action Bar */}
       <AnimatePresence>
