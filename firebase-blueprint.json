@@ -31,9 +31,151 @@
         "joiningDate": { "type": "string", "format": "date" },
         "salary": { "type": "number" },
         "status": { "type": "string", "enum": ["Active", "On Leave", "Left"] },
+        "isResigned": { "type": "boolean" },
+        "shiftId": { "type": "string" },
+        "permissions": { "type": "array", "items": { "type": "string" } },
+        "reportsTo": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "email", "companyId", "role", "createdAt"]
+    },
+    "PermissionRequest": {
+      "title": "PermissionRequest",
+      "description": "Requests for additional granular permissions.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "companyId": { "type": "string" },
+        "requestedPermission": { "type": "string" },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "resolvedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "resolvedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "companyId", "requestedPermission", "status", "createdAt"]
+    },
+    "Shift": {
+      "title": "Shift",
+      "description": "Work shifts and schedules.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "name": { "type": "string" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "type": { "type": "string", "enum": ["Full-time", "Night", "Remote", "Hybrid"] },
+        "workDays": { "type": "array", "items": { "type": "number" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "name", "startTime", "endTime", "type", "workDays", "createdAt"]
+    },
+    "Holiday": {
+      "title": "Holiday",
+      "description": "Company and public holidays.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["Public", "Company", "Optional"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "date", "name", "type", "createdAt"]
+    },
+    "EmployeeDocument": {
+      "title": "EmployeeDocument",
+      "description": "Stored documents for an employee.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["Offer Letter", "ID Proof", "Contract", "Other"] },
+        "fileUrl": { "type": "string" },
+        "uploadedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "employeeId", "name", "type", "fileUrl", "uploadedAt"]
+    },
+    "ExitRecord": {
+      "title": "ExitRecord",
+      "description": "Exit/Resignation management record.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "resignationDate": { "type": "string", "format": "date" },
+        "lastWorkingDay": { "type": "string", "format": "date" },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Checklist Done", "Settled"] },
+        "checklist": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "task": { "type": "string" },
+              "completed": { "type": "boolean" }
+            }
+          }
+        },
+        "finalSettlementAmount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "employeeId", "resignationDate", "lastWorkingDay", "status", "createdAt"]
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "Daily employee attendance.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "checkIn": { "type": "string", "format": "date-time" },
+        "checkOut": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["On-time", "Late", "Absent"] },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" },
+            "address": { "type": "string" }
+          }
+        }
+      },
+      "required": ["companyId", "employeeId", "date", "checkIn", "status"]
+    },
+    "LeaveRequest": {
+      "title": "LeaveRequest",
+      "description": "Employee leave requests.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "type": { "type": "string", "enum": ["Annual", "Sick", "Work From Home", "Other"] },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "employeeId", "startDate", "endDate", "type", "status", "createdAt"]
+    },
+    "PerformanceReview": {
+      "title": "PerformanceReview",
+      "description": "Employee performance evaluations.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "reviewerId": { "type": "string" },
+        "period": { "type": "string" },
+        "rating": { "type": "number", "minimum": 1, "maximum": 5 },
+        "feedback": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "employeeId", "reviewerId", "rating", "createdAt"]
     },
     "Payroll": {
       "title": "Payroll",
@@ -99,9 +241,29 @@
         "assignedTo": { "type": "string" },
         "leadId": { "type": "string" },
         "notificationSent": { "type": "boolean", "description": "Whether a due-soon notification has been sent." },
+        "subtasks": { "type": "array", "items": { "type": "object" } },
+        "attachments": { "type": "array", "items": { "type": "object" } },
+        "reminderEnabled": { "type": "boolean" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["companyId", "title", "status", "createdAt"]
+    },
+    "TaskTemplate": {
+      "title": "TaskTemplate",
+      "description": "A template for creating tasks.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "name": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "priority": { "type": "string" },
+        "subtasks": { "type": "array", "items": { "type": "object" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "name", "title", "createdAt"]
     }
   },
   "firestore": {
@@ -128,6 +290,38 @@
     "/tasks/{taskId}": {
       "schema": "Task",
       "description": "Tasks managed by the company."
+    },
+    "/taskTemplates/{templateId}": {
+      "schema": "TaskTemplate",
+      "description": "Task templates for the company."
+    },
+    "/shifts/{shiftId}": {
+      "schema": "Shift",
+      "description": "Company shifts."
+    },
+    "/holidays/{holidayId}": {
+      "schema": "Holiday",
+      "description": "Company holidays."
+    },
+    "/employeeDocuments/{docId}": {
+      "schema": "EmployeeDocument",
+      "description": "Employee document storage."
+    },
+    "/exitRecords/{exitId}": {
+      "schema": "ExitRecord",
+      "description": "Employee exit management."
+    },
+    "/attendance/{attendanceId}": {
+      "schema": "Attendance",
+      "description": "Employee attendance logs."
+    },
+    "/leaveRequests/{requestId}": {
+      "schema": "LeaveRequest",
+      "description": "Employee leave management."
+    },
+    "/performanceReviews/{reviewId}": {
+      "schema": "PerformanceReview",
+      "description": "Employee performance records."
     }
   }
 }

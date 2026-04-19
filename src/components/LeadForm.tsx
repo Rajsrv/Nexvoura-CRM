@@ -38,49 +38,51 @@ export default function LeadForm({ companyId }: { companyId: string }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="max-w-xl mx-auto bg-white p-8 rounded-3xl shadow-2xl border border-slate-100"
+      className="w-full max-w-xl mx-auto bg-white p-6 md:p-10 rounded-[40px] shadow-2xl border border-slate-100 flex flex-col"
     >
-      <h2 className="text-3xl font-black text-slate-900 mb-2">Get a Free Audit</h2>
-      <p className="text-slate-500 mb-8">Tell us about your project and we'll get back to you within 24 hours.</p>
+      <div className="mb-8">
+        <h2 className="text-3xl md:text-4xl font-black text-slate-950 italic tracking-tighter uppercase mb-2">Get a Free Audit</h2>
+        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest italic">Precision Diagnostic Protocol Initiation</p>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Full Name</label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Full Name</label>
             <input
               type="text"
               required
-              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-900"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             />
           </div>
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Email Address</label>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Email Address</label>
             <input
               type="email"
               required
-              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-900"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Phone Number</label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Phone Number</label>
             <input
               type="tel"
-              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-900"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             />
           </div>
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Service Required</label>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Service Required</label>
             <select
-              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
+              className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none cursor-pointer font-bold text-slate-900"
               value={formData.service}
               onChange={(e) => setFormData({ ...formData, service: e.target.value })}
             >
@@ -91,21 +93,22 @@ export default function LeadForm({ companyId }: { companyId: string }) {
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Project Details</label>
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Project Details</label>
           <textarea
             rows={4}
-            className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-900 resize-none"
             value={formData.message}
             onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+            placeholder="Outline your strategic requirements..."
           />
         </div>
 
         <button
           disabled={loading}
-          className="w-full bg-blue-600 text-white p-4 rounded-xl font-bold text-lg hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-200 transition-all disabled:opacity-50"
+          className="w-full bg-slate-950 text-white p-5 rounded-[32px] font-black italic text-sm tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-950/20 active:scale-95 uppercase"
         >
-          {loading ? 'Submitting...' : 'Send Request'}
+          {loading ? 'Processing...' : 'Initialize Analysis'}
         </button>
       </form>
     </motion.div>

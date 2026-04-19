@@ -5,20 +5,48 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Outfit", sans-serif;
   
-  --color-brand-primary: #0F172A;
-  --color-brand-accent: #3B82F6;
-  --color-brand-surface: #F8FAFC;
+  --color-brand-primary: #6366f1; /* Indigo 500 */
+  --color-brand-success: #10b981; /* Emerald 500 */
+  --color-brand-warning: #f59e0b; /* Amber 500 */
+  --color-brand-danger: #ef4444;  /* Red 500 */
+  --color-brand-surface: #ffffff;
+  --color-brand-subtle: #f8fafc;
+  
+  --shadow-soft: 0 2px 4px rgba(0,0,0,0.02), 0 10px 15px -3px rgba(0,0,0,0.03), 0 4px 6px -2px rgba(0,0,0,0.02);
+  --shadow-card: 0 0 0 1px rgba(0,0,0,0.05), 0 10px 15px -3px rgba(0,0,0,0.03), 0 4px 6px -2px rgba(0,0,0,0.02);
 }
 
 @layer base {
   body {
-    @apply font-sans antialiased text-slate-900 bg-brand-surface;
+    @apply font-sans antialiased text-slate-900 bg-[#fbfbfb];
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight font-semibold;
+  }
+}
+
+@layer components {
+  .saas-card {
+    @apply bg-white border border-slate-200/60 rounded-[20px] shadow-soft transition-all duration-300;
+  }
+  
+  .saas-card-hover {
+    @apply hover:shadow-card hover:border-slate-300/60;
+  }
+
+  .saas-button-primary {
+    @apply bg-brand-primary text-white px-5 py-2.5 rounded-xl font-semibold shadow-sm hover:opacity-90 active:scale-95 transition-all;
+  }
+
+  .saas-input {
+    @apply w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/10 focus:border-brand-primary transition-all text-sm;
   }
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {

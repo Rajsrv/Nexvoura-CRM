@@ -5,18 +5,48 @@ import { UserProfile, Invite, AccessRequest, UserRole, Company, Department, Empl
 import { Plus, Trash2, Mail, Shield, User as UserIcon, Check, X, Copy, Globe, Edit2, Phone, Briefcase, Calendar as CalendarIcon, DollarSign, TrendingUp, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
+import { format } from 'date-fns';
 
 export default function EmployeesPage({ user, company }: { user: UserProfile, company: Company | null }) {
   const [team, setTeam] = useState<UserProfile[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [requests, setRequests] = useState<AccessRequest[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [shifts, setShifts] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'members' | 'invites'>('members');
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [addMethod, setAddMethod] = useState<'invite' | 'manual'>('invite');
   const [editingMember, setEditingMember] = useState<UserProfile | null>(null);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<UserRole>('sales');
+  
+  // Controlled form state for manual entry
+  const [manualEntry, setManualEntry] = useState({
+    name: '',
+    email: '',
+    role: 'sales' as UserRole,
+    department: 'Sales' as Department,
+    phone: '',
+    joiningDate: format(new Date(), 'yyyy-MM-dd'),
+    shiftId: '',
+    salary: 50000
+  });
+
+  // Controlled form state for editing
+  const [editedValues, setEditedValues] = useState({
+    name: '',
+    role: 'sales' as UserRole,
+    department: 'Sales' as Department,
+    phone: '',
+    status: 'Active' as EmployeeStatus,
+    joiningDate: '',
+    shiftId: '',
+    salary: 0
+  });
+
   const [loading, setLoading] = useState(false);
+
+  const [viewingMember, setViewingMember] = useState<UserProfile | null>(null);
 
   const isAdmin = user.role === 'admin';
   const isManager = user.role === 'manager';
@@ -30,12 +60,21 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
   };
 
   useEffect(() => {
+    if (!user.companyId) return;
+
+    // Fetch shifts for assignment
+    const shiftsQ = query(collection(db, 'shifts'), where('companyId', '==', user.companyId));
+    const unsubShifts = onSnapshot(shiftsQ, (snap) => {
+      setShifts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
     if (user.role === 'sales') {
       // Sales only sees themselves
       const teamQ = query(collection(db, 'users'), where('uid', '==', user.uid));
       const leadsQ = query(collection(db, 'leads'), where('assignedTo', '==', user.uid));
       
       const unsubTeam = onSnapshot(teamQ, (snap) => {
+        const userData = snap.docs[0]?.data() as UserProfile | undefined;
         setTeam(snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile)));
       });
 
@@ -44,6 +83,7 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
       });
 
       return () => {
+        unsubShifts();
         unsubTeam();
         unsubLeads();
       };
@@ -71,6 +111,7 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
       });
 
       return () => {
+        unsubShifts();
         unsubTeam();
         unsubInvites();
         unsubRequests();
@@ -79,11 +120,82 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
     }
   }, [user.companyId, user.uid, user.role]);
 
+  useEffect(() => {
+    if (editingMember) {
+      setEditedValues({
+        name: editingMember.name || '',
+        role: editingMember.role || 'sales',
+        department: editingMember.department || 'Sales',
+        phone: editingMember.phone || '',
+        status: editingMember.status || 'Active',
+        joiningDate: editingMember.joiningDate || '',
+        shiftId: editingMember.shiftId || '',
+        salary: editingMember.salary || 0
+      });
+    }
+  }, [editingMember]);
+
   const getStatsForUser = (userId: string) => {
     const userLeads = leads.filter(l => l.assignedTo === userId);
     const converted = userLeads.filter(l => l.status === 'Converted').length;
     const rate = userLeads.length > 0 ? (converted / userLeads.length) * 100 : 0;
     return { count: userLeads.length, rate: Math.round(rate) };
+  };
+
+  const handleAddManual = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user.companyId || !user.uid) return;
+    setLoading(true);
+    try {
+      const { name, email, role, department, phone, salary, joiningDate, shiftId } = manualEntry;
+
+      // Check if email already exists
+      const emailCheck = query(collection(db, 'users'), where('email', '==', email));
+      const emailSnap = await getDocs(emailCheck);
+      if (!emailSnap.empty) {
+        toast.error('Identity already exists in system');
+        return;
+      }
+
+      const tempId = Math.random().toString(36).substring(2, 9).toUpperCase();
+      const memberId = `EMP-${new Date().getFullYear()}-${tempId}`;
+
+      const newUser: Partial<UserProfile> = {
+        name,
+        email,
+        role,
+        companyId: user.companyId,
+        department,
+        phone,
+        salary,
+        joiningDate,
+        shiftId,
+        memberId,
+        status: 'Active',
+        createdAt: new Date().toISOString(),
+      };
+
+      const docRef = await addDoc(collection(db, 'users'), newUser);
+      await updateDoc(docRef, { uid: docRef.id });
+
+      toast.success(`Employee ${name} added directly to Nexus`);
+      setShowInviteModal(false);
+      setManualEntry({
+        name: '',
+        email: '',
+        role: 'sales',
+        department: 'Sales',
+        phone: '',
+        joiningDate: format(new Date(), 'yyyy-MM-dd'),
+        shiftId: '',
+        salary: 50000
+      });
+    } catch (error) {
+      console.error(error);
+      toast.error('Direct entry sequence failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInvite = async (e: React.FormEvent) => {
@@ -135,14 +247,7 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
     if (!editingMember) return;
     setLoading(true);
     try {
-      const formData = new FormData(e.target as HTMLFormElement);
-      const name = formData.get('name') as string;
-      const role = formData.get('role') as UserRole;
-      const department = formData.get('department') as Department;
-      const phone = formData.get('phone') as string;
-      const status = formData.get('status') as EmployeeStatus;
-      const joiningDate = formData.get('joiningDate') as string;
-      const salary = formData.get('salary') ? Number(formData.get('salary')) : editingMember.salary;
+      const { name, role, department, phone, status, joiningDate, shiftId, salary } = editedValues;
 
       const updates: any = {
         name,
@@ -150,7 +255,8 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
         department,
         phone,
         status,
-        joiningDate
+        joiningDate,
+        shiftId
       };
 
       if (isAdmin && salary !== undefined) {
@@ -245,13 +351,13 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
           </h2>
         </div>
         {canManage && (
-          <button
-            onClick={() => setShowInviteModal(true)}
-            className="group flex items-center justify-center space-x-3 bg-slate-950 text-white px-8 py-4 md:py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl shadow-slate-900/10 active:scale-95"
-          >
-            <Plus size={18} />
-            <span>Invite New Member</span>
-          </button>
+            <button
+              onClick={() => setShowInviteModal(true)}
+              className="group flex items-center justify-center space-x-3 bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-950 transition-all shadow-xl shadow-indigo-200 active:scale-95"
+            >
+              <Plus size={18} />
+              <span>Add Employee</span>
+            </button>
         )}
       </div>
 
@@ -314,24 +420,28 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
           <div className="bg-white rounded-[40px] border border-slate-100 overflow-hidden shadow-xl shadow-slate-200/10">
             <div className="overflow-x-auto custom-scrollbar">
               <table className="w-full text-left min-w-[800px]">
-                <thead className="bg-slate-50 border-b border-slate-100">
+                <thead className="bg-slate-50/50 border-b border-slate-100">
                   <tr>
-                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 uppercase tracking-widest">Employee</th>
-                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 uppercase tracking-widest">Department</th>
-                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 uppercase tracking-widest">Role</th>
-                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 uppercase tracking-widest text-center">Stats</th>
-                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 uppercase tracking-widest">Status</th>
-                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Role</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Department</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Joining Date</th>
+                    {isAdmin && <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Salary</th>}
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {team.map((member) => {
-                    const stats = getStatsForUser(member.uid);
                     return (
-                      <tr key={member.uid} className="group hover:bg-slate-50/50 transition-colors">
-                        <td className="px-8 py-6">
+                      <tr 
+                        key={member.uid} 
+                        className="group hover:bg-indigo-50/30 transition-all cursor-pointer"
+                        onClick={() => setViewingMember(member)}
+                      >
+                        <td className="px-8 py-5">
                            <div className="flex items-center space-x-4">
-                             <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center overflow-hidden shrink-0 border border-slate-100 shadow-sm">
+                             <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center overflow-hidden shrink-0 border border-slate-200 shadow-sm">
                                {member.photoURL ? (
                                  <img src={member.photoURL} alt={member.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                ) : (
@@ -339,73 +449,59 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                                )}
                              </div>
                              <div className="min-w-0">
-                               <div className="font-black text-slate-950 uppercase tracking-tight text-sm font-display tracking-tight">{member.name}</div>
-                               <div className="text-[10px] text-slate-400 font-bold truncate">{member.email}</div>
+                               <div className="font-bold text-slate-950 text-sm">{member.name}</div>
+                               <div className="text-[10px] text-slate-400 font-medium truncate">{member.email}</div>
                              </div>
                            </div>
                         </td>
-                        <td className="px-8 py-6">
-                           <div className="flex items-center space-x-2">
-                             <Briefcase size={14} className="text-blue-500/50" />
-                             <span className="text-xs font-bold text-slate-600 uppercase tracking-tight font-display tracking-widest">{member.department || 'Unassigned'}</span>
-                           </div>
-                        </td>
-                        <td className="px-8 py-6">
-                           <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                             member.role === 'admin' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
-                             member.role === 'manager' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
-                             member.role === 'team_lead' ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' :
-                             'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                        <td className="px-8 py-5">
+                           <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
+                             member.role === 'admin' ? 'bg-indigo-100 text-indigo-700' :
+                             member.role === 'manager' ? 'bg-blue-100 text-blue-700' :
+                             'bg-slate-100 text-slate-600'
                            }`}>
                              {member.role.replace('_', ' ')}
                            </span>
                         </td>
-                        <td className="px-8 py-6">
-                           <div className="flex items-center justify-center space-x-4">
-                              <div className="text-center">
-                                 <div className="text-xs font-black text-slate-950 font-display">{stats.count}</div>
-                                 <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Leads</div>
-                              </div>
-                              <div className="w-px h-6 bg-slate-100" />
-                              <div className="text-center">
-                                 <div className="text-xs font-black text-blue-600 font-display">{stats.rate}%</div>
-                                 <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Rate</div>
-                              </div>
+                        <td className="px-8 py-5">
+                           <div className="flex items-center space-x-2">
+                             <span className="text-xs font-semibold text-slate-600">{member.department || '—'}</span>
                            </div>
                         </td>
-                        <td className="px-8 py-6">
+                        <td className="px-8 py-5">
+                           <div className="text-xs font-semibold text-slate-500">
+                             {member.joiningDate ? new Date(member.joiningDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                           </div>
+                        </td>
+                        {isAdmin && (
+                          <td className="px-8 py-5">
+                             <div className="text-xs font-bold text-slate-950">
+                               {member.salary ? `$${member.salary.toLocaleString()}` : '—'}
+                             </div>
+                          </td>
+                        )}
+                        <td className="px-8 py-5">
                            <div className="flex items-center space-x-2">
-                              <div className={`w-2 h-2 rounded-full ${
+                             <div className={`w-1.5 h-1.5 rounded-full ${
                                 member.status === 'Active' ? 'bg-emerald-500' :
                                 member.status === 'On Leave' ? 'bg-amber-500' :
                                 'bg-slate-300'
-                              } animate-pulse`} />
-                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 font-display">{member.status || 'Active'}</span>
+                              }`} />
+                              <span className="text-[10px] font-bold text-slate-600">
+                                {member.isResigned ? 'Resigned' : (member.status || 'Active')}
+                              </span>
                            </div>
                         </td>
-                        <td className="px-8 py-6 text-right">
-                          <div className="flex justify-end items-center space-x-2">
-                            {member.uid !== user.uid && roleHierarchy[user.role] > roleHierarchy[member.role] && (
-                              <>
-                                <button
-                                  onClick={() => setEditingMember(member)}
-                                  className="w-9 h-9 flex items-center justify-center bg-white rounded-xl border border-slate-100 text-slate-400 hover:text-blue-600 hover:border-blue-100 hover:shadow-lg transition-all"
-                                  title="Edit Employee"
-                                >
-                                  <Edit2 size={16} />
-                                </button>
-                                {isAdmin && (
-                                  <button
-                                    onClick={() => {/* Handle Delete */}}
-                                    className="w-9 h-9 flex items-center justify-center bg-white rounded-xl border border-slate-100 text-slate-400 hover:text-rose-600 hover:border-rose-100 hover:shadow-lg transition-all"
-                                    title="Offboard Employee"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                )}
-                              </>
-                            )}
-                          </div>
+                        <td className="px-8 py-5 text-right">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingMember(member);
+                            }}
+                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                          >
+                            <Edit2 size={16} />
+                          </button>
                         </td>
                       </tr>
                     );
@@ -483,9 +579,9 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-white rounded-[40px] p-10 max-w-md w-full shadow-2xl relative overflow-hidden"
+              className="bg-white rounded-[40px] p-10 max-w-2xl w-full shadow-2xl relative overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar"
             >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/50 rounded-bl-[80px] -z-10" />
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/50 rounded-bl-[80px] -z-10" />
               <button 
                 onClick={() => setShowInviteModal(false)}
                 className="absolute top-6 right-6 p-2 text-slate-300 hover:text-slate-950 transition-colors"
@@ -493,67 +589,185 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                 <X size={24} />
               </button>
 
-              <h3 className="text-3xl font-black text-slate-950 mb-8 font-display italic leading-none">Invite To Nexus</h3>
-              <form onSubmit={handleInvite} className="space-y-8">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 px-1">Network Identity (Email)</label>
-                  <input
-                    type="email"
-                    required
-                    className="w-full p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-200 transition-all text-sm font-bold uppercase tracking-tight placeholder:text-slate-300"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="alias@nexvoura.sh"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 px-1">System Clearance (Role)</label>
-                  <div className="relative">
-                    <select
-                      className="w-full p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-200 transition-all text-sm font-black uppercase tracking-widest appearance-none"
-                      value={inviteRole}
-                      onChange={(e) => setInviteRole(e.target.value as any)}
-                    >
-                      <option value="sales">Sales (Field Unit)</option>
-                      <option value="team_lead">Team Lead (Support)</option>
-                      <option value="manager">Manager (Ops)</option>
-                      <option value="admin">Admin (System Root)</option>
-                    </select>
-                    <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                      <Shield size={18} />
+              <h3 className="text-3xl font-black text-slate-950 mb-4 font-display italic leading-none">Add Employee</h3>
+              
+              <div className="flex space-x-4 mb-8 p-1 bg-slate-100 rounded-2xl w-fit">
+                <button
+                   onClick={() => setAddMethod('invite')}
+                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${addMethod === 'invite' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                   Secure Invitation
+                </button>
+                <button
+                   onClick={() => setAddMethod('manual')}
+                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${addMethod === 'manual' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                   Direct Entry
+                </button>
+              </div>
+
+              {addMethod === 'invite' ? (
+                <form onSubmit={handleInvite} className="space-y-8">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 px-1">Network Identity (Email)</label>
+                    <input
+                      type="email"
+                      required
+                      className="w-full p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-200 transition-all text-sm font-bold uppercase tracking-tight placeholder:text-slate-300"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      placeholder="alias@nexvoura.sh"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 px-1">System Clearance (Role)</label>
+                    <div className="relative">
+                      <select
+                        className="w-full p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-200 transition-all text-sm font-black uppercase tracking-widest appearance-none"
+                        value={inviteRole}
+                        onChange={(e) => setInviteRole(e.target.value as any)}
+                      >
+                        <option value="sales">Sales (Field Unit)</option>
+                        <option value="team_lead">Team Lead (Support)</option>
+                        <option value="manager">Manager (Ops)</option>
+                        <option value="admin">Admin (System Root)</option>
+                      </select>
+                      <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                        <Shield size={18} />
+                      </div>
                     </div>
                   </div>
-                </div>
-                <button
-                  disabled={loading}
-                  className="w-full bg-slate-950 text-white p-5 rounded-[24px] font-black text-xs uppercase tracking-[0.3em] hover:bg-blue-600 transition-all disabled:opacity-50 shadow-2xl shadow-slate-950/20 active:scale-95"
-                >
-                  {loading ? 'Initializing...' : 'Authorize Invite'}
-                </button>
-              </form>
+                  <button
+                    disabled={loading}
+                    className="w-full bg-slate-950 text-white p-5 rounded-[24px] font-black text-xs uppercase tracking-[0.3em] hover:bg-indigo-600 transition-all disabled:opacity-50 shadow-2xl shadow-slate-950/20 active:scale-95"
+                  >
+                    {loading ? 'Initializing...' : 'Authorize Invite'}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleAddManual} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Full Name</label>
+                      <input 
+                        value={manualEntry.name}
+                        onChange={(e) => setManualEntry({ ...manualEntry, name: e.target.value })}
+                        type="text" 
+                        required 
+                        placeholder="John Doe" 
+                        className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white text-sm font-bold uppercase tracking-tight" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Email Address</label>
+                      <input 
+                        value={manualEntry.email}
+                        onChange={(e) => setManualEntry({ ...manualEntry, email: e.target.value })}
+                        type="email" 
+                        required 
+                        placeholder="john@company.com" 
+                        className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white text-sm font-bold" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Clearance Level</label>
+                      <select 
+                        value={manualEntry.role}
+                        onChange={(e) => setManualEntry({ ...manualEntry, role: e.target.value as UserRole })}
+                        required 
+                        className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white text-sm font-black uppercase tracking-widest appearance-none"
+                      >
+                        <option value="sales">Sales</option>
+                        <option value="team_lead">Team Lead</option>
+                        <option value="manager">Manager</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Department</label>
+                      <select 
+                        value={manualEntry.department}
+                        onChange={(e) => setManualEntry({ ...manualEntry, department: e.target.value as Department })}
+                        required 
+                        className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white text-sm font-black uppercase tracking-widest appearance-none"
+                      >
+                        <option value="Sales">Sales</option>
+                        <option value="Dev">Development</option>
+                        <option value="Support">Support</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Phone Number</label>
+                      <input 
+                        value={manualEntry.phone}
+                        onChange={(e) => setManualEntry({ ...manualEntry, phone: e.target.value })}
+                        type="tel" 
+                        placeholder="+1 555-0123" 
+                        className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white text-sm font-bold" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Joining Date</label>
+                      <input 
+                        value={manualEntry.joiningDate}
+                        onChange={(e) => setManualEntry({ ...manualEntry, joiningDate: e.target.value })}
+                        type="date" 
+                        required 
+                        className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white text-sm font-bold" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Work Shift</label>
+                      <select 
+                        value={manualEntry.shiftId}
+                        onChange={(e) => setManualEntry({ ...manualEntry, shiftId: e.target.value })}
+                        className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white text-sm font-black uppercase tracking-widest appearance-none"
+                      >
+                        <option value="">No Shift</option>
+                        {shifts.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-2 px-1">Annual Salary ($)</label>
+                      <input 
+                        value={manualEntry.salary}
+                        onChange={(e) => setManualEntry({ ...manualEntry, salary: Number(e.target.value) })}
+                        type="number" 
+                        className="w-full p-4 bg-slate-50 border border-indigo-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white text-sm font-black" 
+                      />
+                    </div>
+                  </div>
+                  <button
+                    disabled={loading}
+                    className="w-full bg-slate-950 text-white p-5 rounded-[24px] font-black text-xs uppercase tracking-[0.3em] hover:bg-indigo-600 transition-all disabled:opacity-50 shadow-2xl shadow-slate-950/20 active:scale-95 mt-4"
+                  >
+                    {loading ? 'Processing...' : 'Deploy Direct Account'}
+                  </button>
+                </form>
+              )}
             </motion.div>
           </div>
         )}
-
         {editingMember && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md">
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-white rounded-[40px] p-10 max-w-2xl w-full shadow-2xl relative overflow-hidden"
+              className="bg-white rounded-[40px] p-6 md:p-10 max-w-2xl w-full shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]"
             >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/50 rounded-bl-[80px] -z-10" />
-              <button 
-                onClick={() => setEditingMember(null)}
-                className="absolute top-6 right-6 p-2 text-slate-300 hover:text-slate-950 transition-colors"
-              >
-                <X size={24} />
-              </button>
-
-              <h3 className="text-3xl font-black text-slate-950 mb-8 font-display italic leading-none uppercase">Update Personnel Config</h3>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/50 rounded-bl-[80px] -z-10" />
+              <div className="flex justify-between items-center mb-6 md:mb-8">
+                <h3 className="text-2xl md:text-3xl font-black text-slate-950 font-display italic leading-none uppercase tracking-tight">Personnel Configuration</h3>
+                <button 
+                  onClick={() => setEditingMember(null)}
+                  className="p-2 text-slate-300 hover:text-slate-950 transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
               
-              <form onSubmit={updateMemberDetails}>
+              <form onSubmit={updateMemberDetails} className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Full Identity Name</label>
@@ -561,8 +775,9 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                       name="name"
                       type="text"
                       required
-                      defaultValue={editingMember.name}
-                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white text-sm font-bold uppercase tracking-tight"
+                      value={editedValues.name}
+                      onChange={(e) => setEditedValues({ ...editedValues, name: e.target.value })}
+                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white text-sm font-bold uppercase tracking-tight"
                     />
                   </div>
 
@@ -570,8 +785,9 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Clearance Level</label>
                     <select
                       name="role"
-                      defaultValue={editingMember.role}
-                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white text-sm font-black uppercase tracking-widest appearance-none"
+                      value={editedValues.role}
+                      onChange={(e) => setEditedValues({ ...editedValues, role: e.target.value as UserRole })}
+                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white text-sm font-black uppercase tracking-widest appearance-none"
                     >
                       <option value="sales">Sales</option>
                       <option value="team_lead">Team Lead</option>
@@ -584,8 +800,9 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Department</label>
                     <select
                       name="department"
-                      defaultValue={editingMember.department || 'Sales'}
-                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white text-sm font-black uppercase tracking-widest appearance-none"
+                      value={editedValues.department}
+                      onChange={(e) => setEditedValues({ ...editedValues, department: e.target.value as Department })}
+                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white text-sm font-black uppercase tracking-widest appearance-none"
                     >
                       <option value="Sales">Sales (Outreach)</option>
                       <option value="Dev">Development (Build)</option>
@@ -598,9 +815,10 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                     <input
                       name="phone"
                       type="tel"
-                      defaultValue={editingMember.phone}
+                      value={editedValues.phone}
+                      onChange={(e) => setEditedValues({ ...editedValues, phone: e.target.value })}
                       placeholder="+1 (555) 000-0000"
-                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white text-sm font-bold"
+                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white text-sm font-bold"
                     />
                   </div>
 
@@ -608,8 +826,9 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Current Status</label>
                     <select
                       name="status"
-                      defaultValue={editingMember.status || 'Active'}
-                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white text-sm font-black uppercase tracking-widest appearance-none"
+                      value={editedValues.status}
+                      onChange={(e) => setEditedValues({ ...editedValues, status: e.target.value as EmployeeStatus })}
+                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white text-sm font-black uppercase tracking-widest appearance-none"
                     >
                       <option value="Active">Active Duty</option>
                       <option value="On Leave">Authorized Leave</option>
@@ -622,21 +841,38 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                     <input
                       name="joiningDate"
                       type="date"
-                      defaultValue={editingMember.joiningDate}
-                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white text-sm font-bold"
+                      value={editedValues.joiningDate}
+                      onChange={(e) => setEditedValues({ ...editedValues, joiningDate: e.target.value })}
+                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white text-sm font-bold"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Work Shift</label>
+                    <select
+                      name="shiftId"
+                      value={editedValues.shiftId}
+                      onChange={(e) => setEditedValues({ ...editedValues, shiftId: e.target.value })}
+                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white text-sm font-black uppercase tracking-widest appearance-none"
+                    >
+                      <option value="">No Specific Shift</option>
+                      {shifts.map(s => (
+                        <option key={s.id} value={s.id}>{s.name} ({s.startTime}-{s.endTime})</option>
+                      ))}
+                    </select>
                   </div>
 
                   {isAdmin && (
                     <div className="md:col-span-2">
-                      <label className="block text-[10px] font-black text-rose-500 uppercase tracking-widest mb-2 px-1">Compensation (Salary / Year)</label>
+                      <label className="block text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-2 px-1">Compensation (Salary / Year)</label>
                       <div className="relative">
                         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</div>
                         <input
                           name="salary"
                           type="number"
-                          defaultValue={editingMember.salary}
-                          className="w-full p-4 pl-8 bg-slate-50 border border-rose-100 rounded-2xl outline-none focus:ring-4 focus:ring-rose-500/10 focus:bg-white text-sm font-black text-slate-950"
+                          value={editedValues.salary}
+                          onChange={(e) => setEditedValues({ ...editedValues, salary: Number(e.target.value) })}
+                          className="w-full p-4 pl-8 bg-slate-50 border border-indigo-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white text-sm font-black text-slate-950"
                         />
                       </div>
                     </div>
@@ -653,16 +889,143 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                   </button>
                   <button
                     disabled={loading}
-                    className="flex-1 bg-slate-950 text-white p-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-600 transition-all disabled:opacity-50 shadow-2xl shadow-slate-950/20"
+                    className="flex-1 bg-indigo-600 text-white p-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-2xl shadow-indigo-950/20"
                   >
-                    {loading ? 'Processing...' : 'Sync Personnel Data'}
+                    {loading ? 'Processing...' : 'Apply Overrides'}
                   </button>
                 </div>
               </form>
             </motion.div>
           </div>
         )}
+
+        {viewingMember && (
+          <EmployeeProfileModal 
+            member={viewingMember} 
+            stats={getStatsForUser(viewingMember.uid)}
+            onClose={() => setViewingMember(null)}
+          />
+        )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function EmployeeProfileModal({ member, stats, onClose }: { member: UserProfile, stats: any, onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        className="bg-white rounded-[40px] max-w-2xl w-full shadow-2xl overflow-hidden relative"
+      >
+        <div className="h-32 md:h-40 bg-indigo-600 relative overflow-hidden">
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute -top-20 -right-20 w-80 h-80 bg-white rounded-full blur-3xl animate-pulse" />
+            <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-indigo-400 rounded-full blur-3xl" />
+          </div>
+          <button 
+            onClick={onClose}
+            className="absolute top-4 right-4 md:top-6 md:right-6 p-2 bg-white/10 text-white hover:bg-white/20 rounded-full backdrop-blur-sm transition-all"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="px-6 md:px-10 pb-6 md:pb-10 -mt-12 md:-mt-16 relative overflow-y-auto custom-scrollbar flex-1">
+          <div className="flex flex-col md:flex-row items-center md:items-end justify-center md:justify-between gap-6 mb-8 text-center md:text-left">
+            <div className="flex flex-col md:flex-row items-center md:items-end space-y-4 md:space-y-0 md:space-x-6">
+              <div className="w-28 h-28 md:w-32 md:h-32 rounded-[32px] bg-white p-1 border-4 border-white shadow-2xl overflow-hidden shadow-indigo-200 shrink-0">
+                <div className="w-full h-full rounded-[24px] bg-slate-100 flex items-center justify-center overflow-hidden">
+                  {member.photoURL ? (
+                    <img src={member.photoURL} alt={member.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <span className="text-4xl font-black text-slate-300">{member.name[0]}</span>
+                  )}
+                </div>
+              </div>
+              <div className="pb-2">
+                <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-none italic uppercase">{member.name}</h2>
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-3">
+                  <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100">
+                    {member.role.replace('_', ' ')}
+                  </span>
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{member.department || 'Operative'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-10">
+            <div className="p-5 md:p-6 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-indigo-100 transition-all">
+              <div className="p-3 bg-white rounded-2xl w-fit mb-4 shadow-sm text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                <Briefcase size={20} />
+              </div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Leads Handled</p>
+              <h4 className="text-2xl md:text-3xl font-black text-slate-900 italic">{stats.count}</h4>
+            </div>
+            <div className="p-5 md:p-6 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-emerald-100 transition-all">
+              <div className="p-3 bg-white rounded-2xl w-fit mb-4 shadow-sm text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                <TrendingUp size={20} />
+              </div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Conversion Rate</p>
+              <h4 className="text-2xl md:text-3xl font-black text-slate-900 italic">{stats.rate}%</h4>
+            </div>
+            <div className="p-5 md:p-6 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-blue-100 transition-all">
+              <div className="p-3 bg-white rounded-2xl w-fit mb-4 shadow-sm text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                <CalendarIcon size={20} />
+              </div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nexus Tenure</p>
+              <h4 className="text-lg md:text-xl font-black text-slate-900 italic truncate">
+                {member.joiningDate ? format(parseISO(member.joiningDate), 'MMM dd, yyyy') : 'Pending'}
+              </h4>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Identity Details</h5>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex items-center space-x-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100 overflow-hidden">
+                <div className="p-2 bg-white rounded-xl text-slate-400 shrink-0">
+                   <Mail size={16} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Network Secure ID</p>
+                  <p className="text-xs font-bold text-slate-900 truncate" title={member.email}>{member.email}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100 overflow-hidden">
+                <div className="p-2 bg-white rounded-xl text-slate-400 shrink-0">
+                   <Phone size={16} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Cellular Decryption</p>
+                  <p className="text-xs font-bold text-slate-900 truncate">{member.phone || '—'}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100 overflow-hidden">
+                <div className="p-2 bg-white rounded-xl text-slate-400 shrink-0">
+                   <Globe size={16} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nexus Location</p>
+                  <p className="text-xs font-bold text-slate-900 truncate">{member.department || 'Field Ops'}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-4 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 overflow-hidden">
+                <div className="p-2 bg-white rounded-xl text-indigo-600 shadow-sm border border-indigo-50 shrink-0">
+                   <Shield size={16} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">Security Clearance</p>
+                  <p className="text-xs font-black text-indigo-700 uppercase tracking-tight truncate">{member.role.replace('_', ' ')}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 }

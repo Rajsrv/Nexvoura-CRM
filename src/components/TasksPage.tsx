@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch, getDocs } from 'firebase/firestore';
 import { UserProfile, Task, Lead, TaskTemplate, Company, Attachment } from '../types';
-import { Plus, Trash2, CheckCircle2, Circle, Clock, Calendar, Filter, User as UserIcon, MessageSquare, Flag, CheckSquare, Square, UserPlus, X, RefreshCcw, ChevronDown, Download, Search, Info, Bell, BellOff, Edit2, PlayCircle, CheckCircle, Save, Copy, Paperclip, Link as LinkIcon, ExternalLink, File as FileIcon, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Circle, Clock, Calendar, Filter, User as UserIcon, MessageSquare, Flag, CheckSquare, Square, UserPlus, X, RefreshCcw, ChevronDown, Download, Search, Info, Bell, BellOff, Edit2, PlayCircle, CheckCircle, Save, Copy, Paperclip, Link as LinkIcon, ExternalLink, File as FileIcon, AlertCircle, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { isPast, parseISO } from 'date-fns';
@@ -19,111 +19,8 @@ import {
   useDroppable
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-
-function UserSelector({ 
-  team, 
-  value, 
-  onChange, 
-  placeholder = "Select Member" 
-}: { 
-  team: UserProfile[]; 
-  value: string; 
-  onChange: (uid: string) => void;
-  placeholder?: string;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const selectedUser = team.find(m => m.uid === value);
-
-  const filteredTeam = team.filter(m => 
-    m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    m.role.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between hover:border-slate-300 transition-colors focus:ring-2 focus:ring-blue-500/20 outline-none"
-      >
-        <div className="flex items-center space-x-2">
-          {selectedUser ? (
-            <>
-              <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-600">
-                {selectedUser.name[0]}
-              </div>
-              <span className="text-sm font-medium text-slate-900 truncate max-w-[150px]">{selectedUser.name}</span>
-            </>
-          ) : (
-            <span className="text-sm text-slate-400">{placeholder}</span>
-          )}
-        </div>
-        <ChevronDown size={16} className={`text-slate-400 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => { setIsOpen(false); setSearchTerm(''); }} />
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="absolute z-50 mt-2 w-full bg-white rounded-xl shadow-xl border border-slate-100 py-2 max-h-72 flex flex-col"
-            >
-              <div className="px-3 pb-2 border-b border-slate-50">
-                <div className="relative">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    autoFocus
-                    placeholder="Search team..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500/20"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
-              </div>
-              <div className="overflow-y-auto flex-1 h-full min-h-0">
-                <button
-                  type="button"
-                  onClick={() => { onChange(''); setIsOpen(false); setSearchTerm(''); }}
-                  className="w-full px-4 py-2 text-left text-xs text-slate-500 hover:bg-slate-50 font-medium"
-                >
-                  Unassigned
-                </button>
-                {filteredTeam.length > 0 ? (
-                  filteredTeam.map(member => (
-                    <button
-                      key={member.uid}
-                      type="button"
-                      onClick={() => { onChange(member.uid); setIsOpen(false); setSearchTerm(''); }}
-                      className="w-full px-4 py-2 flex items-center space-x-3 hover:bg-blue-50 transition-colors"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 flex-shrink-0">
-                        {member.name[0]}
-                      </div>
-                      <div className="text-left overflow-hidden">
-                        <p className="text-sm font-bold text-slate-900 leading-none truncate">{member.name}</p>
-                        <p className="text-[10px] text-slate-400 mt-1 uppercase truncate">{member.role}</p>
-                      </div>
-                    </button>
-                  ))
-                ) : (
-                  <div className="px-4 py-8 text-center text-slate-400 text-xs">
-                    No members found
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
+import { AddTaskModal } from './AddTaskModal';
+import { TaskDetailModal } from './TaskDetailModal';
 
 function DraggableTaskCard({ user, task, leads, team, deleteTask, toggleStatus, isSelected, onToggleSelect, updateSubtasks, onOpenDetail }: { 
   user: UserProfile;
@@ -186,29 +83,29 @@ function DraggableTaskCard({ user, task, leads, team, deleteTask, toggleStatus, 
       {...listeners}
       {...attributes}
       onClick={() => onOpenDetail(task)}
-      className={`bg-white p-6 rounded-[32px] border transition-all group relative cursor-pointer active:cursor-grabbing hover:shadow-2xl hover:shadow-slate-200/50 ${
-        isSelected ? 'border-blue-500 ring-4 ring-blue-500/5 shadow-xl shadow-blue-500/10' : 'border-slate-50 shadow-sm'
+      className={`bg-white p-5 rounded-2xl border transition-all group relative cursor-pointer active:cursor-grabbing hover:shadow-xl hover:shadow-slate-200/50 ${
+        isSelected ? 'border-brand-primary ring-4 ring-brand-primary/5 shadow-xl shadow-brand-primary/10' : 'border-slate-100 shadow-sm'
       }`}
     >
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex items-start space-x-3">
+      <div className="flex justify-between items-start mb-3">
+        <div className="flex items-start space-x-2.5">
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); onToggleSelect(task.id); }}
-            className={`mt-1 transition-colors ${isSelected ? 'text-blue-600' : 'text-slate-300 hover:text-slate-400'}`}
+            className={`mt-1 transition-colors ${isSelected ? 'text-brand-primary' : 'text-slate-300 hover:text-slate-400'}`}
           >
-            {isSelected ? <CheckSquare size={18} /> : <Square size={18} />}
+            {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
           </button>
           <div className="min-w-0">
-            <h4 className="font-black font-display text-slate-900 leading-tight text-lg group-hover:text-blue-600 transition-colors">
+            <h4 className="font-bold text-slate-900 leading-tight text-[15px] group-hover:text-brand-primary transition-colors truncate">
               {task.title}
             </h4>
             <div className="flex items-center space-x-2 mt-1">
-               {task.reminderEnabled && <Bell size={12} className="text-blue-500" />}
-               <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                 task.priority === 'High' ? 'bg-rose-100 text-rose-600' :
-                 task.priority === 'Medium' ? 'bg-amber-100 text-amber-600' :
-                 'bg-blue-100 text-blue-600'
+               {task.reminderEnabled && <Bell size={10} className="text-brand-primary" />}
+               <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest ${
+                 task.priority === 'High' ? 'bg-rose-50 text-rose-500' :
+                 task.priority === 'Medium' ? 'bg-amber-50 text-amber-500' :
+                 'bg-blue-50 text-blue-500'
                }`}>
                  {task.priority || 'Normal'}
                </span>
@@ -221,490 +118,60 @@ function DraggableTaskCard({ user, task, leads, team, deleteTask, toggleStatus, 
             onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
             className="text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all p-1"
           >
-            <Trash2 size={16} />
+            <Trash2 size={14} />
           </button>
         )}
       </div>
       
-      <p className="text-sm text-slate-500 line-clamp-2 mb-4 font-medium opacity-80 leading-relaxed">
+      <p className="text-[13px] text-slate-500 line-clamp-2 mb-4 font-medium leading-relaxed">
         {task.description}
       </p>
       
       {/* Subtasks Summary */}
       {totalSubtasks > 0 && (
-        <div className="mb-5 bg-slate-50 p-3 rounded-2xl border border-slate-100/50">
-           <div className="flex justify-between items-center mb-2">
-             <div className="flex items-center space-x-2">
-                <CheckSquare size={12} className="text-emerald-500" />
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress</span>
+        <div className="mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100/50">
+           <div className="flex justify-between items-center mb-1.5">
+             <div className="flex items-center space-x-1.5">
+                <CheckCircle2 size={12} className="text-emerald-500" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Progress</span>
              </div>
-             <span className="text-[10px] font-black text-slate-900">{completedSubtasks}/{totalSubtasks}</span>
+             <div className="flex items-center space-x-2">
+                <span className="text-[10px] font-black text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-100 shadow-sm">
+                  {Math.round((completedSubtasks / totalSubtasks) * 100)}%
+                </span>
+                <span className="text-[10px] font-bold text-slate-400">{completedSubtasks}/{totalSubtasks}</span>
+             </div>
            </div>
-           <div className="w-full bg-slate-200/50 h-1.5 rounded-full overflow-hidden">
+           <div className="w-full bg-slate-200/50 h-1 rounded-full overflow-hidden">
              <motion.div 
-               initial={{ width: 0 }}
-               animate={{ width: `${(completedSubtasks/totalSubtasks)*100}%` }}
-               className="h-full bg-blue-600 rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${(completedSubtasks/totalSubtasks)*100}%` }}
+                className="h-full bg-brand-primary rounded-full transition-all duration-500"
              />
            </div>
         </div>
       )}
 
-      <div className="flex items-center justify-between mt-auto">
-        <div className="flex -space-x-2">
+      <div className="flex items-center justify-between pt-3 border-t border-slate-50">
+        <div className="flex -space-x-1.5">
           {task.assignedTo ? (
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-[10px] font-black text-white border-2 border-white shadow-sm ring-1 ring-slate-100" title={team.find(m => m.uid === task.assignedTo)?.name}>
+            <div className="w-7 h-7 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-slate-600 shadow-sm" title={team.find(m => m.uid === task.assignedTo)?.name}>
               {team.find(m => m.uid === task.assignedTo)?.name[0]}
             </div>
           ) : (
-            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 border-2 border-white italic">
+            <div className="w-7 h-7 rounded-full bg-slate-50 border-2 border-white flex items-center justify-center text-[10px] font-bold text-slate-300 italic">
                ?
             </div>
           )}
         </div>
         
         {task.dueDate && (
-          <div className="flex items-center space-x-1.5 text-xs font-bold text-slate-400">
-            <Clock size={12} />
-            <span className="tracking-tight">{new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+          <div className="flex items-center space-x-1 text-[11px] font-bold text-slate-400">
+            <Clock size={11} />
+            <span>{new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function TaskDetailModal({ 
-  task, 
-  leads, 
-  team, 
-  taskStatuses,
-  onClose, 
-  onUpdate 
-}: { 
-  task: Task; 
-  leads: Lead[]; 
-  team: UserProfile[]; 
-  taskStatuses: string[];
-  onClose: () => void;
-  onUpdate: (taskId: string, updates: Partial<Task>) => Promise<void>;
-}) {
-  const [editedTask, setEditedTask] = useState<Task>(task);
-  const [newSubtask, setNewSubtask] = useState('');
-  const [newAttachment, setNewAttachment] = useState({ name: '', url: '', type: 'link' as 'file' | 'link' });
-  const [showAddAttachment, setShowAddAttachment] = useState(false);
-
-  const handleSave = async () => {
-    await onUpdate(task.id, editedTask);
-    onClose();
-  };
-
-  const addSubtask = () => {
-    if (!newSubtask.trim()) return;
-    const sub = {
-      id: Math.random().toString(36).substr(2, 9),
-      title: newSubtask.trim(),
-      completed: false
-    };
-    setEditedTask(prev => ({
-      ...prev,
-      subtasks: [...(prev.subtasks || []), sub]
-    }));
-    setNewSubtask('');
-  };
-
-  const removeSubtask = (id: string) => {
-    setEditedTask(prev => ({
-      ...prev,
-      subtasks: prev.subtasks?.filter(s => s.id !== id)
-    }));
-  };
-
-  const toggleSubtask = (id: string) => {
-    setEditedTask(prev => ({
-      ...prev,
-      subtasks: prev.subtasks?.map(s => s.id === id ? { ...s, completed: !s.completed } : s)
-    }));
-  };
-
-  const addAttachment = () => {
-    if (!newAttachment.name.trim() || !newAttachment.url.trim()) {
-      toast.error('Please provide both a name and a URL');
-      return;
-    }
-    const attachment: Attachment = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: newAttachment.name.trim(),
-      url: newAttachment.url.startsWith('http') ? newAttachment.url.trim() : `https://${newAttachment.url.trim()}`,
-      type: newAttachment.type,
-      createdAt: new Date().toISOString()
-    };
-    setEditedTask(prev => ({
-      ...prev,
-      attachments: [...(prev.attachments || []), attachment]
-    }));
-    setNewAttachment({ name: '', url: '', type: 'link' });
-    setShowAddAttachment(false);
-  };
-
-  const removeAttachment = (id: string) => {
-    setEditedTask(prev => ({
-      ...prev,
-      attachments: prev.attachments?.filter(a => a.id !== id)
-    }));
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-      />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
-      >
-        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-          <div className="flex items-center space-x-3">
-             <div className={`p-2 rounded-xl ${
-               editedTask.priority === 'High' ? 'bg-rose-100 text-rose-600' :
-               editedTask.priority === 'Medium' ? 'bg-amber-100 text-amber-600' :
-               'bg-blue-100 text-blue-600'
-             }`}>
-               <Flag size={20} />
-             </div>
-             <div>
-               <h2 className="text-xl font-bold text-slate-900">Task Details</h2>
-               <p className="text-xs text-slate-500">Manage and update task information</p>
-             </div>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6 space-y-8">
-          {/* Main Info */}
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block px-1">Task Title</label>
-              <input 
-                type="text"
-                value={editedTask.title || ''}
-                onChange={e => setEditedTask({ ...editedTask, title: e.target.value })}
-                className="w-full text-lg font-bold p-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block px-1">Description</label>
-              <textarea 
-                value={editedTask.description || ''}
-                onChange={e => setEditedTask({ ...editedTask, description: e.target.value })}
-                rows={4}
-                className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none resize-none text-sm text-slate-600"
-              />
-            </div>
-          </div>
-
-          {/* Attachments Section */}
-          <div className="space-y-4">
-            <div className="flex justify-between items-center px-1">
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Attachments</label>
-                <p className="text-[10px] text-slate-500">Links to documents, assets, or references</p>
-              </div>
-              <button 
-                onClick={() => setShowAddAttachment(!showAddAttachment)}
-                className="text-[10px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-xl transition-colors flex items-center space-x-1"
-              >
-                <Paperclip size={12} />
-                <span>{showAddAttachment ? 'Close' : 'Add Attachment'}</span>
-              </button>
-            </div>
-
-            {showAddAttachment && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-xl space-y-4"
-              >
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Name</label>
-                    <input 
-                      type="text"
-                      placeholder="e.g. Design Spec"
-                      value={newAttachment.name || ''}
-                      onChange={e => setNewAttachment({ ...newAttachment, name: e.target.value })}
-                      className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white outline-none focus:ring-2 focus:ring-blue-500/50"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Type</label>
-                    <select
-                      value={newAttachment.type}
-                      onChange={e => setNewAttachment({ ...newAttachment, type: e.target.value as 'file' | 'link' })}
-                      className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white outline-none"
-                    >
-                      <option value="link">Link</option>
-                      <option value="file">File (Metadata)</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase px-1">URL / Link</label>
-                  <div className="flex space-x-2">
-                    <input 
-                      type="text"
-                      placeholder="https://..."
-                      value={newAttachment.url || ''}
-                      onChange={e => setNewAttachment({ ...newAttachment, url: e.target.value })}
-                      onKeyDown={e => e.key === 'Enter' && addAttachment()}
-                      className="flex-1 p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white outline-none focus:ring-2 focus:ring-blue-500/50"
-                    />
-                    <button 
-                      onClick={addAttachment}
-                      className="bg-blue-600 text-white px-4 rounded-xl text-xs font-bold hover:bg-blue-500"
-                    >
-                      Add
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {editedTask.attachments?.map(attachment => (
-                <div key={attachment.id} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md transition-all group">
-                  <div className="flex items-center space-x-3 overflow-hidden">
-                    <div className={`p-2 rounded-lg flex-shrink-0 ${attachment.type === 'file' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'}`}>
-                      {attachment.type === 'file' ? <FileIcon size={16} /> : <LinkIcon size={16} />}
-                    </div>
-                    <div className="overflow-hidden">
-                      <p className="text-xs font-bold text-slate-800 truncate leading-tight mb-0.5">{attachment.name}</p>
-                      <a 
-                        href={attachment.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-[10px] text-slate-400 hover:text-blue-500 flex items-center space-x-1"
-                      >
-                        <span className="truncate max-w-[120px]">{attachment.url}</span>
-                        <ExternalLink size={10} />
-                      </a>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => removeAttachment(attachment.id)}
-                    className="p-1 px-1.5 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all font-bold"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-              {(!editedTask.attachments || editedTask.attachments.length === 0) && !showAddAttachment && (
-                <div className="sm:col-span-2 py-8 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-                  <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center mx-auto mb-2 text-slate-300 shadow-sm border border-slate-100">
-                    <Paperclip size={18} />
-                  </div>
-                  <p className="text-xs font-medium text-slate-400 italic">No files or links attached</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-6">
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block px-1">Assignee</label>
-                <UserSelector 
-                  team={team} 
-                  value={editedTask.assignedTo || ''} 
-                  onChange={val => setEditedTask({ ...editedTask, assignedTo: val })}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block px-1">Related Lead</label>
-                <select 
-                  value={editedTask.leadId || ''}
-                  onChange={e => setEditedTask({ ...editedTask, leadId: e.target.value })}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20"
-                >
-                  <option value="">No Lead</option>
-                  {leads.map(lead => (
-                    <option key={lead.id} value={lead.id}>{lead.name} ({lead.service})</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block px-1">Status & Priority</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <select 
-                    value={editedTask.status}
-                    onChange={e => setEditedTask({ ...editedTask, status: e.target.value })}
-                    className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none"
-                  >
-                    {taskStatuses.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                  <select 
-                    value={editedTask.priority}
-                    onChange={e => setEditedTask({ ...editedTask, priority: e.target.value as any })}
-                    className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none"
-                  >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block px-1">Due Date & Reminders</label>
-                <div className="space-y-3">
-                  <div className="relative">
-                    <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input 
-                      type="date"
-                      value={editedTask.dueDate || ''}
-                      onChange={e => setEditedTask({ ...editedTask, dueDate: e.target.value })}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20"
-                    />
-                  </div>
-                  <button
-                    onClick={() => setEditedTask({ ...editedTask, reminderEnabled: !editedTask.reminderEnabled })}
-                    className={`w-full p-3 rounded-xl flex items-center justify-between border transition-all ${
-                      editedTask.reminderEnabled ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-slate-50 border-slate-200 text-slate-500'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2">
-                       {editedTask.reminderEnabled ? <Bell size={16} /> : <BellOff size={16} />}
-                       <span className="text-sm font-medium">Due Date Reminder</span>
-                    </div>
-                    <div className={`w-8 h-4 rounded-full relative transition-colors ${editedTask.reminderEnabled ? 'bg-blue-500' : 'bg-slate-300'}`}>
-                       <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${editedTask.reminderEnabled ? 'right-0.5' : 'left-0.5'}`} />
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block px-1">Tracking Dates</label>
-                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center space-x-2 text-slate-500">
-                      <Clock size={14} />
-                      <span className="text-xs font-medium">Created</span>
-                    </div>
-                    <span className="text-xs font-bold text-slate-700">{new Date(editedTask.createdAt).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center space-x-2 text-amber-600">
-                      <PlayCircle size={14} />
-                      <span className="text-xs font-medium">Started</span>
-                    </div>
-                    <span className="text-xs font-bold text-slate-700">
-                      {editedTask.startedAt ? new Date(editedTask.startedAt).toLocaleDateString() : 'Not started'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center space-x-2 text-emerald-600">
-                      <CheckCircle size={14} />
-                      <span className="text-xs font-medium">Completed</span>
-                    </div>
-                    <span className="text-xs font-bold text-slate-700">
-                      {editedTask.completedAt ? new Date(editedTask.completedAt).toLocaleDateString() : '--'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Subtasks Section */}
-          <div>
-            <div className="flex justify-between items-end mb-4">
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block px-1">Subtasks</label>
-                <p className="text-[10px] text-slate-500 px-1">Break down this task into smaller steps</p>
-              </div>
-              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
-                {editedTask.subtasks?.filter(s => s.completed).length || 0} / {editedTask.subtasks?.length || 0} Complete
-              </span>
-            </div>
-            
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-3">
-              <div className="max-h-48 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                {editedTask.subtasks?.map(sub => (
-                  <div key={sub.id} className="flex items-center justify-between group bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
-                    <div className="flex items-center space-x-3 flex-1 min-w-0">
-                      <button 
-                        onClick={() => toggleSubtask(sub.id)}
-                        className={`transition-colors ${sub.completed ? 'text-emerald-500' : 'text-slate-300 hover:text-slate-400'}`}
-                      >
-                        {sub.completed ? <CheckSquare size={20} /> : <Square size={20} />}
-                      </button>
-                      <span className={`text-sm truncate ${sub.completed ? 'text-slate-400 line-through' : 'text-slate-700 font-medium'}`}>
-                        {sub.title}
-                      </span>
-                    </div>
-                    <button 
-                      onClick={() => removeSubtask(sub.id)}
-                      className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 p-1"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
-                {(!editedTask.subtasks || editedTask.subtasks.length === 0) && (
-                  <div className="text-center py-6">
-                    <div className="w-12 h-12 bg-slate-200/50 rounded-full flex items-center justify-center mx-auto mb-2 text-slate-400">
-                      <CheckSquare size={20} />
-                    </div>
-                    <p className="text-xs text-slate-400">No subtasks yet</p>
-                  </div>
-                )}
-              </div>
-              <div className="flex space-x-2 pt-2 border-t border-slate-200">
-                <input 
-                  type="text"
-                  placeholder="New subtask title..."
-                  value={newSubtask || ''}
-                  onChange={e => setNewSubtask(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && addSubtask()}
-                  className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
-                <button 
-                  onClick={addSubtask}
-                  className="bg-slate-900 text-white p-2 rounded-xl hover:bg-slate-800 transition-colors"
-                >
-                  <Plus size={20} />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 bg-slate-50 border-t border-slate-100 flex space-x-3">
-          <button 
-            onClick={onClose}
-            className="flex-1 px-6 py-3 border border-slate-200 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all font-sans uppercase tracking-widest"
-          >
-            Cancel
-          </button>
-          <button 
-            onClick={handleSave}
-            className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-2xl text-sm font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all font-sans uppercase tracking-widest"
-          >
-            Save Changes
-          </button>
-        </div>
-      </motion.div>
     </div>
   );
 }
@@ -727,23 +194,23 @@ function DroppableColumn({ status, children, count }: { status: string, children
   return (
     <div 
       ref={setNodeRef}
-      className={`flex flex-col h-full min-h-[500px] rounded-[40px] p-6 transition-all duration-300 bg-slate-100/30 border-2 border-transparent ${
-        isOver ? 'bg-blue-50/50 border-blue-200 border-dashed scale-[0.98]' : ''
+      className={`flex flex-col h-full min-h-[500px] rounded-[24px] p-5 transition-all duration-300 bg-slate-50/50 border border-slate-100 ${
+        isOver ? 'bg-brand-primary/5 border-brand-primary border-dashed scale-[0.99]' : ''
       }`}
     >
-      <div className="flex items-center justify-between mb-8 px-2">
+      <div className="flex items-center justify-between mb-6 px-1">
         <div className="flex items-center space-x-3">
-          <div className={`w-3 h-3 rounded-full bg-gradient-to-br ${getStatusColor(status)} shadow-lg`} />
-          <h3 className="font-black font-display text-xl text-slate-900 tracking-tight">{status}</h3>
-          <span className="bg-white px-3 py-1 rounded-full text-[10px] font-black text-slate-400 shadow-sm border border-slate-100">
+          <div className={`w-2 h-2 rounded-full bg-gradient-to-br ${getStatusColor(status)} shadow-sm`} />
+          <h3 className="font-bold text-slate-900 tracking-tight text-sm uppercase tracking-wider">{status}</h3>
+          <span className="bg-white px-2 py-0.5 rounded-lg text-[10px] font-bold text-slate-400 border border-slate-200 shadow-sm">
             {count}
           </span>
         </div>
-        <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-xl transition-all">
-          <Plus size={18} />
+        <button className="p-1.5 text-slate-400 hover:text-brand-primary hover:bg-white rounded-lg transition-all shadow-sm">
+          <Plus size={16} />
         </button>
       </div>
-      <div className="space-y-6 flex-1 h-full overflow-y-auto no-scrollbar pb-10">
+      <div className="space-y-4 flex-1 h-full overflow-y-auto no-scrollbar pb-10">
         {children}
       </div>
     </div>
@@ -776,24 +243,6 @@ export default function TasksPage({ user }: { user: UserProfile }) {
       setActiveMobileColumn(taskStatuses[0]);
     }
   }, [taskStatuses, activeMobileColumn]);
-
-  const [newTask, setNewTask] = useState({
-    title: '',
-    description: '',
-    dueDate: '',
-    status: '',
-    priority: 'Medium' as const,
-    assignedTo: '',
-    leadId: '',
-    reminderEnabled: false,
-    subtasks: [] as any[]
-  });
-
-  useEffect(() => {
-    if (!newTask.status && taskStatuses.length > 0) {
-      setNewTask(prev => ({ ...prev, status: taskStatuses[0] }));
-    }
-  }, [taskStatuses, newTask.status]);
 
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
@@ -892,26 +341,23 @@ export default function TasksPage({ user }: { user: UserProfile }) {
     toast.success('Tasks exported successfully');
   };
 
-  const handleAddTask = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddTask = async (taskData: any) => {
     try {
       await addDoc(collection(db, 'tasks'), {
-        ...newTask,
-        status: newTask.status || taskStatuses[0],
+        ...taskData,
         companyId: user.companyId,
         notificationSent: false,
         createdAt: new Date().toISOString()
       });
       toast.success('Task created successfully');
       setShowAddModal(false);
-      setNewTask({ title: '', description: '', dueDate: '', status: taskStatuses[0], priority: 'Medium', assignedTo: '', leadId: '', reminderEnabled: false, subtasks: [] });
     } catch (error) {
       toast.error('Failed to create task');
     }
   };
 
-  const handleSaveTemplate = async () => {
-    if (!newTask.title) {
+  const handleSaveTemplateUI = async (taskData: any) => {
+    if (!taskData.title) {
       toast.error('Please enter at least a task title');
       return;
     }
@@ -921,41 +367,16 @@ export default function TasksPage({ user }: { user: UserProfile }) {
     try {
       await addDoc(collection(db, 'taskTemplates'), {
         name: templateName,
-        title: newTask.title,
-        description: newTask.description,
-        priority: newTask.priority,
-        subtasks: newTask.subtasks.map(s => ({ title: s.title })),
+        title: taskData.title,
+        description: taskData.description,
+        priority: taskData.priority,
+        subtasks: taskData.subtasks.map((s: any) => ({ title: s.title })),
         companyId: user.companyId,
         createdAt: new Date().toISOString()
       });
       toast.success('Template saved successfully');
     } catch (error) {
       toast.error('Failed to save template');
-    }
-  };
-
-  const applyTemplate = (template: TaskTemplate) => {
-    setNewTask(prev => ({
-      ...prev,
-      title: template.title,
-      description: template.description,
-      priority: template.priority,
-      subtasks: template.subtasks.map(s => ({
-        id: Math.random().toString(36).substr(2, 9),
-        title: s.title,
-        completed: false
-      }))
-    }));
-    toast.success('Template applied');
-  };
-
-  const deleteTemplate = async (templateId: string) => {
-    if (!confirm('Are you sure you want to delete this template?')) return;
-    try {
-      await deleteDoc(doc(db, 'taskTemplates', templateId));
-      toast.success('Template deleted');
-    } catch (error) {
-      toast.error('Failed to delete template');
     }
   };
 
@@ -1121,7 +542,7 @@ export default function TasksPage({ user }: { user: UserProfile }) {
     });
 
   return (
-    <div className="flex flex-col lg:flex-row gap-12 min-h-screen relative pb-28 animate-in fade-in duration-700">
+    <div className="p-4 md:p-8 pt-6 max-w-[1600px] mx-auto space-y-8 min-h-screen bg-white">
       {/* Task Detail Modal */}
       <AnimatePresence>
         {selectedTask && (
@@ -1135,203 +556,210 @@ export default function TasksPage({ user }: { user: UserProfile }) {
           />
         )}
       </AnimatePresence>
-      {/* Sidebar Intel */}
-      <div className="w-full lg:w-1/4 space-y-8 shrink-0">
-        <div className="relative group">
-           <div className="absolute -inset-4 bg-gradient-to-r from-blue-600/5 to-indigo-600/5 rounded-[40px] blur-2xl group-hover:blur-3xl transition-all duration-700 opacity-0 group-hover:opacity-100" />
-           <div className="relative bg-white border border-slate-100 p-8 rounded-[40px] shadow-sm overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/50 rounded-bl-[80px] -z-10" />
-              <div className="w-16 h-16 bg-slate-950 text-white rounded-[24px] flex items-center justify-center mb-6 shadow-xl shadow-slate-200">
-                <CheckSquare size={32} className="text-blue-500" />
-              </div>
-              <h1 className="text-4xl font-black text-slate-950 tracking-tighter leading-[0.9] font-display mb-4 italic">
-                Project <br /><span className="text-blue-600 italic">Command.</span>
-              </h1>
-              <p className="text-slate-500 font-medium text-sm leading-relaxed mb-8 opacity-80">
-                Nexus Engine is coordinating <b>{tasks.length}</b> active operations across your workspace.
-              </p>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                   <div className="flex items-center space-x-3">
-                      <Clock size={16} className="text-blue-600" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Velocity</span>
-                   </div>
-                   <span className="text-xs font-black text-slate-900">Steady</span>
-                </div>
-                <div className="flex items-center justify-between p-4 bg-rose-50 rounded-2xl border border-rose-100">
-                   <div className="flex items-center space-x-3">
-                      <AlertCircle size={16} className="text-rose-600" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-rose-400">Overdue</span>
-                   </div>
-                   <span className="text-xs font-black text-rose-600">
-                     {tasks.filter(t => t.dueDate && isPast(parseISO(t.dueDate)) && t.status !== 'Done').length}
-                   </span>
-                </div>
-              </div>
-           </div>
-        </div>
 
-        <div className="bg-blue-600 rounded-[40px] p-8 text-white relative overflow-hidden group shadow-xl shadow-blue-500/20">
-           <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:rotate-12 transition-transform">
-              <Calendar size={120} />
-           </div>
-           <p className="text-[10px] font-black uppercase tracking-widest text-white/60 mb-4 px-1">Pipeline Status</p>
-           <h3 className="text-2xl font-bold font-display leading-tight mb-6">Precision <br />Tracking</h3>
-           <p className="text-xs text-blue-100 font-medium italic opacity-80">Maintain operational excellence through rigorous standard operating procedures.</p>
+      {/* Header Dashboard Section */}
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-6 border-b border-slate-100">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Task Management</h1>
+          <p className="text-slate-500 font-medium">Coordinate your team's tactical execution</p>
         </div>
-      </div>
-
-      {/* Main Board Area */}
-      <div className="flex-1 space-y-8 min-w-0">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-4">
-        <div className="space-y-2">
-          <div className="inline-flex items-center space-x-2 text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-            <span>Mission Control</span>
+        
+        <div className="flex items-center gap-3">
+          <div className="flex -space-x-2 mr-4">
+             {team.slice(0, 5).map(m => (
+               <div key={m.uid} className="w-9 h-9 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 shadow-sm" title={m.name}>
+                 {m.name[0]}
+               </div>
+             ))}
+             {team.length > 5 && (
+               <div className="w-9 h-9 rounded-full border-2 border-white bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold shadow-sm">
+                 +{team.length - 5}
+               </div>
+             )}
           </div>
-          <h2 className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-950 tracking-tight font-display italic">Project <span className="text-blue-600">Board</span></h2>
-          <p className="text-slate-500 font-medium italic opacity-70">Scale your operations with precision tracking.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <button
-            onClick={exportTasksToCSV}
-            className="flex-1 sm:flex-none justify-center bg-white text-slate-900 border-2 border-slate-100 px-8 py-4 rounded-2xl flex items-center space-x-3 hover:bg-slate-50 hover:border-slate-200 transition-all text-xs font-black shadow-sm active:scale-95 whitespace-nowrap"
+          <button 
+            onClick={() => setShowAddModal(true)}
+            className="saas-button-primary px-6 py-3 shadow-xl shadow-brand-primary/20 flex items-center space-x-2"
           >
-            <Download size={18} />
-            <span className="uppercase tracking-widest">Export Signal</span>
+            <Plus size={20} />
+            <span>New Task</span>
           </button>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={refreshTeam}
-              disabled={refreshingTeam}
-              className={`p-4 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-2xl transition-all border border-transparent hover:border-blue-100 ${refreshingTeam ? 'animate-spin text-blue-600' : ''}`}
-              title="Sync Assets"
-            >
-              <RefreshCcw size={20} />
-            </button>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex-1 sm:flex-none justify-center bg-slate-950 text-white px-8 py-4 rounded-2xl flex items-center space-x-3 hover:bg-blue-600 transition-all text-xs font-black uppercase tracking-widest shadow-xl shadow-slate-900/10 active:scale-95 whitespace-nowrap"
-            >
-              <Plus size={20} />
-              <span>Initiate Operation</span>
-            </button>
-          </div>
         </div>
       </div>
 
-      {/* Filters & Search Row */}
-      <div className="bg-white p-6 rounded-[32px] border-2 border-slate-100 shadow-sm space-y-4">
-        <div className="flex flex-col xl:flex-row xl:items-center gap-6">
-          <div className="flex-1 relative group w-full">
-            <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+      {/* Control Bar */}
+      <div className="bg-[#fcfcfc] border border-slate-100 rounded-3xl p-4 shadow-sm">
+        <div className="flex flex-col lg:flex-row gap-4 items-center">
+          <div className="relative flex-1 w-full">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by title or description..."
+              placeholder="Filter by title or objective..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600/20 focus:bg-white transition-all text-sm font-bold text-slate-900 placeholder:text-slate-400"
+              className="saas-input pl-12 bg-white border-slate-100"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex-1 min-w-[140px] flex items-center space-x-2 bg-slate-50 p-1.5 rounded-2xl border-2 border-transparent hover:border-slate-100 transition-all">
-              <UserIcon size={18} className="text-slate-400 ml-2" />
+
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm flex-1 md:flex-none">
+              <Filter size={14} className="text-slate-400" />
               <select
                 value={filterAssignee}
                 onChange={(e) => setFilterAssignee(e.target.value)}
-                className="bg-transparent text-sm font-black text-slate-900 outline-none border-none py-2 focus:ring-0 cursor-pointer w-full"
+                className="bg-transparent text-xs font-bold text-slate-600 outline-none border-none focus:ring-0 cursor-pointer"
               >
-                <option value="All font-bold">All Team</option>
+                <option value="All">All Operatives</option>
+                <option value="Unassigned">Unassigned</option>
                 {team.map(m => <option key={m.uid} value={m.uid}>{m.name}</option>)}
               </select>
             </div>
-            <div className="flex-1 min-w-[140px] flex items-center space-x-2 bg-slate-50 p-1.5 rounded-2xl border-2 border-transparent hover:border-slate-100 transition-all">
-              <Filter size={18} className="text-slate-400 ml-2" />
+
+            <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm flex-1 md:flex-none">
+              <Flag size={14} className="text-slate-400" />
               <select
                 value={filterPriority}
                 onChange={(e) => setFilterPriority(e.target.value)}
-                className="bg-transparent text-sm font-black text-slate-900 outline-none border-none py-2 focus:ring-0 cursor-pointer w-full"
+                className="bg-transparent text-xs font-bold text-slate-600 outline-none border-none focus:ring-0 cursor-pointer"
               >
-                <option value="All">All Levels</option>
-                <option value="High">High</option>
+                <option value="All">All Priority</option>
+                <option value="High">High Clearance</option>
                 <option value="Medium">Medium</option>
                 <option value="Low">Low</option>
               </select>
             </div>
-            <div className="flex items-center space-x-2 bg-slate-50 p-1.5 rounded-2xl border-2 border-transparent hover:border-slate-100 transition-all">
-              <button 
-                onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-                className="p-2.5 bg-white text-slate-900 rounded-xl shadow-sm border border-slate-100 hover:text-blue-600 transition-colors"
-                title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-              >
-                <Flag size={18} className={sortOrder === 'asc' ? 'rotate-180' : ''} />
-              </button>
-            </div>
+
+            <button 
+              onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+              className="p-2.5 bg-white text-slate-600 rounded-2xl border border-slate-100 shadow-sm hover:text-brand-primary transition-all"
+            >
+              <RefreshCcw size={18} className={sortOrder === 'asc' ? 'rotate-180' : ''} />
+            </button>
+            
+            <button
+              onClick={exportTasksToCSV}
+              className="saas-button-secondary px-4 py-2 text-xs"
+            >
+              <Download size={16} className="mr-2" />
+              Export
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile Column Tabs */}
-      <div className="flex lg:hidden bg-white p-1 rounded-2xl border border-slate-100 shadow-sm mb-4 sticky top-20 z-10 overflow-x-auto no-scrollbar">
-        {taskStatuses.map((status) => (
-          <button
-            key={status}
-            onClick={() => setActiveMobileColumn(status)}
-            className={`flex-1 min-w-[100px] py-2.5 rounded-xl text-sm font-bold transition-all relative ${
-              activeMobileColumn === status 
-                ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' 
-                : 'text-slate-500 hover:bg-slate-50'
-            }`}
-          >
-            {status}
-            <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] ${
-              activeMobileColumn === status ? 'bg-white/20' : 'bg-slate-100'
-            }`}>
-              {filteredTasks.filter(t => t.status === status).length}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <DndContext 
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex flex-col lg:flex-row gap-8 overflow-x-auto pb-6 custom-scrollbar lg:items-start">
-          {taskStatuses.map((status) => (
-            <div key={status} className={`lg:min-w-[340px] lg:max-w-[400px] lg:flex-1 ${activeMobileColumn === status ? 'block' : 'hidden lg:block'}`}>
-              <DroppableColumn 
-                status={status} 
-                count={filteredTasks.filter(t => t.status === status).length}
+      <div className="flex flex-col lg:flex-row gap-10">
+        {/* Board Area */}
+        <div className="flex-1 min-w-0">
+          <div className="flex lg:hidden overflow-x-auto no-scrollbar gap-2 mb-4 bg-slate-50 p-1.5 rounded-2xl border border-slate-100 sticky top-0 z-20 backdrop-blur-sm bg-white/80">
+            {taskStatuses.map((status) => (
+              <button
+                key={status}
+                onClick={() => setActiveMobileColumn(status)}
+                className={`flex-1 min-w-[120px] py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                  activeMobileColumn === status 
+                    ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/20' 
+                    : 'text-slate-400 hover:bg-white hover:text-slate-600'
+                }`}
               >
-                {filteredTasks.filter(t => t.status === status).map((task) => (
-                  <DraggableTaskCard 
-                    key={task.id} 
-                    user={user}
-                    task={task} 
-                    leads={leads} 
-                    team={team}
-                    deleteTask={deleteTask}
-                    toggleStatus={toggleStatus}
-                    isSelected={selectedTaskIds.includes(task.id)}
-                    onToggleSelect={toggleTaskSelection}
-                    updateSubtasks={updateSubtasks}
-                    onOpenDetail={(t) => setSelectedTask(t)}
-                  />
-                ))}
-                {filteredTasks.filter(t => t.status === status).length === 0 && (
-                  <div className="text-center py-12 border-2 border-dashed border-slate-100 rounded-2xl">
-                    <p className="text-slate-400 text-sm">No tasks here</p>
-                  </div>
-                )}
-              </DroppableColumn>
+                {status} ({filteredTasks.filter(t => t.status === status).length})
+              </button>
+            ))}
+          </div>
+
+          <DndContext 
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="flex flex-col lg:flex-row gap-6 lg:items-start overflow-x-auto pb-8 no-scrollbar snap-x snap-mandatory md:snap-none">
+              {taskStatuses.map((status) => (
+                <div 
+                  key={status} 
+                  className={`flex-1 min-w-[280px] xs:min-w-[320px] max-w-[400px] snap-center ${activeMobileColumn === status ? 'block' : 'hidden lg:block'}`}
+                >
+                  <DroppableColumn 
+                    status={status} 
+                    count={filteredTasks.filter(t => t.status === status).length}
+                  >
+                    <div className="flex flex-col gap-4">
+                      {filteredTasks.filter(t => t.status === status).map((task) => (
+                        <DraggableTaskCard 
+                          key={task.id} 
+                          user={user}
+                          task={task} 
+                          leads={leads} 
+                          team={team}
+                          deleteTask={deleteTask}
+                          toggleStatus={toggleStatus}
+                          isSelected={selectedTaskIds.includes(task.id)}
+                          onToggleSelect={toggleTaskSelection}
+                          updateSubtasks={updateSubtasks}
+                          onOpenDetail={(t) => setSelectedTask(t)}
+                        />
+                      ))}
+                      {filteredTasks.filter(t => t.status === status).length === 0 && (
+                        <div className="text-center py-16 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                          <Info size={24} className="mx-auto text-slate-200 mb-2" />
+                          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Zone Clear</p>
+                        </div>
+                      )}
+                    </div>
+                  </DroppableColumn>
+                </div>
+              ))}
             </div>
-          ))}
+          </DndContext>
         </div>
-      </DndContext>
-    </div>
+
+        {/* Action/Detail Sidebar (Right Side) */}
+        <div className="hidden xl:block w-80 space-y-6 shrink-0">
+          <div className="bg-[#fcfcfc] border border-slate-100 rounded-3xl p-6 shadow-sm">
+             <div className="flex items-center space-x-3 mb-6">
+                <div className="w-10 h-10 bg-brand-primary/10 text-brand-primary rounded-xl flex items-center justify-center">
+                  <Clock size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900">Task velocity</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Team Performance</p>
+                </div>
+             </div>
+             
+             <div className="space-y-4">
+                <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Operations</p>
+                   <p className="text-2xl font-bold text-slate-900">{tasks.length}</p>
+                </div>
+                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 shadow-sm">
+                   <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Completed</p>
+                   <p className="text-2xl font-bold text-emerald-700">{tasks.filter(t => t.status === lastStatus).length}</p>
+                </div>
+                <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 shadow-sm">
+                   <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest mb-1">Overdue High-Value</p>
+                   <p className="text-2xl font-bold text-rose-700">
+                     {tasks.filter(t => t.priority === 'High' && t.dueDate && isPast(parseISO(t.dueDate)) && t.status !== lastStatus).length}
+                   </p>
+                </div>
+             </div>
+          </div>
+          
+          <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-xl overflow-hidden relative">
+             <div className="relative z-10">
+               <h4 className="text-white font-bold mb-2">Operational Insight</h4>
+               <p className="text-slate-400 text-xs leading-relaxed">
+                 Coordinate cross-functional tasks with real-time sync across all team members. Use bulk actions to accelerate throughput.
+               </p>
+               <button 
+                 onClick={refreshTeam}
+                 className="mt-4 flex items-center space-x-2 text-brand-primary text-xs font-bold hover:underline"
+               >
+                 <RefreshCcw size={14} className={refreshingTeam ? 'animate-spin' : ''} />
+                 <span>Sync Personnel</span>
+               </button>
+             </div>
+             <div className="absolute top-0 right-0 w-24 h-24 bg-brand-primary/10 rounded-full blur-3xl" />
+          </div>
+        </div>
+      </div>
 
       {/* Bulk Action Bar */}
       <AnimatePresence>
@@ -1396,201 +824,21 @@ export default function TasksPage({ user }: { user: UserProfile }) {
 
       <AnimatePresence>
         {showAddModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl overflow-y-auto max-h-[90vh]"
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-bold text-slate-900">Create New Task</h3>
-                <button 
-                   type="button"
-                   onClick={() => setShowAddModal(false)}
-                   className="p-2 hover:bg-slate-100 rounded-full text-slate-400"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              {templates.length > 0 && (
-                <div className="mb-6 p-4 bg-blue-50 rounded-2xl border border-blue-100">
-                  <label className="block text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-2">Use Template</label>
-                  <div className="flex flex-wrap gap-2">
-                    {templates.map(tmpl => (
-                      <div key={tmpl.id} className="group relative flex items-center">
-                        <button
-                          type="button"
-                          onClick={() => applyTemplate(tmpl)}
-                          className="px-3 py-1.5 bg-white border border-blue-200 text-blue-700 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm"
-                        >
-                          {tmpl.name}
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={() => deleteTemplate(tmpl.id)}
-                          className="p-1 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <form onSubmit={handleAddTask} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1.5">Task Title</label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                    value={newTask.title || ''}
-                    onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                    placeholder="e.g. Follow up with client"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1.5">Description</label>
-                  <textarea
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                    value={newTask.description || ''}
-                    onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                    placeholder="Task details..."
-                    rows={3}
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Due Date</label>
-                    <input
-                      type="date"
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                      value={newTask.dueDate || ''}
-                      onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
-                    />
-                  </div>
-                  <div className="flex items-end pb-1">
-                    <button
-                      type="button"
-                      onClick={() => setNewTask({ ...newTask, reminderEnabled: !newTask.reminderEnabled })}
-                      className={`w-full p-3 rounded-xl flex items-center justify-between border transition-all ${
-                        newTask.reminderEnabled ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-slate-50 border-slate-200 text-slate-500'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-2">
-                         {newTask.reminderEnabled ? <Bell size={16} /> : <BellOff size={16} />}
-                         <span className="text-xs font-bold uppercase tracking-wider">Reminder</span>
-                      </div>
-                      <div className={`w-6 h-3 rounded-full relative transition-colors ${newTask.reminderEnabled ? 'bg-blue-500' : 'bg-slate-300'}`}>
-                         <div className={`absolute top-0.5 w-2 h-2 bg-white rounded-full transition-all ${newTask.reminderEnabled ? 'right-0.5' : 'left-0.5'}`} />
-                      </div>
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1.5">Assign To</label>
-                  <UserSelector 
-                    team={team}
-                    value={newTask.assignedTo || ''}
-                    onChange={(uid) => setNewTask({ ...newTask, assignedTo: uid })}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Priority</label>
-                    <select
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
-                      value={newTask.priority || 'Medium'}
-                      onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as any })}
-                    >
-                      <option value="Low">Low</option>
-                      <option value="Medium">Medium</option>
-                      <option value="High">High</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Related Lead</label>
-                    <select
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 appearance-none text-sm"
-                      value={newTask.leadId || ''}
-                      onChange={(e) => setNewTask({ ...newTask, leadId: e.target.value })}
-                    >
-                      <option value="">None</option>
-                      {leads.map(l => (
-                        <option key={l.id} value={l.id}>{l.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1.5 flex justify-between">
-                    <span>Subtasks</span>
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        const title = prompt('Enter subtask:');
-                        if (title) {
-                          setNewTask({
-                            ...newTask,
-                            subtasks: [...newTask.subtasks, { id: Math.random().toString(36).substr(2, 9), title, completed: false }]
-                          });
-                        }
-                      }}
-                      className="text-blue-600 hover:text-blue-700 text-xs flex items-center gap-1"
-                    >
-                      <Plus size={12} /> Add
-                    </button>
-                  </label>
-                  <div className="space-y-2 max-h-32 overflow-y-auto px-1">
-                    {newTask.subtasks.map((sub, idx) => (
-                      <div key={idx} className="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-100">
-                        <span className="text-xs text-slate-600 truncate">{sub.title}</span>
-                        <button 
-                          type="button"
-                          onClick={() => setNewTask({ ...newTask, subtasks: newTask.subtasks.filter((_, i) => i !== idx) })}
-                          className="text-slate-300 hover:text-rose-500 transition-colors"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
-                    {newTask.subtasks.length === 0 && (
-                      <p className="text-[10px] text-slate-400 italic">No subtasks added yet</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddModal(false)}
-                    className="flex-1 p-3 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all border border-slate-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveTemplate}
-                    className="flex-1 p-3 rounded-xl font-bold text-blue-600 border border-blue-200 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
-                  >
-                    <Save size={18} />
-                    <span>Template</span>
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-[2] bg-slate-900 text-white p-3 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
-                  >
-                    Create Task
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
+          <AddTaskModal 
+            user={user}
+            team={team}
+            leads={leads}
+            templates={templates}
+            taskStatuses={taskStatuses}
+            onClose={() => setShowAddModal(false)}
+            onAdd={handleAddTask}
+            onSaveTemplate={handleSaveTemplateUI}
+            deleteTemplate={async (id) => {
+              if (!confirm('Delete template?')) return;
+              await deleteDoc(doc(db, 'taskTemplates', id));
+              toast.success('Template removed');
+            }}
+          />
         )}
       </AnimatePresence>
     </div>

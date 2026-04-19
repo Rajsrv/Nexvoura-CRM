@@ -4,7 +4,7 @@ import { onAuthStateChanged, signOut, signInWithPopup, signInWithEmailAndPasswor
 import { doc, getDoc, setDoc, collection, query, where, onSnapshot, addDoc, getDocs, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
 import { handleFirestoreError, OperationType } from './lib/firestore';
-import { UserProfile, Company, Invite, Lead, Task, AccessRequest, UserRole } from './types';
+import { UserProfile, Company, Invite, Lead, Task, AccessRequest, UserRole, Attendance } from './types';
 import { 
   LayoutDashboard, 
   Users, 
@@ -38,7 +38,9 @@ import {
   Link as LinkIcon,
   Wallet,
   Shield,
-  Briefcase
+  Briefcase,
+  Check,
+  Loader2
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
@@ -59,10 +61,13 @@ import {
 
 import EmployeesPage from './components/EmployeesPage';
 import PayrollPage from './components/PayrollPage';
+import HRManagementPage from './components/HRManagementPage';
+import AttendancePage from './components/AttendancePage';
 import LeadForm from './components/LeadForm';
 import TasksPage from './components/TasksPage';
 import SettingsPage from './components/SettingsPage';
 import ProfilePage from './components/ProfilePage';
+import { PermissionsPage } from './components/PermissionsPage';
 
 // Helper to generate member ID
 const generateMemberId = (companyName: string = 'NEX') => {
@@ -85,7 +90,10 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
 
   const trackingItems = [
     { name: 'Employees', path: '/employees', icon: Users },
+    { name: 'HR Management', path: '/hr', icon: Briefcase, roles: ['admin', 'manager'] },
+    { name: 'Attendance', path: '/attendance', icon: Clock },
     { name: 'Payroll', path: '/payroll', icon: Wallet, roles: ['admin'] },
+    { name: 'Permissions', path: '/permissions', icon: Shield },
   ];
 
   const filteredNavItems = navItems.filter(item => !item.roles || item.roles.includes(user.role));
@@ -106,56 +114,24 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
         )}
       </AnimatePresence>
 
-      <aside className={`w-80 lg:w-[380px] bg-slate-950 text-white h-screen fixed left-0 top-0 flex flex-col z-50 transition-all duration-500 ease-in-out transform ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        {/* Visual Brand Layer */}
-        <div className="absolute inset-0 opacity-20 pointer-events-none">
-          <img 
-            src="https://picsum.photos/seed/crm-bg/800/1200?blur=10" 
-            alt="" 
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-950/80 to-slate-950" />
-        </div>
-
+      <aside className={`w-80 bg-white border-r border-slate-200/60 h-screen fixed left-0 top-0 flex flex-col z-50 transition-all duration-300 ease-in-out transform ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="relative flex flex-col h-full z-10">
-          <div className="p-8 border-b border-white/5 flex items-center justify-between">
-            <h1 className="text-3xl font-black font-display tracking-tight flex items-center space-x-2">
-              <span className="bg-gradient-to-tr from-blue-500 to-indigo-400 bg-clip-text text-transparent italic">Nex</span>
-              <span>voura</span>
+          <div className="p-6 flex items-center justify-between">
+            <h1 className="text-2xl font-black font-display tracking-tight flex items-center space-x-2">
+              <span className="text-brand-primary italic">Nex</span>
+              <span className="text-slate-900">voura</span>
             </h1>
             <button 
               onClick={() => setIsOpen(false)}
-              className="p-2 text-white/40 hover:text-white rounded-xl hover:bg-white/5 lg:hidden transition-colors"
+              className="p-2 text-slate-400 hover:text-slate-900 rounded-xl hover:bg-slate-100 lg:hidden transition-colors"
             >
-              <X size={20} />
+              <X size={18} />
             </button>
           </div>
 
-          <div className="px-8 pt-8">
-             <div className="bg-gradient-to-br from-blue-600/20 to-indigo-600/5 border border-white/5 rounded-3xl p-6 mb-8 overflow-hidden relative group">
-                <div className="relative z-10">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-2">Modern CRM Solution</p>
-                  <h3 className="text-xl font-bold font-display leading-tight mb-2">Empower your sales with AI.</h3>
-                  <div className="flex -space-x-2 mt-4">
-                    {[1,2,3].map(i => (
-                      <img 
-                        key={i}
-                        src={`https://picsum.photos/seed/user${i}/40/40`} 
-                        className="w-8 h-8 rounded-full border-2 border-slate-950 object-cover"
-                        referrerPolicy="no-referrer"
-                        alt="User"
-                      />
-                    ))}
-                    <div className="w-8 h-8 rounded-full border-2 border-slate-950 bg-blue-600 flex items-center justify-center text-[10px] font-bold">+12</div>
-                  </div>
-                </div>
-                <Globe className="absolute -bottom-4 -right-4 w-24 h-24 text-blue-500/10 group-hover:scale-110 transition-transform duration-700" />
-             </div>
-          </div>
-
-          <nav className="flex-1 px-4 space-y-8 overflow-y-auto custom-scrollbar">
+          <nav className="flex-1 px-3 space-y-6 overflow-y-auto custom-scrollbar pt-2">
             <div className="space-y-1">
+              <p className="px-3 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Main Menu</p>
               {filteredNavItems.map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
@@ -163,20 +139,20 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
                     key={item.path}
                     to={item.path}
                     onClick={() => setIsOpen(false)}
-                    className={`flex items-center space-x-4 p-4 rounded-2xl transition-all group relative overflow-hidden ${
+                    className={`flex items-center space-x-3 px-3 py-2 rounded-xl transition-all group relative ${
                       isActive 
-                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
-                        : 'text-slate-500 hover:text-white hover:bg-white/5'
+                        ? 'bg-brand-primary/5 text-brand-primary' 
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                     }`}
                   >
-                    <item.icon size={20} className={`${isActive ? 'scale-110' : 'group-hover:scale-110'} transition-transform`} />
-                    <span className={`font-bold tracking-tight ${isActive ? '' : 'group-hover:translate-x-1'} transition-transform duration-300`}>
+                    <item.icon size={18} className={`${isActive ? 'scale-110' : 'group-hover:scale-110'} transition-transform`} />
+                    <span className="text-sm font-semibold tracking-tight">
                       {item.name}
                     </span>
                     {isActive && (
                       <motion.div 
                         layoutId="activeTabIndicator"
-                        className="absolute left-0 top-0 bottom-0 w-1 bg-white"
+                        className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-primary rounded-r-full"
                       />
                     )}
                   </Link>
@@ -184,8 +160,8 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
               })}
             </div>
 
-            <div className="space-y-4">
-              <p className="px-4 text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">What You Should Track</p>
+            <div className="space-y-1">
+              <p className="px-3 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Operations</p>
               <div className="space-y-1">
                 {filteredTrackingItems.map((item) => {
                   const isActive = location.pathname === item.path;
@@ -194,20 +170,20 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
                       key={item.path}
                       to={item.path}
                       onClick={() => setIsOpen(false)}
-                      className={`flex items-center space-x-4 p-4 rounded-2xl transition-all group relative overflow-hidden ${
+                      className={`flex items-center space-x-3 px-3 py-2 rounded-xl transition-all group relative ${
                         isActive 
-                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
-                          : 'text-slate-500 hover:text-white hover:bg-white/5'
+                          ? 'bg-brand-primary/5 text-brand-primary' 
+                          : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
-                      <item.icon size={20} className={`${isActive ? 'scale-110' : 'group-hover:scale-110'} transition-transform`} />
-                      <span className={`font-bold tracking-tight ${isActive ? '' : 'group-hover:translate-x-1'} transition-transform duration-300`}>
+                      <item.icon size={18} className={`${isActive ? 'scale-110' : 'group-hover:scale-110'} transition-transform`} />
+                      <span className="text-sm font-semibold tracking-tight">
                         {item.name}
                       </span>
                       {isActive && (
                         <motion.div 
                           layoutId="activeTabIndicatorTrack"
-                          className="absolute left-0 top-0 bottom-0 w-1 bg-white"
+                          className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-primary rounded-r-full"
                         />
                       )}
                     </Link>
@@ -217,9 +193,9 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
             </div>
           </nav>
 
-          <div className="p-6 border-t border-white/5 space-y-4">
-            <div className="flex items-center space-x-4 p-3 bg-white/5 rounded-2xl border border-white/5">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white shadow-xl shadow-blue-500/10 overflow-hidden shrink-0">
+          <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+            <div className="flex items-center space-x-3 p-2 group cursor-pointer hover:bg-white hover:shadow-soft hover:border-slate-200 border border-transparent rounded-2xl transition-all">
+              <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-bold text-slate-600 border border-slate-200 overflow-hidden shrink-0">
                 {user.photoURL ? (
                   <img src={user.photoURL} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
@@ -227,28 +203,17 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold truncate leading-tight">{user.name}</p>
-                <p className="text-[10px] font-black text-blue-400/80 uppercase tracking-widest mt-1">{user.role}</p>
+                <p className="text-xs font-bold text-slate-900 truncate leading-tight">{user.name}</p>
+                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mt-0.5">{user.role}</p>
               </div>
               <button 
                 onClick={() => signOut(auth)}
-                className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all"
+                className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                 title="Sign Out"
               >
-                <LogOut size={18} />
+                <LogOut size={16} />
               </button>
             </div>
-            
-            {user.role !== 'admin' && (
-              <button
-                onClick={async () => {
-                  /* Request Access Logic */
-                }}
-                className="w-full py-3 bg-white/5 border border-white/10 hover:border-blue-500/50 hover:bg-blue-500/5 text-slate-400 hover:text-blue-400 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
-              >
-                Request Elevated Access
-              </button>
-            )}
           </div>
         </div>
       </aside>
@@ -356,52 +321,64 @@ const NotificationCenter = ({ user }: { user: UserProfile }) => {
 };
 
 const Header = ({ user, company, onToggleSidebar }: { user: UserProfile; company: Company | null; onToggleSidebar: () => void }) => (
-  <header className="h-20 flex items-center justify-between px-8 bg-brand-surface border-b border-slate-100">
-    <div className="flex items-center space-x-4">
+  <header className="h-20 flex items-center justify-between px-6 lg:px-10 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 sticky top-0 z-40 transition-all">
+    <div className="flex items-center space-x-6">
       <button 
         onClick={onToggleSidebar}
-        className="p-2.5 text-slate-600 hover:bg-slate-200/50 rounded-xl lg:hidden transition-all"
+        className="p-3 text-slate-500 hover:bg-slate-100 rounded-2xl lg:hidden transition-all active:scale-95 border border-transparent hover:border-slate-200"
       >
-        <Menu size={24} />
+        <Menu size={20} />
       </button>
-      <div>
-        <h2 className="text-xl font-bold font-display text-slate-900 tracking-tight">
-          {company?.name || 'Nexvoura CRM'}
-        </h2>
-        <div className="flex items-center space-x-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            {user.role.replace('_', ' ')} Portal
-          </p>
+      <div className="hidden sm:flex items-center space-x-3">
+        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+           <LayoutDashboard size={20} />
+        </div>
+        <div>
+          <h2 className="text-sm font-black text-slate-900 tracking-tight leading-none">
+            {company?.name || 'Nexvoura'}
+          </h2>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Command Center</p>
         </div>
       </div>
     </div>
-    <div className="flex items-center space-x-6">
-      <div className="hidden md:flex items-center bg-white border border-slate-200 rounded-xl px-3 py-1.5">
-        <Search size={16} className="text-slate-400 mr-2" />
+    
+    <div className="flex items-center space-x-4 sm:space-x-8">
+      <div className="hidden lg:flex items-center bg-slate-100/50 border border-slate-200/60 rounded-2xl px-4 py-2 hover:bg-white hover:shadow-xl hover:shadow-slate-200/20 focus-within:bg-white focus-within:shadow-xl focus-within:shadow-indigo-100 focus-within:border-indigo-200 transition-all group">
+        <Search size={16} className="text-slate-400 mr-3 group-focus-within:text-indigo-600 transition-colors" />
         <input 
           type="text" 
-          placeholder="Global search..." 
-          className="bg-transparent border-none outline-none text-xs w-48 font-medium" 
+          placeholder="Search transmissions..." 
+          className="bg-transparent border-none outline-none text-xs w-64 lg:w-80 font-semibold text-slate-900 placeholder:text-slate-400" 
         />
+        <div className="text-[10px] font-black text-slate-300 ml-2 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">⌘K</div>
       </div>
-      <NotificationCenter user={user} />
-      <div className="w-px h-6 bg-slate-200" />
-      <Link to="/profile" className="flex items-center space-x-3 group">
-        <div className="text-right hidden sm:block">
-          <p className="text-xs font-bold text-slate-900 leading-none group-hover:text-blue-600 transition-colors uppercase tracking-tight">{user.name}</p>
-          <p className="text-[10px] font-medium text-slate-400 lowercase">@{user.name.split(' ')[0].toLowerCase()}</p>
-        </div>
-        <div className="w-10 h-10 rounded-2xl bg-white border border-slate-200 p-0.5 shadow-sm group-hover:border-blue-400 transition-all">
-          <div className="w-full h-full rounded-[14px] bg-slate-100 flex items-center justify-center overflow-hidden">
-            {user.photoURL ? (
-              <img src={user.photoURL} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-            ) : (
-              <span className="font-bold text-slate-500 uppercase">{user.name[0]}</span>
-            )}
+
+      <div className="flex items-center space-x-4">
+        <NotificationCenter user={user} />
+        <div className="w-px h-6 bg-slate-200/60 hidden sm:block" />
+        
+        <Link to="/profile" className="flex items-center space-x-4 group">
+          <div className="text-right hidden sm:block">
+            <p className="text-xs font-black text-slate-900 leading-none group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{user.name}</p>
+            <div className="flex items-center justify-end space-x-1 mt-1">
+               <Shield size={10} className="text-indigo-500" />
+               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{user.role}</p>
+            </div>
           </div>
-        </div>
-      </Link>
+          <div className="relative">
+            <div className="w-11 h-11 rounded-2xl bg-white border border-slate-200 p-0.5 shadow-sm group-hover:border-indigo-400 group-hover:shadow-lg group-hover:shadow-indigo-100 transition-all overflow-hidden">
+               <div className="w-full h-full rounded-[14px] bg-slate-50 flex items-center justify-center overflow-hidden">
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  <span className="text-sm font-black text-slate-400">{user.name[0]}</span>
+                )}
+               </div>
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full" />
+          </div>
+        </Link>
+      </div>
     </div>
   </header>
 );
@@ -413,6 +390,8 @@ const Dashboard = ({ user }: { user: UserProfile }) => {
   const [stats, setStats] = useState({ total: 0, new: 0, converted: 0 });
   const [reminders, setReminders] = useState<Task[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [isClocking, setIsClocking] = useState(false);
+  const [todayAttendance, setTodayAttendance] = useState<Attendance | null>(null);
 
   useEffect(() => {
     let leadsQ = query(collection(db, 'leads'), where('companyId', '==', user.companyId));
@@ -422,7 +401,6 @@ const Dashboard = ({ user }: { user: UserProfile }) => {
       where('status', '!=', 'Done')
     );
 
-    // Sales can only see their own assignments
     if (user.role === 'sales') {
       leadsQ = query(
         collection(db, 'leads'), 
@@ -457,281 +435,251 @@ const Dashboard = ({ user }: { user: UserProfile }) => {
       setReminders(filtered);
     });
 
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const attQ = query(
+      collection(db, 'attendance'),
+      where('employeeId', '==', user.uid),
+      where('date', '==', today)
+    );
+    const unsubAtt = onSnapshot(attQ, (snap) => {
+      setTodayAttendance(snap.docs[0] ? { id: snap.docs[0].id, ...snap.docs[0].data() } as Attendance : null);
+    });
+
     return () => {
       unsubLeads();
       unsubTasks();
+      unsubAtt();
     };
-  }, [user.companyId]);
+  }, [user.companyId, user.role, user.uid]);
 
-  const services = ['WordPress', 'Shopify', 'Custom Development'];
-  const analyticsData = services.map(service => ({
-    name: service,
-    value: leads.filter(l => l.service === service).length
-  }));
+  const handleClockAction = async () => {
+    setIsClocking(true);
+    try {
+      const now = new Date().toISOString();
+      const today = format(new Date(), 'yyyy-MM-dd');
+
+      if (!todayAttendance) {
+        // Clock In
+        await addDoc(collection(db, 'attendance'), {
+          companyId: user.companyId,
+          employeeId: user.uid,
+          employeeName: user.name,
+          date: today,
+          checkIn: now,
+          status: 'On-time',
+          createdAt: now
+        });
+        toast.success('Shift started. Good luck out there!');
+      } else if (!todayAttendance.checkOut) {
+        // Clock Out
+        await updateDoc(doc(db, 'attendance', todayAttendance.id), {
+          checkOut: now
+        });
+        toast.success('Shift ended. Rest up!');
+      }
+    } catch (error) {
+      toast.error('Sync failed with neural link.');
+    } finally {
+      setIsClocking(false);
+    }
+  };
+
+  const analyticsData = [
+    { name: 'Wordpress', value: leads.filter(l => l.service === 'WordPress').length },
+    { name: 'Shopify', value: leads.filter(l => l.service === 'Shopify').length },
+    { name: 'Custom Dev', value: leads.filter(l => l.service === 'Custom Development').length },
+  ];
 
   const statusData = [
-    { name: 'New', value: stats.new, color: '#3b82f6' },
+    { name: 'New', value: stats.new, color: '#6366f1' },
     { name: 'Contacted', value: leads.filter(l => l.status === 'Contacted').length, color: '#f59e0b' },
     { name: 'Converted', value: stats.converted, color: '#10b981' },
   ];
 
-  const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899'];
+  const COLORS = ['#6366f1', '#8b5cf6', '#ec4899'];
 
   return (
-    <div className="flex flex-col lg:flex-row gap-12 min-h-screen relative pb-28 animate-in fade-in duration-700">
-      {/* Sidebar Intel */}
-      <div className="w-full lg:w-1/4 space-y-8 shrink-0">
-        <div className="relative group">
-           <div className="absolute -inset-4 bg-gradient-to-r from-blue-600/5 to-indigo-600/5 rounded-[40px] blur-2xl group-hover:blur-3xl transition-all duration-700 opacity-0 group-hover:opacity-100" />
-           <div className="relative bg-white border border-slate-100 p-8 rounded-[40px] shadow-sm overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/50 rounded-bl-[80px] -z-10" />
-              <div className="w-16 h-16 bg-slate-950 text-white rounded-[24px] flex items-center justify-center mb-6 shadow-xl shadow-slate-200">
-                <LayoutDashboard size={32} className="text-blue-500" />
-              </div>
-              <h1 className="text-4xl font-black text-slate-950 tracking-tighter leading-[0.9] font-display mb-4 italic">
-                System <br /><span className="text-blue-600 italic">Pulse.</span>
-              </h1>
-              <p className="text-slate-500 font-medium text-sm leading-relaxed mb-8 opacity-80">
-                Nexus Engine is monitoring <b>{stats.total}</b> global leads with high-fidelity analytics.
-              </p>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                   <div className="flex items-center space-x-3">
-                      <Clock size={16} className="text-blue-600" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Uptime</span>
-                   </div>
-                   <span className="text-xs font-black text-slate-900">99.9%</span>
-                </div>
-                <div className="flex items-center justify-between p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
-                   <div className="flex items-center space-x-3">
-                      <CheckCircle size={16} className="text-emerald-600" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Health</span>
-                   </div>
-                   <span className="text-xs font-black text-emerald-600">Optimal</span>
-                </div>
-              </div>
-           </div>
+    <div className="max-w-[1600px] mx-auto space-y-12 animate-in fade-in duration-500">
+      {/* Welcome & Quick Action */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 bg-white p-10 rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/20 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50/50 rounded-bl-[160px] -z-10" />
+        <div className="space-y-2">
+          <h1 className="text-4xl md:text-5xl font-black text-slate-950 tracking-tighter italic">
+            Welcome, <span className="text-indigo-600 underline decoration-indigo-200 underline-offset-8 decoration-4">{user.name.split(' ')[0]}</span>
+          </h1>
+          <p className="text-slate-500 font-medium">Neural systems operational. {reminders.length} tasks require focus.</p>
         </div>
 
-        <div className="bg-slate-950 rounded-[40px] p-8 text-white relative overflow-hidden group shadow-xl shadow-slate-900/20">
-           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
-              <BarChartIcon size={120} />
-           </div>
-           <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-4 px-1">Agency Performance</p>
-           <h3 className="text-2xl font-bold font-display leading-tight mb-6 text-white">Nexvoura <br />Intelligence</h3>
-           <p className="text-xs text-slate-400 font-medium italic leading-relaxed">Leverage data-driven decision making to accelerate your agency's pipeline and conversion velocity.</p>
+        <div className="flex flex-wrap items-center gap-4">
+          <button 
+            onClick={handleClockAction}
+            disabled={isClocking || (!!todayAttendance && !!todayAttendance.checkOut)}
+            className={`group flex items-center space-x-3 px-8 py-5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-95 disabled:opacity-50 ${
+              !todayAttendance 
+                ? 'bg-indigo-600 text-white shadow-indigo-200 hover:bg-slate-950' 
+                : !todayAttendance.checkOut 
+                  ? 'bg-rose-500 text-white shadow-rose-200 hover:bg-rose-600'
+                  : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none'
+            }`}
+          >
+            <Clock size={18} className={!todayAttendance || !todayAttendance.checkOut ? 'animate-pulse' : ''} />
+            <span>
+              {!todayAttendance ? 'Initialize Shift (Clock In)' : !todayAttendance.checkOut ? 'Terminate Shift (Clock Out)' : 'Shift Logged'}
+            </span>
+          </button>
+          
+          <button
+            onClick={() => navigate('/tasks')}
+            className="group flex items-center space-x-3 bg-slate-950 text-white px-8 py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-xl shadow-slate-200 active:scale-95"
+          >
+            <LayoutDashboard size={18} />
+            <span>Process Queue</span>
+          </button>
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 space-y-10 min-w-0">
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-          <div className="space-y-1">
-            <div className="inline-flex items-center space-x-2 text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
-               <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-               <span>Nexus Live Stats</span>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {[
+          { label: 'Total Leads', value: stats.total, color: 'text-brand-primary', bg: 'bg-brand-primary/5', icon: MessageSquare },
+          { label: 'New Opportunities', value: stats.new, color: 'text-amber-600', bg: 'bg-amber-50', icon: Clock },
+          { label: 'Successful Conversions', value: stats.converted, color: 'text-emerald-600', bg: 'bg-emerald-50', icon: CheckCircle },
+        ].map((stat) => (
+          <div key={stat.label} className="saas-card saas-card-hover p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className={`w-10 h-10 rounded-xl ${stat.bg} ${stat.color} flex items-center justify-center`}>
+                <stat.icon size={20} />
+              </div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Growth</span>
             </div>
-            <h2 className="text-5xl font-black font-display text-slate-950 tracking-tighter leading-tight italic">
-              Global Overview
-            </h2>
+            <p className="text-sm font-medium text-slate-500">{stat.label}</p>
+            <h3 className="text-3xl font-bold text-slate-900 mt-1">{stat.value}</h3>
           </div>
-          <div className="flex items-center space-x-3 text-sm font-bold text-slate-600 bg-white px-5 py-4 rounded-[24px] border border-slate-100 shadow-xl shadow-slate-200/20">
-            <Calendar size={18} className="text-blue-500" />
-            <span className="font-display tracking-tight text-slate-900">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="saas-card p-6">
+          <div className="flex justify-between items-center mb-8">
+            <h3 className="text-lg font-bold text-slate-900">Leads by Service</h3>
+            <div className="p-2 bg-slate-50 rounded-lg text-slate-400">
+              <BarChartIcon size={18} />
+            </div>
+          </div>
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={analyticsData}>
+                <XAxis dataKey="name" fontSize={11} fontWeight={600} axisLine={false} tickLine={false} tick={{fill: '#64748b'}} dy={10} />
+                <YAxis hide />
+                <ReChartsTooltip 
+                  cursor={{fill: '#f1f5f9', radius: 8}}
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', padding: '12px' }}
+                />
+                <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={32}>
+                  {analyticsData.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {[
-            { label: 'Total Leads', value: stats.total, color: 'bg-blue-600', icon: MessageSquare, textColor: 'text-blue-600', labelColor: 'bg-blue-50' },
-            { label: 'New Leads', value: stats.new, color: 'bg-emerald-600', icon: Clock, textColor: 'text-emerald-600', labelColor: 'bg-emerald-50' },
-            { label: 'Converted', value: stats.converted, color: 'bg-indigo-600', icon: CheckCircle, textColor: 'text-indigo-600', labelColor: 'bg-indigo-50' },
-          ].map((stat, i) => (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: i * 0.1, duration: 0.5 }}
-              key={stat.label}
-              className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 group hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-500 relative overflow-hidden"
-            >
-              <div className="flex justify-between items-start mb-6">
-                <div className={`w-14 h-14 rounded-2xl ${stat.color} bg-opacity-10 ${stat.textColor} flex items-center justify-center group-hover:rotate-12 transition-transform`}>
-                  <stat.icon size={26} />
-                </div>
-                <div className={`px-3 py-1 rounded-full ${stat.labelColor} ${stat.textColor} text-[9px] font-black uppercase tracking-widest`}>
-                  Analytics
-                </div>
-              </div>
-              <p className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mb-1">{stat.label}</p>
-              <h3 className="text-5xl font-black font-display text-slate-950 tracking-tighter leading-none italic">{stat.value}</h3>
-              
-              <div className={`absolute bottom-0 left-0 h-1.5 transition-all duration-700 ${stat.color} w-0 group-hover:w-full opacity-60`} />
-            </motion.div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Charts Section */}
-          <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/20">
-             <div className="flex justify-between items-center mb-10">
-               <div>
-                 <h3 className="text-xl font-black text-slate-950 font-display italic">Lead Segment Map</h3>
-                 <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Cross-Platform Distribution</p>
-               </div>
-               <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400">
-                 <BarChartIcon size={20} />
-               </div>
-             </div>
-             <div className="h-[280px] w-full">
-               <ResponsiveContainer width="100%" height="100%">
-                 <BarChart data={analyticsData}>
-                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                   <XAxis dataKey="name" fontSize={10} fontWeight={800} axisLine={false} tickLine={false} tick={{fill: '#94a3b8'}} />
-                   <YAxis axisLine={false} tickLine={false} fontSize={10} fontWeight={800} tick={{fill: '#94a3b8'}} />
-                   <ReChartsTooltip 
-                      cursor={{fill: '#f8fafc', radius: 10}}
-                      contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.15)', padding: '16px' }}
-                   />
-                   <Bar dataKey="value" radius={[12, 12, 0, 0]} barSize={40}>
-                      {analyticsData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} fillOpacity={0.8} />
-                      ))}
-                   </Bar>
-                 </BarChart>
-               </ResponsiveContainer>
-             </div>
-          </div>
-
-          <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/20">
-             <div className="flex justify-between items-center mb-10">
-               <div>
-                 <h3 className="text-xl font-black text-slate-950 font-display italic">Lead Lifecycle</h3>
-                 <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Pipeline Stage Analysis</p>
-               </div>
-               <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400">
-                 <RefreshCcw size={20} />
-               </div>
-             </div>
-             <div className="h-[280px] w-full">
-               <ResponsiveContainer width="100%" height="100%">
-                 <PieChart>
-                   <Pie
-                     data={statusData}
-                     cx="50%"
-                     cy="50%"
-                     innerRadius={65}
-                     outerRadius={90}
-                     paddingAngle={10}
-                     dataKey="value"
-                     stroke="none"
-                   >
-                     {statusData.map((entry, index) => (
-                       <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} />
-                     ))}
-                   </Pie>
-                   <ReChartsTooltip 
-                      contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.15)', padding: '16px' }}
-                   />
-                   <Legend 
-                     verticalAlign="bottom" 
-                     height={40} 
-                     iconType="circle"
-                     formatter={(value) => <span className="text-[10px] font-black uppercase text-slate-500 tracking-tighter">{value}</span>}
-                   />
-                 </PieChart>
-               </ResponsiveContainer>
-             </div>
-          </div>
-
-          <div className="bg-white p-10 rounded-[40px] shadow-xl shadow-slate-200/20 border border-slate-100">
-            <div className="flex justify-between items-center mb-8">
-              <div>
-                <h3 className="text-2xl font-black text-slate-950 font-display italic">Operations Alert</h3>
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Critical Time-Sensitive Tasks</p>
-              </div>
-              {reminders.length > 0 && (
-                <div className="flex items-center space-x-2 bg-rose-50 text-rose-600 px-4 py-2 rounded-full border border-rose-100">
-                  <AlertCircle size={14} className="animate-bounce" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">
-                    {reminders.length} High Priority
-                  </span>
-                </div>
-              )}
+        <div className="saas-card p-6">
+          <div className="flex justify-between items-center mb-8">
+            <h3 className="text-lg font-bold text-slate-900">Pipeline Status</h3>
+            <div className="p-2 bg-slate-50 rounded-lg text-slate-400">
+              <RefreshCcw size={18} />
             </div>
-            
-            {reminders.length > 0 ? (
-              <div className="space-y-4">
-                {reminders.map((task, i) => {
-                  const isOverdue = isPast(parseISO(task.dueDate)) && !isToday(parseISO(task.dueDate));
-                  return (
-                    <motion.div 
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      key={task.id} 
-                      className="group flex items-center justify-between p-5 bg-slate-50/50 hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 rounded-3xl border border-transparent hover:border-slate-100 transition-all duration-300"
-                    >
-                      <div className="flex items-center space-x-4">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${isOverdue ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
-                          {isOverdue ? <AlertCircle size={20} /> : <Clock size={20} />}
-                        </div>
-                        <div>
-                          <p className="text-sm font-black text-slate-950 leading-tight group-hover:text-blue-600 transition-colors uppercase tracking-tight">{task.title}</p>
-                          <div className="flex items-center space-x-2 mt-1">
-                             <div className={`text-[9px] font-black uppercase tracking-widest ${isOverdue ? 'text-rose-500' : 'text-amber-500'}`}>
-                                {isOverdue ? 'Overdue Protocol' : 'Upcoming Directive'} 
-                             </div>
-                             <span className="text-slate-300 text-[10px]">•</span>
-                             <p className="text-[10px] font-bold text-slate-400 uppercase">
-                               {format(parseISO(task.dueDate), 'MMM d, yyyy')}
-                             </p>
-                          </div>
-                        </div>
-                      </div>
-                      <Link 
-                        to="/tasks" 
-                        className="w-10 h-10 flex items-center justify-center bg-white rounded-xl border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-100 hover:shadow-lg transition-all"
-                      >
-                        <ArrowRight size={18} />
-                      </Link>
-                    </motion.div>
-                  );
-                })}
-                <Link 
-                  to="/tasks" 
-                  className="w-full flex items-center justify-center p-4 border-2 border-dashed border-slate-100 rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:bg-slate-50 hover:text-blue-600 hover:border-blue-100 transition-all"
+          </div>
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={statusData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={70}
+                  outerRadius={90}
+                  paddingAngle={8}
+                  dataKey="value"
+                  stroke="none"
                 >
-                  Enter Nexus Workspace
-                </Link>
-              </div>
-            ) : (
-              <div className="text-center py-20 bg-slate-50/50 rounded-[40px] border border-dashed border-slate-100">
-                <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center mx-auto mb-4 border border-slate-100 shadow-sm">
-                  <CheckSquare size={32} className="text-slate-200" />
-                </div>
-                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic">All Operations Synchronized</p>
-              </div>
+                  {statusData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <ReChartsTooltip 
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', padding: '12px' }}
+                />
+                <Legend 
+                  verticalAlign="bottom" 
+                  iconType="circle"
+                  formatter={(value) => <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">{value}</span>}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 saas-card p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-lg font-bold text-slate-900">Critical Tasks</h3>
+            {reminders.length > 0 && (
+              <span className="px-3 py-1 bg-brand-danger/5 text-brand-danger text-[10px] font-bold uppercase rounded-full border border-brand-danger/10">
+                Action Required
+              </span>
             )}
           </div>
           
-          <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[40px] blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200" />
-            <div className="relative bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 h-full flex flex-col justify-center">
-              <div className="w-16 h-16 bg-blue-600 rounded-3xl flex items-center justify-center mb-8 shadow-xl shadow-blue-500/20 text-white">
-                <Globe size={32} />
-              </div>
-              <h4 className="text-2xl font-black font-display text-slate-950 italic mb-4">Neural Network Integration</h4>
-              <p className="text-slate-500 font-medium text-sm leading-relaxed mb-8 opacity-80">Your Nexvoura workspace is connected to the Nexus Neural Link for automated directive optimization.</p>
-              <button 
-                onClick={() => navigate('/tasks')}
-                className="group flex items-center justify-between bg-slate-950 text-white px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all"
-              >
-                <span>Synchronize Commands</span>
-                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-              </button>
+          {reminders.length > 0 ? (
+            <div className="space-y-3">
+              {reminders.map((task) => {
+                const isOverdue = isPast(parseISO(task.dueDate)) && !isToday(parseISO(task.dueDate));
+                return (
+                  <div key={task.id} className="group flex items-center justify-between p-4 bg-slate-50/50 hover:bg-white rounded-2xl border border-transparent hover:border-slate-200 hover:shadow-soft transition-all duration-300">
+                    <div className="flex items-center space-x-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isOverdue ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'}`}>
+                        {isOverdue ? <AlertCircle size={18} /> : <Clock size={18} />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900 group-hover:text-brand-primary transition-colors">{task.title}</p>
+                        <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mt-0.5">
+                          {isOverdue ? 'Overdue' : 'Due'} • {format(parseISO(task.dueDate), 'MMM d')}
+                        </p>
+                      </div>
+                    </div>
+                    <button onClick={() => navigate('/tasks')} className="p-2 text-slate-400 hover:text-brand-primary">
+                      <ArrowRight size={18} />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+              <CheckCircle size={40} className="mb-4 opacity-10" />
+              <p className="text-sm font-medium">All tasks are up to date.</p>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-brand-primary p-8 rounded-[24px] text-white overflow-hidden relative group">
+          <div className="relative z-10 h-full flex flex-col">
+            <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center mb-6">
+              <ShieldCheck size={28} />
+            </div>
+            <h3 className="text-xl font-bold font-display mb-3">Enterprise Security</h3>
+            <p className="text-sm text-brand-primary-foreground/70 font-medium mb-8 flex-1">Your data is secured with banking-grade encryption and real-time monitoring.</p>
+            <button 
+              onClick={() => navigate('/settings')}
+              className="w-full py-3 bg-white text-brand-primary rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
+            >
+              Review Security
+            </button>
           </div>
+          <Globe className="absolute -bottom-10 -right-10 w-48 h-48 text-white/5 group-hover:scale-110 transition-transform duration-1000" />
         </div>
       </div>
     </div>
@@ -844,252 +792,234 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
   });
 
   return (
-    <div className="space-y-8 md:space-y-12">
-      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
-        <div className="space-y-4">
-          <div className="inline-flex items-center space-x-2 text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-            <span>Demand & Inquiry Pipeline</span>
-          </div>
-          <h2 className="text-4xl md:text-5xl lg:text-6xl font-black font-display text-slate-950 tracking-tight leading-[0.85] italic">
-            Prospect <br /><span className="text-blue-600">Inventory</span>
-          </h2>
+    <div className="max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-bold text-slate-900">Leads</h2>
+          <p className="text-sm text-slate-500 mt-1">Manage and track your agency's incoming opportunities.</p>
         </div>
-        
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full xl:w-auto">
-          <div className="relative flex-1 sm:w-64">
-             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
-             <input 
-                type="text"
-                placeholder="Search Identity..."
-                value={searchQuery || ''}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-white border-2 border-slate-100 rounded-2xl text-xs font-bold text-slate-600 outline-none focus:border-blue-500/20 focus:ring-4 focus:ring-blue-600/5 transition-all shadow-sm"
-              />
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <input 
+              type="text"
+              placeholder="Search leads..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="saas-input pl-10 w-64"
+            />
           </div>
-          <div className="flex gap-4">
-            <div className="relative flex-1 sm:w-40">
-                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
-                <select 
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-600 outline-none appearance-none hover:border-slate-300 transition-colors"
-                  >
-                    <option value="All">All Stages</option>
-                    <option value="New">New Discovery</option>
-                    <option value="Contacted">Active Outreach</option>
-                    <option value="Converted">Locked Partnership</option>
-                  </select>
-              </div>
-              <div className="relative flex-1 sm:w-40">
-                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
-                  <select 
-                      value={serviceFilter}
-                      onChange={(e) => setServiceFilter(e.target.value)}
-                      className="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-600 outline-none appearance-none hover:border-slate-300 transition-colors"
-                    >
-                      <option value="All">All Solutions</option>
-                      <option value="WordPress">WordPress</option>
-                      <option value="Shopify">Shopify</option>
-                      <option value="Custom Development">Custom Forge</option>
-                    </select>
-              </div>
-          </div>
-          <div className="flex gap-2">
-            {(user.role === 'admin' || user.role === 'manager') && (
-              <button 
-                onClick={exportLeadsToCSV}
-                className="p-4 bg-slate-100 text-slate-600 rounded-2xl hover:bg-slate-200 transition-all active:scale-95"
-                title="Export Signal Data"
-              >
-                <Download size={20} />
-              </button>
-            )}
-            <button 
-              onClick={() => setShowAddModal(true)}
-              className="flex-1 sm:flex-none flex items-center justify-center space-x-2 bg-blue-600 text-white px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95 whitespace-nowrap"
-            >
-              <Plus size={18} />
-              <span>Register Lead</span>
-            </button>
-          </div>
+          <button 
+            onClick={() => setShowAddModal(true)}
+            className="saas-button-primary flex items-center space-x-2"
+          >
+            <Plus size={18} />
+            <span>Add Lead</span>
+          </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-[40px] shadow-xl shadow-slate-200/5 border border-slate-100 overflow-hidden relative">
+      <div className="saas-card overflow-hidden">
+        <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center gap-4">
+          <div className="flex items-center space-x-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</span>
+            <select 
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2 py-1 outline-none"
+            >
+              <option value="All">All Stages</option>
+              <option value="New">New</option>
+              <option value="Contacted">Contacted</option>
+              <option value="Converted">Converted</option>
+            </select>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Service</span>
+            <select 
+              value={serviceFilter}
+              onChange={(e) => setServiceFilter(e.target.value)}
+              className="text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2 py-1 outline-none"
+            >
+              <option value="All">All Services</option>
+              <option value="WordPress">WordPress</option>
+              <option value="Shopify">Shopify</option>
+              <option value="Custom Development">Custom Forge</option>
+            </select>
+          </div>
+          {(user.role === 'admin' || user.role === 'manager') && (
+            <button 
+              onClick={exportLeadsToCSV}
+              className="ml-auto text-xs font-bold text-slate-500 hover:text-slate-900 flex items-center space-x-1"
+            >
+              <Download size={14} />
+              <span>Export CSV</span>
+            </button>
+          )}
+        </div>
+
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
-              <tr className="bg-slate-50/50 border-b border-slate-100">
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Client Identity</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Service Inquiry</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Pipeline Stage</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Assigned Specialist</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Engagement</th>
+              <tr className="border-b border-slate-100">
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Contact</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Service</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Assignee</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filteredLeads.map((lead) => (
-              <tr key={lead.id} className="hover:bg-blue-50/30 transition-all group">
-                <td className="px-8 py-6">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-500 font-black font-display group-hover:from-blue-100 group-hover:to-blue-200 group-hover:text-blue-600 transition-all">
-                      {lead.name[0]}
+                <tr key={lead.id} className="hover:bg-slate-50/50 transition-colors group">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 font-bold group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-all">
+                        {lead.name[0]}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">{lead.name}</p>
+                        <p className="text-xs text-slate-500">{lead.email}</p>
+                      </div>
                     </div>
-                    <div>
-                      <div className="font-bold text-slate-900 font-display text-base leading-tight">{lead.name}</div>
-                      <div className="text-xs font-medium text-slate-400 mt-0.5">{lead.email}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-8 py-6">
-                   <div className="flex items-center space-x-2">
-                     <div className="w-2 h-2 rounded-full bg-blue-400" />
-                     <span className="text-sm font-bold text-slate-600">{lead.service}</span>
-                   </div>
-                </td>
-                <td className="px-8 py-6">
-                  <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                    lead.status === 'Converted' ? 'bg-emerald-100 text-emerald-700' :
-                    lead.status === 'Contacted' ? 'bg-blue-100 text-blue-700' :
-                    'bg-slate-100 text-slate-700'
-                  }`}>
-                    {lead.status}
-                  </span>
-                </td>
-                <td className="px-8 py-6">
-                  {(user.role === 'admin' || user.role === 'manager') ? (
-                    <div className="relative inline-block w-full">
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-sm font-medium text-slate-600 px-2 py-1 bg-slate-100 rounded-lg">{lead.service}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight ${
+                      lead.status === 'Converted' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                      lead.status === 'Contacted' ? 'bg-indigo-50 text-brand-primary border border-brand-primary/10' :
+                      'bg-slate-100 text-slate-600 border border-slate-200'
+                    }`}>
+                      {lead.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    {(user.role === 'admin' || user.role === 'manager') ? (
                       <select
-                        className="w-full text-sm bg-transparent border-none focus:ring-0 text-slate-600 font-bold cursor-pointer hover:text-blue-600 transition-colors appearance-none"
+                        className="text-sm bg-transparent border-none focus:ring-0 text-slate-600 font-semibold cursor-pointer hover:text-brand-primary transition-colors appearance-none"
                         value={lead.assignedTo || ''}
                         onChange={(e) => handleAssignLead(lead.id, e.target.value)}
                       >
-                        <option value="">Public Queue</option>
+                        <option value="">Unassigned</option>
                         {team.map(member => (
                           <option key={member.uid} value={member.uid}>{member.name}</option>
                         ))}
                       </select>
-                      <ChevronDown size={14} className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-hover:text-blue-500 transition-colors" />
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">
-                        {(team.find(m => m.uid === lead.assignedTo)?.name || 'U')[0]}
-                      </div>
-                      <span className="text-sm text-slate-600 font-bold">
+                    ) : (
+                      <span className="text-sm font-medium text-slate-600">
                         {team.find(m => m.uid === lead.assignedTo)?.name || 'Unassigned'}
                       </span>
-                    </div>
-                  )}
-                </td>
-                <td className="px-8 py-6 text-right">
-                  <button className="text-blue-600 hover:text-blue-700 text-xs font-black uppercase tracking-widest p-2 hover:bg-blue-100/50 rounded-xl transition-all">
-                    Intel Analysis
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {leads.length === 0 && !loading && (
-          <div className="p-20 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-slate-50 text-slate-300 mb-4">
-              <Search size={32} />
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button className="text-slate-400 hover:text-brand-primary transition-colors">
+                      <ArrowRight size={18} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {leads.length === 0 && !loading && (
+            <div className="p-12 text-center">
+              <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-200">
+                <Search size={32} />
+              </div>
+              <p className="text-slate-500 font-bold">No leads found</p>
+              <p className="text-sm text-slate-400 mt-1">Try adjusting your filters or search query.</p>
             </div>
-            <p className="text-slate-400 font-bold font-display text-xl">No entities found in this sector</p>
-            <p className="text-slate-400 text-sm mt-1">Adjust your filters or add a new lead to populate the nexus.</p>
-          </div>
-        )}
-      </div></div>
+          )}
+        </div>
+      </div>
 
       <AnimatePresence>
         {showAddModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-xl">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white rounded-[40px] p-10 max-w-xl w-full shadow-2xl relative overflow-hidden"
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-white rounded-[24px] p-8 max-w-lg w-full shadow-2xl border border-slate-100"
             >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Add New Lead</h3>
+                  <p className="text-sm text-slate-500 mt-1">Register a new opportunity in the system.</p>
+                </div>
+                <button onClick={() => setShowAddModal(false)} className="p-2 text-slate-400 hover:text-slate-900 rounded-lg hover:bg-slate-50">
+                  <X size={20} />
+                </button>
+              </div>
               
-              <h3 className="text-3xl font-black font-display text-slate-950 mb-2">Lead Integration</h3>
-              <p className="text-slate-500 font-medium mb-8">Register a new inquiry into the Nexvoura system.</p>
-              
-              <form onSubmit={handleAddLead} className="space-y-8">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Full Identity</label>
+              <form onSubmit={handleAddLead} className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Name</label>
                     <input
                       type="text"
                       required
-                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-medium"
-                      value={newLead.name || ''}
+                      className="saas-input"
+                      value={newLead.name}
                       onChange={(e) => setNewLead({ ...newLead, name: e.target.value })}
-                      placeholder="e.g. Alex Rivera"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Comm Protocol (Email)</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Email</label>
                     <input
                       type="email"
                       required
-                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-medium"
-                      value={newLead.email || ''}
+                      className="saas-input"
+                      value={newLead.email}
                       onChange={(e) => setNewLead({ ...newLead, email: e.target.value })}
-                      placeholder="alex@nexus.com"
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Phone Nexus</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Phone</label>
                     <input
                       type="tel"
-                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-medium"
-                      value={newLead.phone || ''}
+                      className="saas-input"
+                      value={newLead.phone}
                       onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
-                      placeholder="+1 (555) 000-0000"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Core Service</label>
-                    <div className="relative">
-                      <select
-                        className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-bold text-slate-700 appearance-none"
-                        value={newLead.service || 'WordPress'}
-                        onChange={(e) => setNewLead({ ...newLead, service: e.target.value as any })}
-                      >
-                        <option>WordPress</option>
-                        <option>Shopify</option>
-                        <option>Custom Development</option>
-                      </select>
-                      <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Service</label>
+                    <select
+                      className="saas-input"
+                      value={newLead.service}
+                      onChange={(e) => setNewLead({ ...newLead, service: e.target.value as any })}
+                    >
+                      <option value="WordPress">WordPress</option>
+                      <option value="Shopify">Shopify</option>
+                      <option value="Custom Development">Custom Forge</option>
+                    </select>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Inquiry Specs</label>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Message</label>
                   <textarea
-                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-medium resize-none min-h-[120px]"
-                    value={newLead.message || ''}
+                    className="saas-input min-h-[100px] resize-none"
+                    value={newLead.message}
                     onChange={(e) => setNewLead({ ...newLead, message: e.target.value })}
-                    placeholder="Provide context for this lead..."
                   />
                 </div>
-                <div className="flex space-x-4 pt-4">
+                <div className="flex space-x-3 pt-4">
                   <button
                     type="button"
                     onClick={() => setShowAddModal(false)}
-                    className="flex-1 p-4 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all border border-slate-100"
+                    className="flex-1 px-5 py-2.5 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 transition-all border border-slate-200"
                   >
-                    Discard
+                    Cancel
                   </button>
                   <button
-                    className="flex-1 bg-slate-950 text-white p-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-900 transition-all shadow-xl shadow-slate-200"
+                    type="submit"
+                    className="flex-1 saas-button-primary"
                   >
-                    Integrate Lead
+                    Create Lead
                   </button>
                 </div>
               </form>
@@ -1116,16 +1046,10 @@ const Login = () => {
       if (isSignUp) {
         const result = await createUserWithEmailAndPassword(auth, email, password);
         const user = result.user;
-        
-        // Update profile with the name immediately
         await updateProfile(user, { displayName: name });
-        
-        // The App component's onSnapshot will handle the state and redirect to /setup-company
-        // but we navigate just as secondary safeguard
         navigate('/setup-company', { state: { name } });
       } else {
         await signInWithEmailAndPassword(auth, email, password);
-        // App component handles redirects based on profile existence
         navigate('/');
       }
     } catch (error: any) {
@@ -1146,10 +1070,8 @@ const Login = () => {
       console.error('Google Login Error:', error);
       if (error.code === 'auth/popup-blocked') {
         toast.error('Popup blocked. Please allow popups for this site.');
-      } else if (error.code === 'auth/cancelled-popup-request') {
-        // Just ignore
       } else {
-        toast.error('Google Login failed. Check if Authorized Domains are configured in Firebase.');
+        toast.error('Google Login failed.');
       }
     } finally {
       setLoading(false);
@@ -1157,167 +1079,134 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-white font-sans overflow-hidden">
-      {/* Brand Column */}
-      <div className="hidden lg:flex lg:w-3/5 relative overflow-hidden bg-slate-950 p-20 flex-col justify-between">
-        <div className="absolute inset-0 z-0">
-          <img 
-            src="https://picsum.photos/seed/agency/1920/1080?blur=4" 
-            alt="Agency Context" 
-            className="w-full h-full object-cover opacity-40 mix-blend-overlay"
-            referrerPolicy="no-referrer"
-          />
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-900/40 via-transparent to-indigo-950/60" />
-        </div>
-        
-        <div className="relative z-10 flex items-center space-x-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white shadow-2xl shadow-blue-500/20">N</div>
-          <span className="text-3xl font-black text-white tracking-tighter font-display italic">Nexvoura</span>
-        </div>
-
-        <div className="relative z-10 space-y-8 max-w-2xl translate-y-20">
-          <motion.h2 
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-7xl font-black text-white tracking-tight leading-[0.9] font-display"
-          >
-            Smarter Leads. <br />
-            <span className="text-blue-500">Faster Closure.</span>
-          </motion.h2>
-          <motion.p 
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="text-xl text-slate-400 font-medium leading-relaxed"
-          >
-            The next generation of agency management. Centralize your pipeline, coordinate your team, and scale your operations with Nexvoura's intelligence-driven workspace.
-          </motion.p>
-          <motion.div 
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="flex items-center space-x-8 pt-4"
-          >
-            <div className="flex -space-x-3">
-              {[1,2,3,4].map(i => (
-                <div key={i} className="w-12 h-12 rounded-full border-4 border-slate-950 overflow-hidden ring-1 ring-white/10 shadow-xl">
-                  <img src={`https://i.pravatar.cc/150?u=${i}`} alt="user" />
-                </div>
-              ))}
-            </div>
-            <p className="text-sm font-bold text-slate-300">Join 500+ elite agencies scaling with precision.</p>
-          </motion.div>
-        </div>
-
-        <div className="relative z-10 flex items-center space-x-6 text-slate-500 text-xs font-black uppercase tracking-widest">
-          <span>v2.0 Nexus Engine</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-slate-800" />
-          <span>Privacy Secured</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-slate-800" />
-          <span>ISO 27001</span>
-        </div>
-      </div>
-
-      <div className="flex-1 flex flex-col justify-center p-8 lg:p-16 xl:p-24 bg-white overflow-y-auto custom-scrollbar">
-        <div className="max-w-md w-full mx-auto space-y-10 md:space-y-12">
-          <div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-950 tracking-tighter font-display italic">
-              {isSignUp ? 'Empower Your Team' : 'Welcome Back'}
-            </h1>
-            <p className="text-slate-500 font-medium mt-3 text-base md:text-lg opacity-80 leading-relaxed">
-              {isSignUp 
-                ? 'Join Nexvoura and transform your client acquisition cycle.' 
-                : 'Access your specialized workspace and active pipelines.'
-              }
-            </p>
+    <div className="min-h-screen bg-[#fbfbfb] flex items-center justify-center p-6 sm:p-10 font-sans">
+      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 bg-white rounded-[32px] overflow-hidden shadow-soft border border-slate-200/60 min-h-[640px]">
+        {/* Decorative Column */}
+        <div className="hidden lg:flex relative bg-slate-900 overflow-hidden flex-col justify-end p-12 text-white">
+          <div className="absolute inset-0 z-0">
+            <img 
+              src="https://picsum.photos/seed/nexa/1200/800?blur=4" 
+              alt="Context" 
+              className="w-full h-full object-cover opacity-30 mix-blend-overlay"
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
           </div>
+          
+          <div className="relative z-10 space-y-6">
+            <div className="flex items-center space-x-2 mb-8">
+              <div className="w-10 h-10 rounded-xl bg-brand-primary flex items-center justify-center font-black text-white shadow-lg shadow-brand-primary/20 italic">N</div>
+              <span className="text-2xl font-black tracking-tighter italic">Nexvoura</span>
+            </div>
+            
+            <h2 className="text-5xl font-bold leading-[1.1] tracking-tight">Smarter teams. <br/><span className="text-brand-primary">Better clients.</span></h2>
+            <p className="text-slate-400 text-lg leading-relaxed font-medium">The comprehensive agency management suite for modern digital operations.</p>
+            
+            <div className="flex items-center space-x-8 pt-6">
+              <div className="flex -space-x-3">
+                {[1,2,3,4].map(i => (
+                  <div key={i} className="w-10 h-10 rounded-full border-2 border-slate-950 overflow-hidden shadow-lg">
+                    <img src={`https://i.pravatar.cc/150?u=${i}`} alt="user" referrerPolicy="no-referrer" />
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Join 500+ top agencies</p>
+            </div>
+          </div>
+        </div>
 
-          <form onSubmit={handleAuth} className="space-y-6">
-            {isSignUp && (
-              <div className="space-y-2 group">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Full Identity</label>
-                <div className="relative">
-                  <UserIcon size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+        {/* Form Column */}
+        <div className="flex flex-col justify-center p-8 sm:p-16 lg:p-20 bg-white">
+          <div className="max-w-sm w-full mx-auto space-y-8">
+            <div className="flex justify-between items-center lg:hidden absolute top-10 left-10 right-10">
+               <h1 className="text-xl font-black italic text-brand-primary">Nexvoura</h1>
+            </div>
+
+            <div className="space-y-3">
+              <h1 className="text-4xl font-bold text-slate-900 tracking-tight">{isSignUp ? 'Create account' : 'Welcome back'}</h1>
+              <p className="text-slate-500 font-medium leading-relaxed">
+                {isSignUp ? 'Start your agency journey with the next-gen CRM.' : 'Access your pipelines and team workspace.'}
+              </p>
+            </div>
+
+            <form onSubmit={handleAuth} className="space-y-5">
+              {isSignUp && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
                   <input
                     type="text"
                     required
                     placeholder="John Doe"
-                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent rounded-[24px] outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600/20 focus:bg-white transition-all font-bold text-slate-900 placeholder:text-slate-300"
-                    value={name || ''}
+                    className="saas-input"
+                    value={name}
                     onChange={(e) => setName(e.target.value)}
                   />
                 </div>
-              </div>
-            )}
-            
-            <div className="space-y-2 group">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Email Port</label>
-              <div className="relative">
-                <Mail size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+              )}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Email address</label>
                 <input
                   type="email"
                   required
-                  placeholder="agent@agency.com"
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent rounded-[24px] outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600/20 focus:bg-white transition-all font-bold text-slate-900 placeholder:text-slate-300"
-                  value={email || ''}
+                  placeholder="john@example.com"
+                  className="saas-input"
+                  value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
-            </div>
-
-            <div className="space-y-2 group">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Security Key</label>
-              <div className="relative">
-                <Lock size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Password</label>
+                  {!isSignUp && <button type="button" className="text-[10px] font-bold text-brand-primary hover:underline uppercase tracking-widest">Forgot?</button>}
+                </div>
                 <input
                   type="password"
                   required
-                  placeholder="••••••••••••"
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent rounded-[24px] outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600/20 focus:bg-white transition-all font-bold text-slate-900 placeholder:text-slate-300"
-                  value={password || ''}
+                  placeholder="••••••••"
+                  className="saas-input"
+                  value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-slate-950 text-white p-5 rounded-[24px] font-black hover:bg-slate-900 hover:shadow-2xl hover:shadow-slate-300/50 hover:-translate-y-1 transition-all flex items-center justify-center space-x-3 text-lg shadow-xl shadow-slate-200"
-            >
-              <span>{loading ? 'Processing Protocol...' : isSignUp ? 'Initialize Account' : 'Authenticate'}</span>
-              {!loading && <ArrowRight size={22} />}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full saas-button-primary mt-2 py-3 flex items-center justify-center space-x-2"
+              >
+                {loading && <Loader2 className="animate-spin" size={18} />}
+                <span>{isSignUp ? 'Create account' : 'Sign in'}</span>
+              </button>
+            </form>
 
-          <div className="flex flex-col space-y-4">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-100"></div>
-              </div>
-              <div className="relative flex justify-center text-[10px] uppercase font-black tracking-widest">
-                <span className="bg-white px-4 text-slate-400">Cross-Cloud Sign In</span>
-              </div>
+            <div className="relative py-4">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100"></div></div>
+              <div className="relative flex justify-center text-[10px] font-bold uppercase tracking-widest bg-white px-4 text-slate-400">Or continue with</div>
             </div>
 
             <button
               onClick={handleGoogleLogin}
               disabled={loading}
-              className="w-full flex items-center justify-center space-x-3 bg-white border-2 border-slate-100 py-4 rounded-[24px] hover:bg-slate-50 hover:border-slate-200 transition-all font-black text-slate-900 shadow-sm"
+              className="w-full h-12 flex items-center justify-center space-x-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm active:scale-95 px-6 group"
             >
-              <img src="https://www.google.com/favicon.ico" className="w-5 h-5 grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all" alt="Google" />
-              <span>Continue with Google</span>
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+              <span className="text-sm font-bold text-slate-700">Google Workspace</span>
             </button>
-          </div>
 
-          <div className="text-center pt-8 border-t border-slate-50">
-            <button
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-sm font-black text-blue-600 hover:text-blue-700 underline underline-offset-8 decoration-2 decoration-blue-200 hover:decoration-blue-500 transition-all"
-            >
-              {isSignUp ? 'Existing Operative? Authenticate Here' : "New Agent? Initialize Access"}
-            </button>
+            <p className="text-center text-sm font-medium text-slate-500">
+              {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+              <button 
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-brand-primary font-bold hover:underline"
+              >
+                {isSignUp ? 'Sign in' : 'Create one'}
+              </button>
+            </p>
           </div>
         </div>
       </div>
@@ -1543,20 +1432,20 @@ const SetupCompany = ({ user }: { user: any }) => {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#fbfbfb] flex items-center justify-center p-6">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md w-full bg-white rounded-[40px] shadow-2xl p-12 space-y-8 text-center border-2 border-slate-50"
+          className="max-w-md w-full bg-white rounded-[32px] shadow-soft p-12 text-center border border-slate-100"
         >
-          <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner ring-4 ring-emerald-500/5">
-            <Plus size={40} className="animate-pulse" />
+          <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-8">
+            <Check size={40} />
           </div>
-          <h2 className="text-4xl font-black text-slate-950 font-display italic">Nexus Initialized</h2>
-          <p className="text-slate-500 font-medium">Your company workspace <span className="font-black text-blue-600 underline underline-offset-4 decoration-2 decoration-blue-100">{name}</span> is ready for deployment.</p>
+          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Workspace Ready</h2>
+          <p className="text-slate-500 font-medium mt-2">Your agency workspace <span className="font-bold text-brand-primary">{name}</span> has been initialized.</p>
           <button
             onClick={() => navigate('/')}
-            className="w-full bg-slate-950 text-white p-5 rounded-[24px] font-black hover:bg-slate-900 transition-all shadow-xl shadow-slate-200"
+            className="w-full saas-button-primary py-4 mt-8"
           >
             Enter Workspace
           </button>
@@ -1566,110 +1455,92 @@ const SetupCompany = ({ user }: { user: any }) => {
   }
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-6 md:p-12 lg:p-20 font-sans overflow-x-hidden relative">
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" />
-      
-      <div className="max-w-[1400px] w-full grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-32 items-center">
-        <div className="space-y-12 animate-in fade-in slide-in-from-left-8 duration-700">
-          <div className="inline-flex items-center space-x-3 bg-slate-50 px-5 py-2.5 rounded-full border border-slate-100 shadow-sm">
-             <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-             <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Workspace Initialization</span>
+    <div className="min-h-screen bg-[#fbfbfb] flex items-center justify-center p-6 md:p-12 lg:p-20 font-sans relative">
+      <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24 items-center">
+        <div className="space-y-10 animate-in fade-in slide-in-from-left-8 duration-700">
+          <div className="flex items-center space-x-2 text-brand-primary">
+            <div className="w-8 h-8 rounded-lg bg-brand-primary/10 flex items-center justify-center font-black italic text-brand-primary text-sm">N</div>
+            <span className="text-sm font-bold uppercase tracking-widest">Nexvoura Setup</span>
           </div>
           
-          <div className="space-y-6">
-            <h2 className="text-6xl md:text-8xl font-black text-slate-950 tracking-tighter leading-[0.85] font-display italic">Setup Your <br /><span className="text-blue-600 italic">Command Center.</span></h2>
-            <p className="text-xl md:text-2xl text-slate-500 font-medium leading-relaxed max-w-xl">Scale your agency operations with Nexvoura's high-performance ecosystem.</p>
+          <div className="space-y-4">
+            <h2 className="text-5xl md:text-6xl font-bold text-slate-900 tracking-tight leading-[1.1]">Initialize your <br /><span className="text-brand-primary">operations hub.</span></h2>
+            <p className="text-xl text-slate-500 font-medium leading-relaxed max-w-md">Every great agency starts with a solid foundation. Let's configure your workspace.</p>
           </div>
           
-          <div className="space-y-10 pt-4">
+          <div className="space-y-8">
             {[
-              { icon: Building2, label: 'Centralize Data', desc: 'Every lead, task, and team metric in one low-latency hub.' },
-              { icon: Shield, label: 'Secure Framework', desc: 'Encryption and role-based access for complete data sovereignty.' },
+              { icon: Building2, label: 'Centralized Assets', desc: 'Securely manage leads, documents, and payroll in one place.' },
+              { icon: Users, label: 'Team Collaboration', desc: 'Coordinate with your specialists through a unified dashboard.' },
             ].map((item, i) => (
-              <div key={i} className="flex items-start space-x-6 group">
-                <div className="p-4 bg-blue-50 rounded-2xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all duration-500">
-                  <item.icon size={28} />
+              <div key={i} className="flex items-start space-x-5">
+                <div className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100 text-brand-primary">
+                  <item.icon size={24} />
                 </div>
                 <div>
-                  <p className="font-black text-slate-900 text-xl font-display tracking-tight uppercase">{item.label}</p>
-                  <p className="text-base text-slate-400 font-medium">{item.desc}</p>
+                  <p className="font-bold text-slate-900"> {item.label}</p>
+                  <p className="text-sm text-slate-500 font-medium">{item.desc}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="bg-white border-2 border-slate-100 shadow-2xl shadow-slate-200/50 rounded-[64px] p-10 md:p-16 relative overflow-hidden animate-in fade-in slide-in-from-right-8 duration-700">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-slate-50 rounded-bl-full -z-10" />
-          
-          <form onSubmit={handleSubmit} className="space-y-10">
-            <div className="space-y-2 group">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Entity Name *</label>
+        <div className="bg-white border border-slate-200/60 shadow-soft rounded-[40px] p-8 md:p-12 relative animate-in fade-in slide-in-from-right-8 duration-700">
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Agency Name *</label>
               <input
                 type="text"
                 required
-                value={name || ''}
+                value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[32px] outline-none focus:ring-8 focus:ring-blue-600/5 focus:border-blue-600/20 focus:bg-white transition-all font-bold text-slate-900 placeholder:text-slate-300 text-lg font-display"
-                placeholder="e.g. Nexvoura Solutions"
+                className="saas-input text-lg font-semibold"
+                placeholder="e.g. Design Foundry"
               />
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-2 group">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Industry</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Industry</label>
                 <input
                   type="text"
-                  value={industry || ''}
+                  value={industry}
                   onChange={(e) => setIndustry(e.target.value)}
-                  className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[32px] outline-none focus:ring-8 focus:ring-blue-600/5 focus:border-blue-600/20 focus:bg-white transition-all font-bold text-slate-900 placeholder:text-slate-300 text-base font-display"
-                  placeholder="e.g. SaaS"
+                  className="saas-input"
+                  placeholder="e.g. Creative Media"
                 />
               </div>
-              <div className="space-y-2 group">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Phone</label>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Phone</label>
                 <input
                   type="tel"
-                  value={phone || ''}
+                  value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[32px] outline-none focus:ring-8 focus:ring-blue-600/5 focus:border-blue-600/20 focus:bg-white transition-all font-bold text-slate-900 placeholder:text-slate-300 text-base font-display"
-                  placeholder="+1 234..."
+                  className="saas-input"
+                  placeholder="+1 (555) 000-0000"
                 />
               </div>
             </div>
 
-            <div className="space-y-2 group">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">External Domain (Optional)</label>
-              <div className="relative">
-                 <LinkIcon size={20} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
-                 <input
-                  type="url"
-                  value={website || ''}
-                  onChange={(e) => setWebsite(e.target.value)}
-                  className="w-full pl-14 pr-6 py-6 bg-slate-50 border-2 border-transparent rounded-[32px] outline-none focus:ring-8 focus:ring-blue-600/5 focus:border-blue-600/20 focus:bg-white transition-all font-bold text-slate-900 placeholder:text-slate-300 text-base font-display"
-                  placeholder="https://your-domain.com"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2 group">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Primary HQ</label>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Company Website</label>
               <input
-                type="text"
-                value={address || ''}
-                onChange={(e) => setAddress(e.target.value)}
-                className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[32px] outline-none focus:ring-8 focus:ring-blue-600/5 focus:border-blue-600/20 focus:bg-white transition-all font-bold text-slate-900 placeholder:text-slate-300 text-base font-display"
-                placeholder="City, Country"
+                type="url"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                className="saas-input"
+                placeholder="https://youragency.com"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-slate-950 text-white p-6 rounded-[32px] font-black hover:bg-slate-900 hover:shadow-2xl hover:shadow-slate-300/50 hover:-translate-y-1 transition-all flex items-center justify-center space-x-3 text-xl shadow-xl shadow-slate-200 mt-10 font-display italic tracking-tight"
+              className="w-full saas-button-primary py-4 font-bold text-lg flex items-center justify-center space-x-2 shadow-lg shadow-brand-primary/20"
             >
-              <span>{loading ? 'Processing Workspace...' : 'Initialize Workspace'}</span>
-              {!loading && <ArrowRight size={28} />}
+              <span>{loading ? 'Initializing Hub...' : 'Create My Workspace'}</span>
+              {!loading && <ArrowRight size={20} />}
             </button>
           </form>
         </div>
@@ -1694,20 +1565,23 @@ const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
   }, [user.companyId]);
 
   return (
-    <div className="flex h-screen bg-brand-surface overflow-hidden font-sans">
+    <div className="flex bg-slate-50 min-h-screen relative">
       <Sidebar user={user} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
       
-      <main className="flex-1 lg:ml-[380px] h-screen overflow-hidden flex flex-col relative w-full">
+      <main className="flex-1 lg:ml-80 min-h-screen flex flex-col relative w-full">
         <Header user={user} company={company} onToggleSidebar={() => setIsSidebarOpen(true)} />
         
-        <div className="flex-1 overflow-y-auto px-4 py-6 md:px-8 xl:px-12 md:py-10 custom-scrollbar relative z-10 scroll-smooth">
+        <div className="flex-1 px-4 py-6 md:px-8 xl:px-10 md:py-8 lg:py-10 relative z-10 scroll-smooth">
           <Routes>
             <Route path="/" element={<Dashboard user={user} />} />
             <Route path="/leads" element={<LeadsPage user={user} />} />
             <Route path="/tasks" element={<TasksPage user={user} />} />
             <Route path="/profile" element={<ProfilePage user={user} />} />
             <Route path="/employees" element={<EmployeesPage user={user} company={company} />} />
+            <Route path="/hr" element={<HRManagementPage user={user} company={company} />} />
+            <Route path="/attendance" element={company ? <AttendancePage user={user} /> : <Navigate to="/settings" />} />
             <Route path="/payroll" element={<PayrollPage user={user} company={company} />} />
+            <Route path="/permissions" element={<PermissionsPage user={user} />} />
             <Route path="/settings" element={<SettingsPage user={user} />} />
           </Routes>
         </div>

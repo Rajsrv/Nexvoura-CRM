@@ -1,10 +1,10 @@
 {
-  "projectId": "nexvoura-local",
-  "appId": "1:60874154490:web:bda5750fad14be7d384443",
-  "apiKey": "AIzaSyA9aff52GpmPyf8avz-8dtSfNqywR56m9g",
-  "authDomain": "nexvoura-local.firebaseapp.com",
-  "firestoreDatabaseId": "(default)",
-  "storageBucket": "nexvoura-local.firebasestorage.app",
-  "messagingSenderId": "60874154490",
-  "measurementId": "G-D2V0ES2M9B"
+  "projectId": "gen-lang-client-0577583484",
+  "appId": "1:122912484854:web:0b83664e190a1818b62bd7",
+  "apiKey": "AIzaSyC_JEewbwUYEXQ9RKN_M5QO-RKMjxieN-s",
+  "authDomain": "gen-lang-client-0577583484.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-81134489-3f49-49c5-ad46-7fe55553d069",
+  "storageBucket": "gen-lang-client-0577583484.firebasestorage.app",
+  "messagingSenderId": "122912484854",
+  "measurementId": ""
 }

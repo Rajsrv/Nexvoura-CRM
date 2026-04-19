@@ -30,6 +30,13 @@ export interface Company {
   taskStatuses?: string[];
 }
 
+export type Permission = 
+  | 'leads:view' | 'leads:edit' | 'leads:delete' | 'leads:assign'
+  | 'tasks:view' | 'tasks:edit' | 'tasks:delete' | 'tasks:assign'
+  | 'team:view' | 'team:manage' | 'team:invite'
+  | 'finance:view' | 'finance:manage'
+  | 'settings:company' | 'settings:security';
+
 export interface UserProfile {
   uid: string;
   memberId: string; // Unique human-readable ID
@@ -47,6 +54,105 @@ export interface UserProfile {
   status?: EmployeeStatus;
   leadCount?: number;
   conversionRate?: number;
+  shiftId?: string;
+  isResigned?: boolean;
+  // RBAC
+  permissions?: Permission[]; // Overrides based on role
+  reportsTo?: string; // UID of manager
+}
+
+export interface PermissionRequest {
+  id: string;
+  userId: string;
+  userName: string;
+  companyId: string;
+  requestedPermission: Permission;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  resolvedBy?: string;
+  createdAt: string;
+  resolvedAt?: string;
+}
+
+export interface Shift {
+  id: string;
+  companyId: string;
+  name: string;
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  type: 'Full-time' | 'Night' | 'Remote' | 'Hybrid';
+  workDays: number[]; // 0-6 (Sun-Sat)
+  createdAt: string;
+}
+
+export interface Holiday {
+  id: string;
+  companyId: string;
+  date: string; // YYYY-MM-DD
+  name: string;
+  type: 'Public' | 'Company' | 'Optional';
+  createdAt: string;
+}
+
+export interface EmployeeDocument {
+  id: string;
+  companyId: string;
+  employeeId: string;
+  name: string;
+  type: 'Offer Letter' | 'ID Proof' | 'Contract' | 'Other';
+  fileUrl: string;
+  uploadedAt: string;
+}
+
+export interface ExitRecord {
+  id: string;
+  companyId: string;
+  employeeId: string;
+  resignationDate: string;
+  lastWorkingDay: string;
+  reason: string;
+  status: 'Pending' | 'Checklist Done' | 'Settled';
+  checklist: {
+    task: string;
+    completed: boolean;
+  }[];
+  finalSettlementAmount?: number;
+  createdAt: string;
+}
+
+export interface Attendance {
+  id: string;
+  companyId: string;
+  employeeId: string;
+  date: string; // YYYY-MM-DD
+  checkIn: string; // ISO string
+  checkOut?: string; // ISO string
+  status: 'On-time' | 'Late' | 'Absent';
+  location?: { lat: number; lng: number };
+}
+
+export interface LeaveRequest {
+  id: string;
+  companyId: string;
+  employeeId: string;
+  startDate: string;
+  endDate: string;
+  type: 'Annual' | 'Sick' | 'Work From Home' | 'Other';
+  reason: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  createdAt: string;
+}
+
+export interface PerformanceReview {
+  id: string;
+  companyId: string;
+  employeeId: string;
+  reviewerId: string;
+  period: string;
+  rating: number; // 1-5
+  feedback: string;
+  kpis: { name: string; target: string; achieved: string }[];
+  createdAt: string;
 }
 
 export interface Lead {

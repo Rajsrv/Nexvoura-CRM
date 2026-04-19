@@ -1,6 +1,8 @@
 {
   "name": "Nexvoura - Multi-Tenant SaaS CRM",
   "description": "A production-ready multi-tenant SaaS CRM for web development agencies to manage leads, teams, and company-isolated data.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": [
+    "geolocation"
+  ],
   "majorCapabilities": []
 }
