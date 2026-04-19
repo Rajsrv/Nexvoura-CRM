@@ -33,6 +33,7 @@ export default function HRManagementPage({ user, company }: { user: UserProfile,
 
   const isAdmin = user.role === 'admin';
   const isManagement = isAdmin || user.role === 'manager';
+  const isTeamLead = isManagement || user.role === 'team_lead';
 
   useEffect(() => {
     if (!user.companyId) return;
@@ -40,19 +41,23 @@ export default function HRManagementPage({ user, company }: { user: UserProfile,
     // Queries that everyone in the company can view
     const shiftsQ = query(collection(db, 'shifts'), where('companyId', '==', user.companyId));
     const holidaysQ = query(collection(db, 'holidays'), where('companyId', '==', user.companyId));
-    const teamQ = query(collection(db, 'users'), where('companyId', '==', user.companyId));
     
-    // Leave Requests visibility: Management sees all, others see theirs
-    const leaveQ = isManagement
+    // Team visibility: Team Lead+ sees all, others see themselves
+    const teamQ = isTeamLead
+      ? query(collection(db, 'users'), where('companyId', '==', user.companyId))
+      : query(collection(db, 'users'), where('companyId', '==', user.companyId), where('uid', '==', user.uid));
+    
+    // Leave Requests visibility: Team Lead+ sees all, others see theirs
+    const leaveQ = isTeamLead
       ? query(collection(db, 'leaveRequests'), where('companyId', '==', user.companyId))
       : query(collection(db, 'leaveRequests'), where('companyId', '==', user.companyId), where('employeeId', '==', user.uid));
     
-    // Attendance visibility: Management sees all, others see theirs
-    const attendanceQ = isManagement 
+    // Attendance visibility: Team Lead+ sees all, others see theirs
+    const attendanceQ = isTeamLead 
       ? query(collection(db, 'attendance'), where('companyId', '==', user.companyId))
       : query(collection(db, 'attendance'), where('companyId', '==', user.companyId), where('employeeId', '==', user.uid));
 
-    // Sensitive data: Admin/Manager sees all, others see their own
+    // Sensitive data: Admin/Manager sees all, others see their own (Team Leads see theirs too)
     const docsQ = isManagement
       ? query(collection(db, 'employeeDocuments'), where('companyId', '==', user.companyId))
       : query(collection(db, 'employeeDocuments'), where('companyId', '==', user.companyId), where('employeeId', '==', user.uid));

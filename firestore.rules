@@ -13,25 +13,33 @@ service cloud.firestore {
     function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
-    function getUserData(userId) { return get(/databases/$(database)/documents/users/$(userId)).data; }
+    
+    function getUserData(userId) { 
+      let path = /databases/$(database)/documents/users/$(userId);
+      return exists(path) ? get(path).data : {}; 
+    }
+    
     function isVerified() { return request.auth.token.email_verified == true; }
     
     // Core Identity Logic
     function isSelf(userId) { return isSignedIn() && request.auth.uid == userId; }
-    function isAdmin() { return isSignedIn() && getUserData(request.auth.uid).role == 'admin'; }
-    function isManager() { return isSignedIn() && getUserData(request.auth.uid).role in ['manager', 'admin']; }
-    function isManagement() { return isAdmin() || isManager(); }
+    
+    function getRole() { return getUserData(request.auth.uid).get('role', ''); }
+    function isAdmin() { return isSignedIn() && getRole() == 'admin'; }
+    function isManager() { return isSignedIn() && getRole() in ['manager', 'admin']; }
+    function isTeamLead() { return isSignedIn() && getRole() in ['team_lead', 'manager', 'admin']; }
+    function isManagement() { return isManager(); }
     
     function isCompanyMember(companyId) {
-      return isSignedIn() && getUserData(request.auth.uid).companyId == companyId;
+      return isSignedIn() && getUserData(request.auth.uid).get('companyId', '') == companyId;
     }
 
     // -------------------------------------------------------------------------
     // 2. Users (Personnel) - STRICT PII ISOLATION
     // -------------------------------------------------------------------------
     match /users/{userId} {
-      // Users can only read themselves OR management can read all in company
-      allow read: if isSelf(userId) || (isManagement() && isCompanyMember(resource.data.companyId));
+      // Users can read themselves, Team Leads can read peers, Managers read all in company
+      allow read: if isSelf(userId) || (isTeamLead() && isCompanyMember(resource.data.companyId));
       
       function isValidUser(data) {
         return data.keys().hasAll(['name', 'email', 'companyId', 'role', 'createdAt']) && 
@@ -62,14 +70,12 @@ service cloud.firestore {
     
     // Payroll & Performance - ONLY Owner or Admin
     match /payroll/{payrollId} {
-      allow read: if isSignedIn() && (request.auth.uid == resource.data.employeeId || isAdmin());
-      allow list: if isSignedIn() && (resource.data.employeeId == request.auth.uid || isAdmin());
+      allow read, list: if isSignedIn() && (request.auth.uid == resource.data.employeeId || isAdmin());
       allow write: if isAdmin();
     }
 
     match /performanceReviews/{reviewId} {
-      allow read: if isSignedIn() && (request.auth.uid == resource.data.employeeId || isAdmin());
-      allow list: if isSignedIn() && (resource.data.employeeId == request.auth.uid || isAdmin());
+      allow read, list: if isSignedIn() && (request.auth.uid == resource.data.employeeId || isAdmin());
       allow write: if isAdmin();
     }
 
@@ -83,9 +89,9 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Attendance & Leave - Owner or Management
+    // Attendance & Leave - Owner or Team Lead+
     match /attendance/{attendanceId} {
-      allow read, list: if isSignedIn() && (request.auth.uid == resource.data.employeeId || isManagement());
+      allow read, list: if isSignedIn() && (request.auth.uid == resource.data.employeeId || (isTeamLead() && isCompanyMember(resource.data.companyId)));
       allow create: if isSignedIn() && incoming().employeeId == request.auth.uid;
       allow update: if isSignedIn() && (
         (isSelf(existing().employeeId) && incoming().diff(existing()).affectedKeys().hasOnly(['checkOut'])) ||
@@ -94,7 +100,7 @@ service cloud.firestore {
     }
 
     match /leaveRequests/{requestId} {
-      allow read, list: if isSignedIn() && (request.auth.uid == resource.data.employeeId || isManagement());
+      allow read, list: if isSignedIn() && (request.auth.uid == resource.data.employeeId || (isTeamLead() && isCompanyMember(resource.data.companyId)));
       allow create: if isSignedIn() && incoming().employeeId == request.auth.uid && incoming().status == 'Pending';
       allow update: if isManagement() || (isSelf(existing().employeeId) && existing().status == 'Pending' && !incoming().diff(existing()).affectedKeys().hasAny(['status']));
       allow delete: if isManagement() || (isSelf(existing().employeeId) && existing().status == 'Pending');

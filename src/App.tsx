@@ -1565,13 +1565,13 @@ const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
   }, [user.companyId]);
 
   return (
-    <div className="flex bg-slate-50 min-h-screen relative">
+    <div className="flex bg-slate-50 min-h-screen relative overflow-x-hidden">
       <Sidebar user={user} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
       
-      <main className="flex-1 lg:ml-80 min-h-screen flex flex-col relative w-full">
+      <main className="flex-1 lg:ml-80 min-h-screen flex flex-col relative w-full overflow-hidden">
         <Header user={user} company={company} onToggleSidebar={() => setIsSidebarOpen(true)} />
         
-        <div className="flex-1 px-4 py-6 md:px-8 xl:px-10 md:py-8 lg:py-10 relative z-10 scroll-smooth">
+        <div className="flex-1 overflow-y-auto px-4 py-6 md:px-8 xl:px-10 md:py-8 lg:py-10 relative z-10 scroll-smooth">
           <Routes>
             <Route path="/" element={<Dashboard user={user} />} />
             <Route path="/leads" element={<LeadsPage user={user} />} />

@@ -19,21 +19,22 @@ export default function AttendancePage({ user }: AttendancePageProps) {
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [employees, setEmployees] = useState<UserProfile[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'personal' | 'admin'>(user.role === 'admin' || user.role === 'manager' ? 'admin' : 'personal');
+  const [viewMode, setViewMode] = useState<'personal' | 'admin'>(user.role === 'admin' || user.role === 'manager' || user.role === 'team_lead' ? 'admin' : 'personal');
   const [searchQuery, setSearchQuery] = useState('');
   const [isClocking, setIsClocking] = useState(false);
 
   const isAdmin = user.role === 'admin' || user.role === 'manager';
+  const isTeamLead = isAdmin || user.role === 'team_lead';
 
   useEffect(() => {
-    // Fetch Employees if Admin
-    if (isAdmin) {
+    // Fetch Employees if Team Lead+
+    if (isTeamLead) {
       const unsubEmp = onSnapshot(query(collection(db, 'users'), where('companyId', '==', user.companyId)), (snap) => {
         setEmployees(snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile)));
       });
       return unsubEmp;
     }
-  }, [isAdmin, user.companyId]);
+  }, [isTeamLead, user.companyId]);
 
   useEffect(() => {
     const start = startOfMonth(selectedMonth).toISOString();
