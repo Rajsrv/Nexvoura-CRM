@@ -1,5 +1,5 @@
 export type UserRole = 'admin' | 'manager' | 'team_lead' | 'sales';
-export type EmployeeStatus = 'Active' | 'On Leave' | 'Left';
+export type EmployeeStatus = 'Active' | 'On Leave' | 'Left' | 'Pending Approval';
 export type Department = 'Sales' | 'Dev' | 'Support';
 
 export interface AccessRequest {
@@ -23,6 +23,9 @@ export interface Company {
   description?: string;
   logoUrl?: string;
   inviteCode?: string;
+  currency?: string;
+  policies?: string[];
+  rolePermissions?: Record<UserRole, Permission[]>;
   notificationSettings?: {
     enabled: boolean;
     dueSoonHours: number;
@@ -36,6 +39,34 @@ export type Permission =
   | 'team:view' | 'team:manage' | 'team:invite'
   | 'finance:view' | 'finance:manage'
   | 'settings:company' | 'settings:security';
+
+export interface BankDetails {
+  accountName: string;
+  accountNumber: string;
+  bankName: string;
+  ifscCode: string;
+  branchName: string;
+}
+
+export interface GovernmentId {
+  type: 'Aadhar' | 'PAN' | 'Passport' | 'Voter ID';
+  number: string;
+}
+
+export interface SalaryHike {
+  id: string;
+  amount: number;
+  date: string;
+  reason: string;
+  previousSalary: number;
+  newSalary: number;
+  status: 'pending' | 'approved' | 'rejected';
+  proposedBy?: string; // UID
+  proposedByName?: string;
+  approvedBy?: string; // UID
+  approvedByName?: string;
+  createdAt: string;
+}
 
 export interface UserProfile {
   uid: string;
@@ -56,6 +87,16 @@ export interface UserProfile {
   conversionRate?: number;
   shiftId?: string;
   isResigned?: boolean;
+  // Detailed Profile Info (Restricted)
+  bankDetails?: BankDetails;
+  governmentId?: GovernmentId;
+  salaryHistory?: SalaryHike[];
+  address?: string;
+  emergencyContact?: {
+    name: string;
+    phone: string;
+    relation: string;
+  };
   // RBAC
   permissions?: Permission[]; // Overrides based on role
   reportsTo?: string; // UID of manager
@@ -230,9 +271,39 @@ export interface PayrollRecord {
   month: string; // YYYY-MM
   baseSalary: number;
   bonus?: number;
-  deduction?: number;
-  totalAmount: number;
+  bonusReason?: string;
+  deduction?: number; // legacy
+  deductions?: number;
+  deductionReason?: string;
+  taxAmount?: number;
+  netSalary: number;
+  totalAmount: number; // total Gross or Net? Usually totalAmount in existing code was gross? No, totalAmount was base + bonus - deduction.
   status: 'Paid' | 'Pending';
   paidAt?: string;
+  createdAt: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  companyId: string;
+  actorId: string;
+  actorName: string;
+  action: 'LOGIN' | 'SALARY_CHANGE' | 'EMPLOYEE_EDIT' | 'DATA_EXPORT' | 'SETTINGS_CHANGE' | 'TASK_EDIT' | 'LEAD_DELETE';
+  targetId?: string;
+  targetName?: string;
+  details: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+}
+
+export interface AppNotification {
+  id: string;
+  companyId: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: 'salary' | 'task' | 'profile' | 'admin' | 'system';
+  read: boolean;
+  link?: string;
   createdAt: string;
 }

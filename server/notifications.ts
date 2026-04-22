@@ -1,17 +1,32 @@
 import cron from 'node-cron';
 import nodemailer from 'nodemailer';
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
+import admin from 'firebase-admin';
 import fs from 'fs';
 import path from 'path';
 
 // Load Firebase config
 const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+let db: admin.firestore.Firestore | null = null;
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+try {
+  if (fs.existsSync(configPath)) {
+    const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    
+    // Initialize Admin SDK
+    if (!admin.apps.length) {
+      admin.initializeApp({
+        projectId: firebaseConfig.projectId,
+      });
+    }
+    
+    // Use the specific firestoreDatabaseId from the config
+    db = admin.firestore(firebaseConfig.firestoreDatabaseId);
+  } else {
+    console.warn('⚠️ firebase-applet-config.json not found at:', configPath);
+  }
+} catch (error) {
+  console.error('❌ Error initializing Firebase in notifications:', error);
+}
 
 // Email Transporter
 const transporter = nodemailer.createTransport({
@@ -25,15 +40,19 @@ const transporter = nodemailer.createTransport({
 });
 
 export function startNotificationCron() {
+  if (!db) {
+    console.warn('⚠️ Firebase not initialized. Notification cron will not run.');
+    return;
+  }
   console.log('🚀 Starting Task Notification Cron Job...');
   
   // Run every hour
   cron.schedule('0 * * * *', async () => {
+    if (!db) return;
     console.log('⏰ Checking for tasks due soon based on company settings...');
     
     try {
-      const companiesRef = collection(db, 'companies');
-      const companiesSnap = await getDocs(companiesRef);
+      const companiesSnap = await db.collection('companies').get();
       
       for (const companyDoc of companiesSnap.docs) {
         const company = companyDoc.data();
@@ -48,15 +67,11 @@ export function startNotificationCron() {
         const threshold = new Date(now.getTime() + (settings.dueSoonHours * 60 * 60 * 1000));
         
         // Query tasks for this specific company that are not done and haven't sent notification
-        const tasksRef = collection(db, 'tasks');
-        const q = query(
-          tasksRef, 
-          where('companyId', '==', companyDoc.id),
-          where('status', '!=', 'Done'),
-          where('notificationSent', '==', false)
-        );
-        
-        const querySnapshot = await getDocs(q);
+        const querySnapshot = await db.collection('tasks')
+          .where('companyId', '==', companyDoc.id)
+          .where('status', '!=', 'Done')
+          .where('notificationSent', '==', false)
+          .get();
         
         for (const taskDoc of querySnapshot.docs) {
           const task = taskDoc.data();
@@ -68,18 +83,17 @@ export function startNotificationCron() {
             
             if (task.assignedTo) {
               // Fetch user email
-              const userRef = doc(db, 'users', task.assignedTo);
-              const userSnap = await getDoc(userRef);
+              const userSnap = await db.collection('users').doc(task.assignedTo).get();
               
-              if (userSnap.exists()) {
+              if (userSnap.exists) {
                 const userData = userSnap.data();
-                const userEmail = userData.email;
+                const userEmail = userData?.email;
                 
                 if (userEmail) {
                   await sendEmail(userEmail, task.title, task.dueDate);
                   
                   // Mark as sent
-                  await updateDoc(doc(db, 'tasks', taskDoc.id), {
+                  await db.collection('tasks').doc(taskDoc.id).update({
                     notificationSent: true
                   });
                   

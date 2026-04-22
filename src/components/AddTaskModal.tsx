@@ -127,10 +127,10 @@ export function AddTaskModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
           {/* Templates Section */}
           {templates.length > 0 && (
-            <div className="bg-slate-50 p-4 md:p-6 rounded-3xl border border-slate-100">
+            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
                <div className="flex items-center space-x-2 mb-4">
                   <Star size={14} className="text-brand-primary fill-brand-primary" />
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Rapid Templates</label>
@@ -141,7 +141,7 @@ export function AddTaskModal({
                      <button
                        type="button"
                        onClick={() => handleApplyTemplate(tmpl)}
-                       className="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-[10px] md:text-xs font-bold rounded-xl hover:bg-brand-primary hover:text-white hover:border-brand-primary transition-all shadow-sm flex items-center space-x-2"
+                       className="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl hover:bg-brand-primary hover:text-white hover:border-brand-primary transition-all shadow-sm flex items-center space-x-2"
                      >
                        <span>{tmpl.name}</span>
                      </button>
@@ -158,7 +158,7 @@ export function AddTaskModal({
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
             {/* Column 1: Core Details */}
             <div className="space-y-6">
               <div className="space-y-2">
@@ -320,11 +320,11 @@ export function AddTaskModal({
         </div>
 
         {/* Action Footer */}
-        <div className="p-6 md:p-8 bg-[#fcfcfc] border-t border-slate-100 flex flex-col sm:flex-row gap-4">
+        <div className="p-8 bg-[#fcfcfc] border-t border-slate-100 flex flex-col sm:flex-row gap-4">
           <button
             type="button"
             onClick={() => onSaveTemplate(newTask)}
-            className="w-full sm:flex-1 saas-button-secondary py-4"
+            className="flex-1 saas-button-secondary py-4"
           >
             <Save size={16} className="mr-2" />
             <span>Save as Template</span>
@@ -333,7 +333,7 @@ export function AddTaskModal({
             type="button"
             onClick={() => handleSubmit()}
             disabled={isSubmitting}
-            className="w-full sm:flex-[2] saas-button-primary py-4 text-base md:text-lg"
+            className="flex-[2] saas-button-primary py-4 text-lg"
           >
             {isSubmitting ? 'Initializing...' : 'Initiate Operation'}
           </button>

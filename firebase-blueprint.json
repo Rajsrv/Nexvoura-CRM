@@ -33,6 +33,45 @@
         "status": { "type": "string", "enum": ["Active", "On Leave", "Left"] },
         "isResigned": { "type": "boolean" },
         "shiftId": { "type": "string" },
+        "bankDetails": {
+          "type": "object",
+          "properties": {
+            "accountName": { "type": "string" },
+            "accountNumber": { "type": "string" },
+            "bankName": { "type": "string" },
+            "ifscCode": { "type": "string" },
+            "branchName": { "type": "string" }
+          }
+        },
+        "governmentId": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["Aadhar", "PAN", "Passport", "Voter ID"] },
+            "number": { "type": "string" }
+          }
+        },
+        "salaryHistory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "amount": { "type": "number" },
+              "date": { "type": "string", "format": "date" },
+              "reason": { "type": "string" },
+              "previousSalary": { "type": "number" },
+              "newSalary": { "type": "number" }
+            }
+          }
+        },
+        "emergencyContact": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "phone": { "type": "string" },
+            "relation": { "type": "string" }
+          }
+        },
         "permissions": { "type": "array", "items": { "type": "string" } },
         "reportsTo": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
@@ -188,7 +227,11 @@
         "month": { "type": "string" },
         "baseSalary": { "type": "number" },
         "bonus": { "type": "number" },
-        "deduction": { "type": "number" },
+        "bonusReason": { "type": "string" },
+        "deductions": { "type": "number" },
+        "deductionReason": { "type": "string" },
+        "taxAmount": { "type": "number" },
+        "netSalary": { "type": "number" },
         "totalAmount": { "type": "number" },
         "status": { "type": "string", "enum": ["Paid", "Pending"] },
         "paidAt": { "type": "string", "format": "date-time" },
@@ -264,6 +307,23 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["companyId", "name", "title", "createdAt"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "A log record for critical system operations.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "actorId": { "type": "string" },
+        "actorName": { "type": "string" },
+        "action": { "type": "string", "enum": ["LOGIN", "SALARY_CHANGE", "EMPLOYEE_EDIT", "DATA_EXPORT", "SETTINGS_CHANGE", "TASK_EDIT", "LEAD_DELETE"] },
+        "targetId": { "type": "string" },
+        "targetName": { "type": "string" },
+        "details": { "type": "string" },
+        "metadata": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "actorId", "actorName", "action", "details", "createdAt"]
     }
   },
   "firestore": {
@@ -322,6 +382,10 @@
     "/performanceReviews/{reviewId}": {
       "schema": "PerformanceReview",
       "description": "Employee performance records."
+    },
+    "/activityLogs/{logId}": {
+      "schema": "ActivityLog",
+      "description": "System activity audit logs."
     }
   }
 }

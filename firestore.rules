@@ -8,102 +8,151 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // 1. Helpers
-    function isSignedIn() { return request.auth != null; }
-    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
-    function incoming() { return request.resource.data; }
-    function existing() { return resource.data; }
-    
-    function getUserData(userId) { 
-      let path = /databases/$(database)/documents/users/$(userId);
-      return exists(path) ? get(path).data : {}; 
+    function isSignedIn() {
+      return request.auth != null;
     }
-    
-    function isVerified() { return request.auth.token.email_verified == true; }
-    
-    // Core Identity Logic
-    function isSelf(userId) { return isSignedIn() && request.auth.uid == userId; }
-    
-    function getRole() { return getUserData(request.auth.uid).get('role', ''); }
-    function isAdmin() { return isSignedIn() && getRole() == 'admin'; }
-    function isManager() { return isSignedIn() && getRole() in ['manager', 'admin']; }
-    function isTeamLead() { return isSignedIn() && getRole() in ['team_lead', 'manager', 'admin']; }
-    function isManagement() { return isManager(); }
-    
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
     function isCompanyMember(companyId) {
-      return isSignedIn() && getUserData(request.auth.uid).get('companyId', '') == companyId;
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             getUserData(request.auth.uid).companyId == companyId;
+    }
+
+    function hasRole(roles) {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             getUserData(request.auth.uid).role in roles;
+    }
+
+    function isAdmin() {
+      return hasRole(['admin']);
+    }
+
+    function isManager() {
+      return hasRole(['manager', 'admin']);
     }
 
     // -------------------------------------------------------------------------
-    // 2. Users (Personnel) - STRICT PII ISOLATION
+    // 1. Companies
+    // -------------------------------------------------------------------------
+    match /companies/{companyId} {
+      allow read: if isSignedIn() && isCompanyMember(companyId);
+      allow write: if isAdmin() && isCompanyMember(companyId);
+    }
+
+    // -------------------------------------------------------------------------
+    // 2. Users (Personnel)
     // -------------------------------------------------------------------------
     match /users/{userId} {
-      // Users can read themselves, Team Leads can read peers, Managers read all in company
-      allow read: if isSelf(userId) || (isTeamLead() && isCompanyMember(resource.data.companyId));
+      allow read: if (isSignedIn() && (resource.data.companyId == getUserData(request.auth.uid).companyId)) || (isSignedIn() && request.auth.uid == userId);
       
       function isValidUser(data) {
-        return data.keys().hasAll(['name', 'email', 'companyId', 'role', 'createdAt']) && 
-               data.name is string && data.name.size() < 100 &&
-               data.email is string && data.email.size() < 100 &&
-               data.role in ['admin', 'manager', 'team_lead', 'sales'] &&
+        return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+               data.email is string && data.email.size() > 0 &&
                data.companyId is string &&
-               (data.salary == null || data.salary is number);
+               data.role in ['admin', 'manager', 'team_lead', 'sales'];
       }
 
       allow create: if isSignedIn() && isValidUser(incoming());
       
-      allow update: if (
-        // Action: Profile Update (Self)
-        (isSelf(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'photoURL'])) ||
-        // Action: Admin Full Access
-        isAdmin() ||
-        // Action: Manager operational update
-        (isManager() && isCompanyMember(existing().companyId) && 
-         !incoming().diff(existing()).affectedKeys().hasAny(['role', 'companyId', 'email', 'salary']) &&
-         existing().role != 'admin')
-      ) && isValidUser(incoming());
-    }
-
-    // -------------------------------------------------------------------------
-    // 3. Sensitive Employee Records
-    // -------------------------------------------------------------------------
-    
-    // Payroll & Performance - ONLY Owner or Admin
-    match /payroll/{payrollId} {
-      allow read, list: if isSignedIn() && (request.auth.uid == resource.data.employeeId || isAdmin());
-      allow write: if isAdmin();
-    }
-
-    match /performanceReviews/{reviewId} {
-      allow read, list: if isSignedIn() && (request.auth.uid == resource.data.employeeId || isAdmin());
-      allow write: if isAdmin();
-    }
-
-    match /employeeDocuments/{docId} {
-      allow read, list: if isSignedIn() && (request.auth.uid == resource.data.employeeId || isAdmin());
-      allow write: if isAdmin();
-    }
-
-    match /exitRecords/{exitId} {
-      allow read, list: if isSignedIn() && (request.auth.uid == resource.data.employeeId || isAdmin());
-      allow write: if isAdmin();
-    }
-
-    // Attendance & Leave - Owner or Team Lead+
-    match /attendance/{attendanceId} {
-      allow read, list: if isSignedIn() && (request.auth.uid == resource.data.employeeId || (isTeamLead() && isCompanyMember(resource.data.companyId)));
-      allow create: if isSignedIn() && incoming().employeeId == request.auth.uid;
       allow update: if isSignedIn() && (
-        (isSelf(existing().employeeId) && incoming().diff(existing()).affectedKeys().hasOnly(['checkOut'])) ||
-        isManagement()
+        // Self-update limited fields
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'photoURL'])) ||
+        // Admin total control
+        isAdmin() ||
+        // Manager hierarchy control
+        (isManager() && getUserData(userId).role in ['team_lead', 'sales'] && !incoming().diff(existing()).affectedKeys().hasAny(['role', 'companyId']))
       );
     }
 
+    // -------------------------------------------------------------------------
+    // 3. CRM (Leads & Tasks)
+    // -------------------------------------------------------------------------
+    match /leads/{leadId} {
+      allow get: if isCompanyMember(resource.data.companyId);
+      allow list: if isCompanyMember(resource.data.companyId);
+      allow write: if isCompanyMember(incoming().companyId) && (isAdmin() || isManager() || hasRole(['sales']));
+    }
+
+    match /tasks/{taskId} {
+      allow get: if isCompanyMember(resource.data.companyId);
+      allow list: if isCompanyMember(resource.data.companyId);
+      allow write: if isCompanyMember(incoming().companyId) && (isAdmin() || isManager() || hasRole(['team_lead', 'sales', 'manager']));
+    }
+
+    match /taskTemplates/{templateId} {
+      allow get: if isCompanyMember(resource.data.companyId);
+      allow list: if isCompanyMember(resource.data.companyId);
+      allow write: if isCompanyMember(incoming().companyId) && isManager();
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. HR (Attendance, Leave, Shifts, etc.)
+    // -------------------------------------------------------------------------
+    match /attendance/{attendanceId} {
+      allow get: if isCompanyMember(resource.data.companyId);
+      allow list: if isCompanyMember(resource.data.companyId);
+      allow create: if isCompanyMember(incoming().companyId) && request.auth.uid == incoming().employeeId;
+      allow update: if isCompanyMember(incoming().companyId) && (request.auth.uid == existing().employeeId || isAdmin());
+    }
+
     match /leaveRequests/{requestId} {
-      allow read, list: if isSignedIn() && (request.auth.uid == resource.data.employeeId || (isTeamLead() && isCompanyMember(resource.data.companyId)));
-      allow create: if isSignedIn() && incoming().employeeId == request.auth.uid && incoming().status == 'Pending';
-      allow update: if isManagement() || (isSelf(existing().employeeId) && existing().status == 'Pending' && !incoming().diff(existing()).affectedKeys().hasAny(['status']));
-      allow delete: if isManagement() || (isSelf(existing().employeeId) && existing().status == 'Pending');
+      allow get: if isCompanyMember(resource.data.companyId);
+      allow list: if isCompanyMember(resource.data.companyId);
+      allow create: if isCompanyMember(incoming().companyId) && request.auth.uid == incoming().employeeId;
+      allow update: if isCompanyMember(incoming().companyId) && (isAdmin() || isManager());
+    }
+
+    match /shifts/{shiftId} {
+      allow get: if isCompanyMember(resource.data.companyId);
+      allow list: if isCompanyMember(resource.data.companyId);
+      allow write: if isCompanyMember(incoming().companyId) && isManager();
+    }
+
+    match /holidays/{holidayId} {
+      allow get: if isCompanyMember(resource.data.companyId);
+      allow list: if isCompanyMember(resource.data.companyId);
+      allow write: if isCompanyMember(incoming().companyId) && isManager();
+    }
+
+    match /employeeDocuments/{docId} {
+      allow get: if isCompanyMember(resource.data.companyId) && (isManager() || request.auth.uid == resource.data.employeeId);
+      allow list: if isCompanyMember(resource.data.companyId) && (isManager() || request.auth.uid == resource.data.employeeId);
+      allow write: if isCompanyMember(incoming().companyId) && isAdmin();
+    }
+
+    match /exitRecords/{exitId} {
+      allow get: if isCompanyMember(resource.data.companyId) && (isManager() || request.auth.uid == resource.data.employeeId);
+      allow list: if isCompanyMember(resource.data.companyId) && (isManager() || request.auth.uid == resource.data.employeeId);
+      allow write: if isCompanyMember(incoming().companyId) && isManager();
+    }
+
+    match /performanceReviews/{reviewId} {
+      allow get: if isCompanyMember(resource.data.companyId) && (isManager() || request.auth.uid == resource.data.employeeId);
+      allow list: if isCompanyMember(resource.data.companyId) && (isManager() || request.auth.uid == resource.data.employeeId);
+      allow write: if isCompanyMember(incoming().companyId) && isManager();
+    }
+
+    match /payroll/{payrollId} {
+      allow get: if isCompanyMember(resource.data.companyId) && (isManager() || request.auth.uid == resource.data.employeeId);
+      allow list: if isCompanyMember(resource.data.companyId) && (isManager() || request.auth.uid == resource.data.employeeId);
+      allow write: if isCompanyMember(incoming().companyId) && isManager();
     }
 
     match /permissionRequests/{requestId} {
@@ -113,56 +162,30 @@ service cloud.firestore {
       allow update: if isCompanyMember(incoming().companyId) && (isAdmin() || isManager());
     }
     
+    match /accessRequests/{requestId} {
+      allow get: if isCompanyMember(resource.data.companyId);
+      allow list: if isCompanyMember(resource.data.companyId);
+      allow create: if isCompanyMember(incoming().companyId) && request.auth.uid == incoming().userId;
+      allow update: if isCompanyMember(incoming().companyId) && (isAdmin() || isManager());
+    }
+    
+    match /activityLogs/{logId} {
+      function isValidActivityLog(data) {
+        return data.companyId is string &&
+               data.actorId == request.auth.uid &&
+               data.actorName is string &&
+               data.action in ["LOGIN", "SALARY_CHANGE", "EMPLOYEE_EDIT", "DATA_EXPORT", "SETTINGS_CHANGE", "TASK_EDIT", "LEAD_DELETE"] &&
+               data.details is string &&
+               data.createdAt is string;
+      }
+      allow create: if isSignedIn() && isCompanyMember(incoming().companyId) && isValidActivityLog(incoming());
+      allow get: if isManager() && isCompanyMember(resource.data.companyId);
+      allow list: if isManager() && isCompanyMember(resource.data.companyId);
+    }
+    
     match /invites/{inviteId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
-    }
-
-    match /accessRequests/{requestId} {
-      allow read: if isManagement() && isCompanyMember(resource.data.companyId);
-      allow list: if isManagement() && isCompanyMember(resource.data.companyId);
-      allow create: if isCompanyMember(incoming().companyId);
-      allow update: if isManagement();
-    }
-
-    match /shifts/{shiftId} {
-      allow read, list: if isSignedIn() && isCompanyMember(resource.data.companyId);
-      allow write: if isManagement();
-    }
-
-    match /holidays/{holidayId} {
-      allow read, list: if isSignedIn() && isCompanyMember(resource.data.companyId);
-      allow write: if isManagement();
-    }
-
-    match /taskTemplates/{templateId} {
-      allow read, list: if isSignedIn() && isCompanyMember(resource.data.companyId);
-      allow write: if isManagement();
-    }
-
-    // -------------------------------------------------------------------------
-    // 4. CRM Core (Leads, Tasks, Companies)
-    // -------------------------------------------------------------------------
-
-    match /companies/{companyId} {
-      allow read: if isCompanyMember(companyId);
-      allow write: if isAdmin() && isCompanyMember(companyId);
-    }
-
-    match /leads/{leadId} {
-      allow read: if isSignedIn() && isCompanyMember(resource.data.companyId);
-      allow list: if isSignedIn() && isCompanyMember(resource.data.companyId);
-      allow create: if isSignedIn() && isCompanyMember(incoming().companyId);
-      allow update: if isSignedIn() && isCompanyMember(resource.data.companyId);
-      allow delete: if isManagement();
-    }
-
-    match /tasks/{taskId} {
-      allow read: if isSignedIn() && isCompanyMember(resource.data.companyId);
-      allow list: if isSignedIn() && isCompanyMember(resource.data.companyId);
-      allow create: if isSignedIn() && isCompanyMember(incoming().companyId);
-      allow update: if isSignedIn() && isCompanyMember(resource.data.companyId);
-      allow delete: if isManagement();
     }
   }
 }

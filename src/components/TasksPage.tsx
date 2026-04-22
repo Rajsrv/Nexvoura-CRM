@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch, getDocs } from 'firebase/firestore';
 import { UserProfile, Task, Lead, TaskTemplate, Company, Attachment } from '../types';
+import { sendNotification } from '../services/notificationService';
 import { Plus, Trash2, CheckCircle2, Circle, Clock, Calendar, Filter, User as UserIcon, MessageSquare, Flag, CheckSquare, Square, UserPlus, X, RefreshCcw, ChevronDown, Download, Search, Info, Bell, BellOff, Edit2, PlayCircle, CheckCircle, Save, Copy, Paperclip, Link as LinkIcon, ExternalLink, File as FileIcon, AlertCircle, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
@@ -350,6 +351,16 @@ export default function TasksPage({ user }: { user: UserProfile }) {
         createdAt: new Date().toISOString()
       });
       toast.success('Task created successfully');
+      if (taskData.assignedTo) {
+        await sendNotification(
+          user.companyId,
+          taskData.assignedTo,
+          'Strategic Task Initiated',
+          `You have been assigned to: ${taskData.title}. Review depth and priority in the command center.`,
+          'task',
+          '/tasks'
+        );
+      }
       setShowAddModal(false);
     } catch (error) {
       toast.error('Failed to create task');
@@ -510,6 +521,14 @@ export default function TasksPage({ user }: { user: UserProfile }) {
       await batch.commit();
       const userName = team.find(m => m.uid === userId)?.name || 'user';
       toast.success(`Assigned ${selectedTaskIds.length} tasks to ${userName}`);
+      await sendNotification(
+        user.companyId,
+        userId,
+        'Bulk Task Assignment',
+        `A batch of ${selectedTaskIds.length} tasks has been assigned to your queue for immediate processing.`,
+        'task',
+        '/tasks'
+      );
       setSelectedTaskIds([]);
       setBulkAssignUserId('');
     } catch (error) {
@@ -650,15 +669,15 @@ export default function TasksPage({ user }: { user: UserProfile }) {
       <div className="flex flex-col lg:flex-row gap-10">
         {/* Board Area */}
         <div className="flex-1 min-w-0">
-          <div className="flex lg:hidden overflow-x-auto no-scrollbar gap-2 mb-4 bg-slate-50 p-1.5 rounded-2xl border border-slate-100 sticky top-0 z-20 backdrop-blur-sm bg-white/80">
+          <div className="flex lg:hidden overflow-x-auto no-scrollbar gap-2 mb-4 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
             {taskStatuses.map((status) => (
               <button
                 key={status}
                 onClick={() => setActiveMobileColumn(status)}
-                className={`flex-1 min-w-[120px] py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                className={`flex-1 min-w-[120px] py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${
                   activeMobileColumn === status 
-                    ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/20' 
-                    : 'text-slate-400 hover:bg-white hover:text-slate-600'
+                    ? 'bg-slate-900 text-white shadow-lg' 
+                    : 'text-slate-400 hover:bg-white'
                 }`}
               >
                 {status} ({filteredTasks.filter(t => t.status === status).length})
@@ -671,12 +690,9 @@ export default function TasksPage({ user }: { user: UserProfile }) {
             collisionDetection={closestCorners}
             onDragEnd={handleDragEnd}
           >
-            <div className="flex flex-col lg:flex-row gap-6 lg:items-start overflow-x-auto pb-8 no-scrollbar snap-x snap-mandatory md:snap-none">
+            <div className="flex flex-col lg:flex-row gap-6 lg:items-start overflow-x-auto pb-8 no-scrollbar">
               {taskStatuses.map((status) => (
-                <div 
-                  key={status} 
-                  className={`flex-1 min-w-[280px] xs:min-w-[320px] max-w-[400px] snap-center ${activeMobileColumn === status ? 'block' : 'hidden lg:block'}`}
-                >
+                <div key={status} className={`flex-1 min-w-[320px] max-w-[400px] ${activeMobileColumn === status ? 'block' : 'hidden lg:block'}`}>
                   <DroppableColumn 
                     status={status} 
                     count={filteredTasks.filter(t => t.status === status).length}

@@ -16,6 +16,7 @@ import {
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, parseISO, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns';
+import { logActivity } from '../services/activityService';
 
 type HRTab = 'shifts' | 'holidays' | 'documents' | 'exits' | 'attendance' | 'leave' | 'performance';
 
@@ -32,74 +33,43 @@ export default function HRManagementPage({ user, company }: { user: UserProfile,
   const [loading, setLoading] = useState(true);
 
   const isAdmin = user.role === 'admin';
-  const isManagement = isAdmin || user.role === 'manager';
-  const isTeamLead = isManagement || user.role === 'team_lead';
 
   useEffect(() => {
     if (!user.companyId) return;
 
-    // Queries that everyone in the company can view
     const shiftsQ = query(collection(db, 'shifts'), where('companyId', '==', user.companyId));
     const holidaysQ = query(collection(db, 'holidays'), where('companyId', '==', user.companyId));
-    
-    // Team visibility: Team Lead+ sees all, others see themselves
-    const teamQ = isTeamLead
-      ? query(collection(db, 'users'), where('companyId', '==', user.companyId))
-      : query(collection(db, 'users'), where('companyId', '==', user.companyId), where('uid', '==', user.uid));
-    
-    // Leave Requests visibility: Team Lead+ sees all, others see theirs
-    const leaveQ = isTeamLead
-      ? query(collection(db, 'leaveRequests'), where('companyId', '==', user.companyId))
-      : query(collection(db, 'leaveRequests'), where('companyId', '==', user.companyId), where('employeeId', '==', user.uid));
-    
-    // Attendance visibility: Team Lead+ sees all, others see theirs
-    const attendanceQ = isTeamLead 
-      ? query(collection(db, 'attendance'), where('companyId', '==', user.companyId))
-      : query(collection(db, 'attendance'), where('companyId', '==', user.companyId), where('employeeId', '==', user.uid));
-
-    // Sensitive data: Admin/Manager sees all, others see their own (Team Leads see theirs too)
-    const docsQ = isManagement
-      ? query(collection(db, 'employeeDocuments'), where('companyId', '==', user.companyId))
-      : query(collection(db, 'employeeDocuments'), where('companyId', '==', user.companyId), where('employeeId', '==', user.uid));
-
-    const exitsQ = isManagement
-      ? query(collection(db, 'exitRecords'), where('companyId', '==', user.companyId))
-      : query(collection(db, 'exitRecords'), where('companyId', '==', user.companyId), where('employeeId', '==', user.uid));
-
-    const perfQ = isManagement
-      ? query(collection(db, 'performanceReviews'), where('companyId', '==', user.companyId))
-      : query(collection(db, 'performanceReviews'), where('companyId', '==', user.companyId), where('employeeId', '==', user.uid));
+    const teamQ = query(collection(db, 'users'), where('companyId', '==', user.companyId));
+    const docsQ = query(collection(db, 'employeeDocuments'), where('companyId', '==', user.companyId));
+    const exitsQ = query(collection(db, 'exitRecords'), where('companyId', '==', user.companyId));
+    const attendanceQ = query(collection(db, 'attendance'), where('companyId', '==', user.companyId));
+    const leaveQ = query(collection(db, 'leaveRequests'), where('companyId', '==', user.companyId));
+    const perfQ = query(collection(db, 'performanceReviews'), where('companyId', '==', user.companyId));
 
     const unsubShifts = onSnapshot(shiftsQ, (snap) => {
       setShifts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Shift)));
-    }, (error) => console.error("Shifts read error:", error));
-
+    });
     const unsubHolidays = onSnapshot(holidaysQ, (snap) => {
       setHolidays(snap.docs.map(d => ({ id: d.id, ...d.data() } as Holiday)));
-    }, (error) => console.error("Holidays read error:", error));
-
+    });
     const unsubTeam = onSnapshot(teamQ, (snap) => {
       setTeam(snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile)));
-    }, (error) => console.error("Team read error:", error));
+    });
     const unsubDocs = onSnapshot(docsQ, (snap) => {
       setDocuments(snap.docs.map(d => ({ id: d.id, ...d.data() } as EmployeeDocument)));
-    }, (error) => console.error("Docs read error:", error));
-
+    });
     const unsubExits = onSnapshot(exitsQ, (snap) => {
       setExits(snap.docs.map(d => ({ id: d.id, ...d.data() } as ExitRecord)));
-    }, (error) => console.error("Exits read error:", error));
-
+    });
     const unsubAttendance = onSnapshot(attendanceQ, (snap) => {
       setAttendance(snap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
-    }, (error) => console.error("Attendance read error:", error));
-
+    });
     const unsubLeave = onSnapshot(leaveQ, (snap) => {
       setLeaveRequests(snap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
-    }, (error) => console.error("Leave read error:", error));
-
+    });
     const unsubPerf = onSnapshot(perfQ, (snap) => {
       setPerformanceReviews(snap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
-    }, (error) => console.error("Perf read error:", error));
+    });
 
     setLoading(false);
 
@@ -113,7 +83,7 @@ export default function HRManagementPage({ user, company }: { user: UserProfile,
       unsubLeave();
       unsubPerf();
     };
-  }, [user.companyId, user.uid, isManagement]);
+  }, [user.companyId]);
 
   return (
     <div className="space-y-10">
@@ -354,7 +324,7 @@ function AttendanceTab({ attendance, user, companyId, isAdmin, team }: { attenda
             </div>
           </div>
 
-          <div className="bg-white rounded-[40px] border border-slate-100 overflow-hidden shadow-sm">
+          <div className="table-container">
              <table className="w-full text-left">
                 <thead className="bg-slate-50/50 text-[10px] font-black uppercase tracking-widest text-slate-400">
                   <tr>
@@ -465,7 +435,10 @@ function LeaveTab({ requests, user, companyId, isAdmin, team }: { requests: any[
 
   const updateStatus = async (id: string, status: 'Approved' | 'Rejected') => {
     try {
+      const req = requests.find(r => r.id === id);
+      const requester = team.find(t => t.uid === req?.employeeId);
       await updateDoc(doc(db, 'leaveRequests', id), { status });
+      logActivity(user, 'SETTINGS_CHANGE', `Leave request ${status.toLowerCase()} for ${requester?.name || 'Personnel'}`, requester?.uid, requester?.name);
       toast.success(`Request ${status.toLowerCase()}`);
     } catch (e) {
       toast.error('Operation failed');
@@ -485,7 +458,7 @@ function LeaveTab({ requests, user, companyId, isAdmin, team }: { requests: any[
          </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid-auto-fit">
         {requests.sort((a,b) => b.createdAt.localeCompare(a.createdAt)).map(req => {
           const requester = team.find(t => t.uid === req.employeeId);
           return (
@@ -544,13 +517,13 @@ function LeaveTab({ requests, user, companyId, isAdmin, team }: { requests: any[
         {showApply && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowApply(false)} className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white w-full max-w-md rounded-[40px] p-6 md:p-10 overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-              <div className="mb-6 md:mb-8">
-                <h3 className="text-2xl md:text-3xl font-black italic tracking-tighter text-slate-950">Request Break</h3>
-                <p className="text-slate-400 text-[10px] md:text-xs font-bold uppercase tracking-widest mt-1">Resource Redirection Protocol</p>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white w-full max-w-md rounded-[40px] p-10 overflow-hidden shadow-2xl">
+              <div className="mb-8">
+                <h3 className="text-3xl font-black italic tracking-tighter text-slate-950">Request Break</h3>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Resource Redirection Protocol</p>
               </div>
 
-              <div className="space-y-6 flex-1 overflow-y-auto custom-scrollbar pr-2 pb-4">
+              <div className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Type</label>
                   <select value={newRequest.type} onChange={e => setNewRequest({...newRequest, type: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100 font-black text-xs outline-none focus:ring-2 focus:ring-blue-500">
@@ -561,7 +534,7 @@ function LeaveTab({ requests, user, companyId, isAdmin, team }: { requests: any[
                   </select>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">From</label>
                     <input type="date" value={newRequest.startDate} onChange={e => setNewRequest({...newRequest, startDate: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100 font-black text-xs outline-none focus:ring-2 focus:ring-blue-500" />
@@ -576,10 +549,8 @@ function LeaveTab({ requests, user, companyId, isAdmin, team }: { requests: any[
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Business Justification</label>
                   <textarea value={newRequest.reason} onChange={e => setNewRequest({...newRequest, reason: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100 font-black text-xs outline-none focus:ring-2 focus:ring-blue-500 h-24" placeholder="Brief explanation..." />
                 </div>
-              </div>
 
-              <div className="pt-4 border-t border-slate-50">
-                <button onClick={handleApply} className="w-full bg-slate-950 text-white p-5 rounded-3xl font-black hover:bg-black transition-all shadow-xl shadow-slate-950/20 active:scale-95">
+                <button onClick={handleApply} className="w-full bg-slate-950 text-white p-5 rounded-3xl font-black mt-4 hover:bg-black transition-all shadow-xl shadow-slate-950/20">
                   Transmit Request
                 </button>
               </div>
@@ -610,6 +581,8 @@ function PerformanceTab({ reviews, team, companyId, isAdmin, user }: { reviews: 
         reviewerId: user.uid,
         createdAt: new Date().toISOString()
       });
+      const evaluee = team.find(t => t.uid === newReview.employeeId);
+      logActivity(user, 'EMPLOYEE_EDIT', `Archived performance review for ${evaluee?.name || 'Personnel'}`, evaluee?.uid, evaluee?.name);
       toast.success('Performance evaluation archived');
       setShowAdd(false);
     } catch (e) {
@@ -632,7 +605,7 @@ function PerformanceTab({ reviews, team, companyId, isAdmin, user }: { reviews: 
          )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid-auto-fit">
          {reviews.sort((a,b) => b.createdAt.localeCompare(a.createdAt)).map(review => {
            const evaluee = team.find(t => t.uid === review.employeeId);
            const reviewer = team.find(t => t.uid === review.reviewerId);
@@ -701,14 +674,14 @@ function PerformanceTab({ reviews, team, companyId, isAdmin, user }: { reviews: 
         {showAdd && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAdd(false)} className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white w-full max-w-lg rounded-[40px] p-6 md:p-10 overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-              <div className="mb-6 md:mb-8 text-center shrink-0">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white w-full max-w-lg rounded-[40px] p-10 overflow-hidden shadow-2xl">
+              <div className="mb-8 text-center">
                 <Award size={48} className="mx-auto text-amber-500 mb-4" />
-                <h3 className="text-2xl md:text-3xl font-black italic tracking-tighter text-slate-950 uppercase">Performance Audit</h3>
+                <h3 className="text-3xl font-black italic tracking-tighter text-slate-950 uppercase">Performance Audit</h3>
                 <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1 italic">Strategizing Human Capital Enhancement</p>
               </div>
 
-              <div className="space-y-6 flex-1 overflow-y-auto custom-scrollbar pr-2 pb-4">
+              <div className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Personnel Selection</label>
                   <select value={newReview.employeeId} onChange={e => setNewReview({...newReview, employeeId: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100 font-black text-xs outline-none shadow-inner">
@@ -717,7 +690,7 @@ function PerformanceTab({ reviews, team, companyId, isAdmin, user }: { reviews: 
                   </select>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Review Period</label>
                     <input value={newReview.period} onChange={e => setNewReview({...newReview, period: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100 font-black text-[10px] uppercase outline-none shadow-inner" placeholder="e.g. Q1 2026" />
@@ -734,9 +707,7 @@ function PerformanceTab({ reviews, team, companyId, isAdmin, user }: { reviews: 
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Diagnostic Feedback</label>
                   <textarea value={newReview.feedback} onChange={e => setNewReview({...newReview, feedback: e.target.value})} className="w-full p-5 bg-slate-50 rounded-[32px] border border-slate-100 font-black text-[10px] uppercase outline-none min-h-[120px] shadow-inner" placeholder="Detail the tactical observations..." />
                 </div>
-              </div>
 
-              <div className="pt-4 shrink-0 border-t border-slate-50">
                 <button onClick={handleAdd} className="w-full bg-slate-950 text-white p-6 rounded-[32px] font-black italic text-sm tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-950/20 active:scale-95 uppercase">
                   Archive Performance Data
                 </button>
@@ -850,19 +821,19 @@ function ShiftTab({ shifts, companyId, isAdmin }: { shifts: Shift[], companyId: 
         {showAdd && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAdd(false)} className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white w-full max-w-md rounded-[40px] p-6 md:p-10 overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-              <div className="mb-6 md:mb-8 shrink-0">
-                <h3 className="text-2xl md:text-3xl font-black italic tracking-tighter text-slate-950">Define Shift</h3>
-                <p className="text-slate-400 text-[10px] md:text-xs font-bold uppercase tracking-widest mt-1">Strategic boundary definition</p>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white w-full max-w-md rounded-[40px] p-10 overflow-hidden shadow-2xl">
+              <div className="mb-8">
+                <h3 className="text-3xl font-black italic tracking-tighter text-slate-950">Define Shift</h3>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Strategic boundary definition</p>
               </div>
 
-              <div className="space-y-6 flex-1 overflow-y-auto custom-scrollbar pr-2 pb-4">
+              <div className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Shift Name</label>
                   <input value={newShift.name} onChange={e => setNewShift({...newShift, name: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100 font-black text-xs outline-none focus:ring-2 focus:ring-blue-500 transition-all uppercase" placeholder="e.g. Standard 9-6" />
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Start Time</label>
                     <input type="time" value={newShift.startTime} onChange={e => setNewShift({...newShift, startTime: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100 font-black text-xs outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
@@ -885,7 +856,7 @@ function ShiftTab({ shifts, companyId, isAdmin }: { shifts: Shift[], companyId: 
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Working Days</label>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex justify-between">
                     {['S','M','T','W','T','F','S'].map((day, i) => (
                       <button 
                         key={i} 
@@ -904,10 +875,8 @@ function ShiftTab({ shifts, companyId, isAdmin }: { shifts: Shift[], companyId: 
                     ))}
                   </div>
                 </div>
-              </div>
 
-              <div className="pt-4 shrink-0 border-t border-slate-50">
-                <button onClick={handleAdd} className="w-full bg-slate-950 text-white p-5 rounded-3xl font-black hover:bg-black transition-all shadow-xl shadow-slate-950/20">
+                <button onClick={handleAdd} className="w-full bg-slate-950 text-white p-5 rounded-3xl font-black mt-4 hover:bg-black transition-all shadow-xl shadow-slate-950/20">
                   Save Shift Strategy
                 </button>
               </div>
@@ -1045,13 +1014,13 @@ function HolidayTab({ holidays, companyId, isAdmin }: { holidays: Holiday[], com
         {showAdd && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAdd(false)} className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white w-full max-w-md rounded-[40px] p-6 md:p-10 overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-              <div className="mb-6 md:mb-8 shrink-0">
-                <h3 className="text-2xl md:text-3xl font-black italic tracking-tighter text-slate-950">Add Holiday</h3>
-                <p className="text-slate-400 text-[10px] md:text-xs font-bold uppercase tracking-widest mt-1">Calendar Event Configuration</p>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white w-full max-w-md rounded-[40px] p-10 overflow-hidden shadow-2xl">
+              <div className="mb-8">
+                <h3 className="text-3xl font-black italic tracking-tighter text-slate-950">Add Holiday</h3>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Calendar Event Configuration</p>
               </div>
 
-              <div className="space-y-6 flex-1 overflow-y-auto custom-scrollbar pr-2 pb-4">
+              <div className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Holiday Name</label>
                   <input value={newHoliday.name} onChange={e => setNewHoliday({...newHoliday, name: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100 font-black text-xs outline-none focus:ring-2 focus:ring-blue-500 transition-all uppercase" placeholder="e.g. Annual Summit" />
@@ -1070,10 +1039,8 @@ function HolidayTab({ holidays, companyId, isAdmin }: { holidays: Holiday[], com
                     <option>Optional</option>
                   </select>
                 </div>
-              </div>
 
-              <div className="pt-4 shrink-0 border-t border-slate-50">
-                <button onClick={handleAdd} className="w-full bg-slate-950 text-white p-5 rounded-3xl font-black hover:bg-black transition-all shadow-xl shadow-slate-950/20">
+                <button onClick={handleAdd} className="w-full bg-slate-950 text-white p-5 rounded-3xl font-black mt-4 hover:bg-black transition-all shadow-xl shadow-slate-950/20">
                   Update Roadmap
                 </button>
               </div>
@@ -1183,13 +1150,13 @@ function DocumentTab({ documents, team, companyId, isAdmin }: { documents: Emplo
         {showAdd && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAdd(false)} className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white w-full max-w-md rounded-[40px] p-6 md:p-10 overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-              <div className="mb-6 md:mb-8 shrink-0">
-                <h3 className="text-2xl md:text-3xl font-black italic tracking-tighter text-slate-950">Store Document</h3>
-                <p className="text-slate-400 text-[10px] md:text-xs font-bold uppercase tracking-widest mt-1">Institutional Memory Archive</p>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white w-full max-w-md rounded-[40px] p-10 overflow-hidden shadow-2xl">
+              <div className="mb-8">
+                <h3 className="text-3xl font-black italic tracking-tighter text-slate-950">Store Document</h3>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Institutional Memory Archive</p>
               </div>
 
-              <div className="space-y-6 flex-1 overflow-y-auto custom-scrollbar pr-2 pb-4">
+              <div className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Document Name</label>
                   <input value={newDoc.name} onChange={e => setNewDoc({...newDoc, name: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100 font-black text-xs outline-none focus:ring-2 focus:ring-blue-500 transition-all uppercase" placeholder="e.g. Contract Amendment v2" />
@@ -1220,10 +1187,8 @@ function DocumentTab({ documents, team, companyId, isAdmin }: { documents: Emplo
                      <input value={newDoc.fileUrl} onChange={e => setNewDoc({...newDoc, fileUrl: e.target.value})} className="w-full pl-10 pr-4 py-4 bg-slate-50 rounded-2xl border border-slate-100 font-black text-[10px] outline-none focus:ring-2 focus:ring-blue-500" placeholder="https://drive.google.com/..." />
                   </div>
                 </div>
-              </div>
 
-              <div className="pt-4 shrink-0 border-t border-slate-50">
-                <button onClick={handleAdd} className="w-full bg-slate-950 text-white p-5 rounded-3xl font-black hover:bg-black transition-all shadow-xl shadow-slate-950/20">
+                <button onClick={handleAdd} className="w-full bg-slate-950 text-white p-5 rounded-3xl font-black mt-4 hover:bg-black transition-all shadow-xl shadow-slate-950/20">
                   Seal Archive
                 </button>
               </div>
@@ -1385,13 +1350,13 @@ function ExitTab({ exits, team, companyId, isAdmin }: { exits: ExitRecord[], tea
         {showAdd && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAdd(false)} className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white w-full max-w-lg rounded-[40px] p-6 md:p-10 overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-              <div className="mb-6 md:mb-8 shrink-0">
-                <h3 className="text-2xl md:text-3xl font-black italic tracking-tighter text-slate-950">Initiate Exit</h3>
-                <p className="text-slate-400 text-[10px] md:text-xs font-bold uppercase tracking-widest mt-1">Offboarding Protocol Activation</p>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white w-full max-w-lg rounded-[40px] p-10 overflow-hidden shadow-2xl">
+              <div className="mb-8">
+                <h3 className="text-3xl font-black italic tracking-tighter text-slate-950">Initiate Exit</h3>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Offboarding Protocol Activation</p>
               </div>
 
-              <div className="space-y-6 flex-1 overflow-y-auto custom-scrollbar pr-2 pb-4">
+              <div className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Choose Personnel</label>
                   <select value={newExit.employeeId} onChange={e => setNewExit({...newExit, employeeId: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100 font-black text-xs outline-none focus:ring-2 focus:ring-blue-500">
@@ -1400,7 +1365,7 @@ function ExitTab({ exits, team, companyId, isAdmin }: { exits: ExitRecord[], tea
                   </select>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Resignation Date</label>
                     <input type="date" value={newExit.resignationDate} onChange={e => setNewExit({...newExit, resignationDate: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100 font-black text-xs outline-none focus:ring-2 focus:ring-blue-500" />
@@ -1415,10 +1380,8 @@ function ExitTab({ exits, team, companyId, isAdmin }: { exits: ExitRecord[], tea
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Reason for Exit</label>
                   <textarea value={newExit.reason} onChange={e => setNewExit({...newExit, reason: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100 font-black text-xs outline-none focus:ring-2 focus:ring-blue-500 h-24" placeholder="Brief explanation..." />
                 </div>
-              </div>
 
-              <div className="pt-4 shrink-0 border-t border-slate-50">
-                <button onClick={handleAdd} className="w-full bg-rose-600 text-white p-5 rounded-3xl font-black hover:bg-rose-700 transition-all shadow-xl shadow-rose-950/20">
+                <button onClick={handleAdd} className="w-full bg-rose-600 text-white p-5 rounded-3xl font-black mt-4 hover:bg-rose-700 transition-all shadow-xl shadow-rose-950/20">
                   Begin Deprovisioning
                 </button>
               </div>

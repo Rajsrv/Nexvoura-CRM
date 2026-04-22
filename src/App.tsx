@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { onAuthStateChanged, signOut, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, query, where, onSnapshot, addDoc, getDocs, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, onSnapshot, addDoc, getDocs, updateDoc, serverTimestamp, writeBatch, orderBy, limit } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
 import { handleFirestoreError, OperationType } from './lib/firestore';
-import { UserProfile, Company, Invite, Lead, Task, AccessRequest, UserRole, Attendance } from './types';
+import { ActivityLog, UserProfile, Company, Invite, Lead, Task, AccessRequest, UserRole, AppNotification } from './types';
 import { 
   LayoutDashboard, 
   Users, 
@@ -40,7 +40,8 @@ import {
   Shield,
   Briefcase,
   Check,
-  Loader2
+  Loader2,
+  History
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
@@ -62,12 +63,25 @@ import {
 import EmployeesPage from './components/EmployeesPage';
 import PayrollPage from './components/PayrollPage';
 import HRManagementPage from './components/HRManagementPage';
-import AttendancePage from './components/AttendancePage';
 import LeadForm from './components/LeadForm';
 import TasksPage from './components/TasksPage';
 import SettingsPage from './components/SettingsPage';
 import ProfilePage from './components/ProfilePage';
 import { PermissionsPage } from './components/PermissionsPage';
+import ActivityLogsPage from './components/ActivityLogsPage';
+import EmployeeProfilePage from './components/EmployeeProfilePage';
+import { logActivity } from './services/activityService';
+import { markAsRead, markAllAsRead } from './services/notificationService';
+
+// Auth Context
+interface AuthContextType {
+  user: UserProfile | null;
+  company: Company | null;
+}
+
+const AuthContext = React.createContext<AuthContextType>({ user: null, company: null });
+
+export const useAuth = () => React.useContext(AuthContext);
 
 // Helper to generate member ID
 const generateMemberId = (companyName: string = 'NEX') => {
@@ -77,27 +91,28 @@ const generateMemberId = (companyName: string = 'NEX') => {
   return `${prefix}-${timestamp}${random}`;
 };
 
+import { hasPermission } from './lib/permissions';
+
 // --- Components ---
 
-const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boolean; setIsOpen: (val: boolean) => void }) => {
+const Sidebar = ({ user, company, isOpen, setIsOpen }: { user: UserProfile; company: Company | null; isOpen: boolean; setIsOpen: (val: boolean) => void }) => {
   const navItems = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { name: 'Leads', path: '/leads', icon: MessageSquare },
-    { name: 'Tasks', path: '/tasks', icon: CheckSquare },
+    { name: 'Leads', path: '/leads', icon: MessageSquare, permission: 'leads:view' },
+    { name: 'Tasks', path: '/tasks', icon: CheckSquare, permission: 'tasks:view' },
     { name: 'Profile', path: '/profile', icon: UserIcon },
-    { name: 'Settings', path: '/settings', icon: Settings, roles: ['admin', 'manager'] },
+    { name: 'Settings', path: '/settings', icon: Settings, permission: 'settings:company' },
   ];
 
   const trackingItems = [
-    { name: 'Employees', path: '/employees', icon: Users },
-    { name: 'HR Management', path: '/hr', icon: Briefcase, roles: ['admin', 'manager'] },
-    { name: 'Attendance', path: '/attendance', icon: Clock },
-    { name: 'Payroll', path: '/payroll', icon: Wallet, roles: ['admin'] },
-    { name: 'Permissions', path: '/permissions', icon: Shield },
+    { name: 'Employees', path: '/employees', icon: Users, permission: 'team:view' },
+    { name: 'HR Management', path: '/hr', icon: Briefcase, permission: 'team:manage' },
+    { name: 'Payroll', path: '/payroll', icon: Wallet, permission: 'finance:view' },
+    { name: 'Permissions', path: '/permissions', icon: Shield, permission: 'settings:security' },
+    { name: 'Activity Logs', path: '/activity', icon: History, permission: 'settings:security' },
   ];
 
-  const filteredNavItems = navItems.filter(item => !item.roles || item.roles.includes(user.role));
-  const filteredTrackingItems = trackingItems.filter(item => !item.roles || item.roles.includes(user.role));
+  const filterItems = (items: any[]) => items.filter(item => !item.permission || hasPermission(user, company, item.permission));
   const location = useLocation();
 
   return (
@@ -114,8 +129,8 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
         )}
       </AnimatePresence>
 
-      <aside className={`w-80 bg-white border-r border-slate-200/60 h-screen fixed left-0 top-0 flex flex-col z-50 transition-all duration-300 ease-in-out transform ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="relative flex flex-col h-full z-10">
+      <aside className={`fixed inset-y-0 left-0 z-50 w-72 lg:w-80 bg-white border-r border-slate-200/60 transition-transform duration-300 ease-in-out lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex flex-col h-full">
           <div className="p-6 flex items-center justify-between">
             <h1 className="text-2xl font-black font-display tracking-tight flex items-center space-x-2">
               <span className="text-brand-primary italic">Nex</span>
@@ -132,7 +147,7 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
           <nav className="flex-1 px-3 space-y-6 overflow-y-auto custom-scrollbar pt-2">
             <div className="space-y-1">
               <p className="px-3 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Main Menu</p>
-              {filteredNavItems.map((item) => {
+              {filterItems(navItems).map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
                   <Link
@@ -163,7 +178,7 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
             <div className="space-y-1">
               <p className="px-3 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Operations</p>
               <div className="space-y-1">
-                {filteredTrackingItems.map((item) => {
+                {filterItems(trackingItems).map((item) => {
                   const isActive = location.pathname === item.path;
                   return (
                     <Link
@@ -222,40 +237,55 @@ const Sidebar = ({ user, isOpen, setIsOpen }: { user: UserProfile; isOpen: boole
 };
 
 const NotificationCenter = ({ user }: { user: UserProfile }) => {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     const q = query(
-      collection(db, 'tasks'),
+      collection(db, 'notifications'),
       where('companyId', '==', user.companyId),
-      where('status', '!=', 'Done')
+      where('userId', '==', user.uid),
+      orderBy('createdAt', 'desc'),
+      limit(20)
     );
     return onSnapshot(q, (snapshot) => {
-      setTasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task)));
+      setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppNotification)));
     });
-  }, [user.companyId]);
+  }, [user.companyId, user.uid]);
 
-  const reminders = tasks.filter(task => {
-    if (!task.dueDate) return false;
-    const due = parseISO(task.dueDate);
-    // Overdue or due within 24 hours
-    return isPast(due) || isBefore(due, addDays(new Date(), 1));
-  }).sort((a, b) => parseISO(a.dueDate).getTime() - parseISO(b.dueDate).getTime());
+  const unreadCount = notifications.filter(n => !n.read).length;
 
-  const overdueCount = reminders.filter(t => isPast(parseISO(t.dueDate)) && !isToday(parseISO(t.dueDate))).length;
-  const dueSoonCount = reminders.length - overdueCount;
+  const handleMarkAsRead = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await markAsRead(id);
+  };
+
+  const handleMarkAllAsRead = async () => {
+    await markAllAsRead(notifications);
+  };
+
+  const getNotificationIcon = (type: AppNotification['type']) => {
+    switch (type) {
+      case 'salary': return <Wallet size={16} className="text-emerald-500" />;
+      case 'task': return <CheckSquare size={16} className="text-blue-500" />;
+      case 'profile': return <UserIcon size={16} className="text-indigo-500" />;
+      case 'admin': return <Shield size={16} className="text-rose-500" />;
+      default: return <Bell size={16} className="text-slate-500" />;
+    }
+  };
+
+  const navigate = useNavigate();
 
   return (
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-full transition-all relative"
+        className={`p-2 rounded-full transition-all relative ${isOpen ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'}`}
       >
         <Bell size={20} />
-        {reminders.length > 0 && (
-          <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
-            {reminders.length}
+        {unreadCount > 0 && (
+          <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white animate-pulse">
+            {unreadCount}
           </span>
         )}
       </button>
@@ -268,49 +298,75 @@ const NotificationCenter = ({ user }: { user: UserProfile }) => {
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden"
+              className="absolute right-0 mt-3 w-80 sm:w-96 bg-white rounded-3xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] border border-slate-100 z-50 overflow-hidden"
             >
-              <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                <h3 className="font-bold text-slate-800">Task Reminders</h3>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  {reminders.length} Pending
-                </span>
+              <div className="p-5 border-b border-slate-50 bg-[#fcfcfc] flex justify-between items-center">
+                <div>
+                  <h3 className="font-black text-slate-900 tracking-tight">System Alerts</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Real-time Transmission Hub</p>
+                </div>
+                {unreadCount > 0 && (
+                  <button 
+                    onClick={handleMarkAllAsRead}
+                    className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline"
+                  >
+                    Clear All
+                  </button>
+                )}
               </div>
-              <div className="max-h-96 overflow-y-auto">
-                {reminders.length === 0 ? (
-                  <div className="p-8 text-center text-slate-400">
-                    <CheckSquare size={32} className="mx-auto mb-2 opacity-20" />
-                    <p className="text-sm">All caught up!</p>
+              <div className="max-h-[32rem] overflow-y-auto no-scrollbar">
+                {notifications.length === 0 ? (
+                  <div className="py-20 text-center px-10">
+                    <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-200">
+                      <BellOff size={32} />
+                    </div>
+                    <p className="text-slate-400 text-xs font-bold uppercase tracking-widest leading-relaxed">No active transmissions detected on this channel.</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-slate-50">
-                    {reminders.map((task) => {
-                      const isOverdue = isPast(parseISO(task.dueDate)) && !isToday(parseISO(task.dueDate));
-                      return (
-                        <div key={task.id} className="p-4 hover:bg-slate-50 transition-colors">
-                          <div className="flex items-start space-x-3">
-                            <div className={`mt-1 p-1.5 rounded-lg ${isOverdue ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
-                              {isOverdue ? <AlertCircle size={14} /> : <Clock size={14} />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-slate-900 truncate">{task.title}</p>
-                              <p className={`text-[10px] font-bold uppercase ${isOverdue ? 'text-rose-500' : 'text-amber-500'}`}>
-                                {isOverdue ? 'Overdue' : 'Due Soon'} • {format(parseISO(task.dueDate), 'MMM d, yyyy')}
+                    {notifications.map((n) => (
+                      <div 
+                        key={n.id} 
+                        onClick={() => {
+                          if (!n.read) markAsRead(n.id);
+                          if (n.link) navigate(n.link);
+                          setIsOpen(false);
+                        }}
+                        className={`p-5 hover:bg-slate-50 transition-all cursor-pointer relative group ${!n.read ? 'bg-indigo-50/30' : ''}`}
+                      >
+                        <div className="flex items-start space-x-4">
+                          <div className={`p-2 rounded-xl shrink-0 ${!n.read ? 'bg-white shadow-sm' : 'bg-slate-100'}`}>
+                            {getNotificationIcon(n.type)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start mb-1">
+                              <p className={`text-xs font-black uppercase tracking-tight truncate ${!n.read ? 'text-slate-900' : 'text-slate-500'}`}>
+                                {n.title}
                               </p>
-                              <Link 
-                                to="/tasks" 
-                                onClick={() => setIsOpen(false)}
-                                className="text-[10px] text-blue-600 font-bold hover:underline mt-1 inline-block"
-                              >
-                                View Task
-                              </Link>
+                              {!n.read && (
+                                <span className="w-1.5 h-1.5 bg-indigo-600 rounded-full shrink-0 mt-1" />
+                              )}
                             </div>
+                            <p className={`text-[11px] leading-relaxed line-clamp-2 ${!n.read ? 'text-slate-600 font-medium' : 'text-slate-400'}`}>
+                              {n.message}
+                            </p>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-2">
+                              {format(parseISO(n.createdAt), 'MMM d, p')}
+                            </p>
                           </div>
                         </div>
-                      );
-                    })}
+                      </div>
+                    ))}
                   </div>
                 )}
+              </div>
+              <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
+                 <button 
+                  onClick={() => setIsOpen(false)}
+                  className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-900 transition-colors"
+                >
+                   Close Console
+                 </button>
               </div>
             </motion.div>
           </>
@@ -321,7 +377,7 @@ const NotificationCenter = ({ user }: { user: UserProfile }) => {
 };
 
 const Header = ({ user, company, onToggleSidebar }: { user: UserProfile; company: Company | null; onToggleSidebar: () => void }) => (
-  <header className="h-20 flex items-center justify-between px-6 lg:px-10 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 sticky top-0 z-40 transition-all">
+  <header className="h-20 flex items-center justify-between px-6 md:px-10 lg:px-12 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 sticky top-0 z-40 transition-all">
     <div className="flex items-center space-x-6">
       <button 
         onClick={onToggleSidebar}
@@ -385,13 +441,19 @@ const Header = ({ user, company, onToggleSidebar }: { user: UserProfile; company
 
 // --- Pages ---
 
-const Dashboard = ({ user }: { user: UserProfile }) => {
+const Dashboard = ({ user, company }: { user: UserProfile, company: Company | null }) => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({ total: 0, new: 0, converted: 0 });
+  const [employeeStats, setEmployeeStats] = useState({ 
+    total: 0, 
+    active: 0, 
+    inactive: 0, 
+    salaryExpense: 0, 
+    newJoins: 0 
+  });
+  const [pendingApprovals, setPendingApprovals] = useState(0);
   const [reminders, setReminders] = useState<Task[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [isClocking, setIsClocking] = useState(false);
-  const [todayAttendance, setTodayAttendance] = useState<Attendance | null>(null);
 
   useEffect(() => {
     let leadsQ = query(collection(db, 'leads'), where('companyId', '==', user.companyId));
@@ -400,6 +462,11 @@ const Dashboard = ({ user }: { user: UserProfile }) => {
       where('companyId', '==', user.companyId),
       where('status', '!=', 'Done')
     );
+    let usersQ = query(collection(db, 'users'), where('companyId', '==', user.companyId));
+    let leaveQ = query(collection(db, 'leaveRequests'), where('companyId', '==', user.companyId), where('status', '==', 'Pending'));
+    let permQ = query(collection(db, 'permissionRequests'), where('companyId', '==', user.companyId), where('status', '==', 'pending'));
+    let accessQ = query(collection(db, 'accessRequests'), where('companyId', '==', user.companyId), where('status', '==', 'pending'));
+    let exitQ = query(collection(db, 'exitRecords'), where('companyId', '==', user.companyId), where('status', '==', 'Pending'));
 
     if (user.role === 'sales') {
       leadsQ = query(
@@ -414,6 +481,8 @@ const Dashboard = ({ user }: { user: UserProfile }) => {
         where('status', '!=', 'Done')
       );
     }
+
+    const isManagerOrAdmin = user.role === 'admin' || user.role === 'manager';
 
     const unsubLeads = onSnapshot(leadsQ, (snapshot) => {
       const leadsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Lead));
@@ -435,54 +504,56 @@ const Dashboard = ({ user }: { user: UserProfile }) => {
       setReminders(filtered);
     });
 
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const attQ = query(
-      collection(db, 'attendance'),
-      where('employeeId', '==', user.uid),
-      where('date', '==', today)
-    );
-    const unsubAtt = onSnapshot(attQ, (snap) => {
-      setTodayAttendance(snap.docs[0] ? { id: snap.docs[0].id, ...snap.docs[0].data() } as Attendance : null);
+    const unsubUsers = onSnapshot(usersQ, (snapshot) => {
+      const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
+      const active = usersData.filter(u => u.status !== 'Left').length;
+      const inactive = usersData.filter(u => u.status === 'Left').length;
+      
+      // Non-admins shouldn't see salary expense details in state ideally, but we guard UI
+      const salaryExpense = isManagerOrAdmin ? usersData.reduce((acc, u) => acc + (u.salary || 0), 0) : 0;
+      
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      
+      const newJoins = usersData.filter(u => {
+        if (!u.joiningDate) return false;
+        const join = new Date(u.joiningDate);
+        return join >= startOfMonth;
+      }).length;
+
+      setEmployeeStats({
+        total: usersData.length,
+        active,
+        inactive,
+        salaryExpense,
+        newJoins
+      });
+    }, (error) => {
+      console.error("Users snapshot error:", error);
     });
+
+    // Combine multiple approval counts - only for managers/admins
+    let lCount = 0, pCount = 0, aCount = 0, eCount = 0;
+    let unsubL = () => {}, unsubP = () => {}, unsubA = () => {}, unsubE = () => {};
+
+    if (isManagerOrAdmin) {
+      unsubL = onSnapshot(leaveQ, s => { lCount = s.size; setPendingApprovals(lCount + pCount + aCount + eCount); });
+      unsubP = onSnapshot(permQ, s => { pCount = s.size; setPendingApprovals(lCount + pCount + aCount + eCount); });
+      unsubA = onSnapshot(accessQ, s => { aCount = s.size; setPendingApprovals(lCount + pCount + aCount + eCount); });
+      unsubE = onSnapshot(exitQ, s => { eCount = s.size; setPendingApprovals(lCount + pCount + aCount + eCount); });
+    }
 
     return () => {
       unsubLeads();
       unsubTasks();
-      unsubAtt();
+      unsubUsers();
+      unsubL();
+      unsubP();
+      unsubA();
+      unsubE();
     };
   }, [user.companyId, user.role, user.uid]);
-
-  const handleClockAction = async () => {
-    setIsClocking(true);
-    try {
-      const now = new Date().toISOString();
-      const today = format(new Date(), 'yyyy-MM-dd');
-
-      if (!todayAttendance) {
-        // Clock In
-        await addDoc(collection(db, 'attendance'), {
-          companyId: user.companyId,
-          employeeId: user.uid,
-          employeeName: user.name,
-          date: today,
-          checkIn: now,
-          status: 'On-time',
-          createdAt: now
-        });
-        toast.success('Shift started. Good luck out there!');
-      } else if (!todayAttendance.checkOut) {
-        // Clock Out
-        await updateDoc(doc(db, 'attendance', todayAttendance.id), {
-          checkOut: now
-        });
-        toast.success('Shift ended. Rest up!');
-      }
-    } catch (error) {
-      toast.error('Sync failed with neural link.');
-    } finally {
-      setIsClocking(false);
-    }
-  };
 
   const analyticsData = [
     { name: 'Wordpress', value: leads.filter(l => l.service === 'WordPress').length },
@@ -499,60 +570,43 @@ const Dashboard = ({ user }: { user: UserProfile }) => {
   const COLORS = ['#6366f1', '#8b5cf6', '#ec4899'];
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-12 animate-in fade-in duration-500">
-      {/* Welcome & Quick Action */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 bg-white p-10 rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/20 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50/50 rounded-bl-[160px] -z-10" />
-        <div className="space-y-2">
-          <h1 className="text-4xl md:text-5xl font-black text-slate-950 tracking-tighter italic">
-            Welcome, <span className="text-indigo-600 underline decoration-indigo-200 underline-offset-8 decoration-4">{user.name.split(' ')[0]}</span>
-          </h1>
-          <p className="text-slate-500 font-medium">Neural systems operational. {reminders.length} tasks require focus.</p>
+    <div className="max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
+          <p className="text-sm text-slate-500 mt-1">Overview of your agency's performance and active directives.</p>
         </div>
-
-        <div className="flex flex-wrap items-center gap-4">
-          <button 
-            onClick={handleClockAction}
-            disabled={isClocking || (!!todayAttendance && !!todayAttendance.checkOut)}
-            className={`group flex items-center space-x-3 px-8 py-5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-95 disabled:opacity-50 ${
-              !todayAttendance 
-                ? 'bg-indigo-600 text-white shadow-indigo-200 hover:bg-slate-950' 
-                : !todayAttendance.checkOut 
-                  ? 'bg-rose-500 text-white shadow-rose-200 hover:bg-rose-600'
-                  : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none'
-            }`}
-          >
-            <Clock size={18} className={!todayAttendance || !todayAttendance.checkOut ? 'animate-pulse' : ''} />
-            <span>
-              {!todayAttendance ? 'Initialize Shift (Clock In)' : !todayAttendance.checkOut ? 'Terminate Shift (Clock Out)' : 'Shift Logged'}
-            </span>
-          </button>
-          
-          <button
-            onClick={() => navigate('/tasks')}
-            className="group flex items-center space-x-3 bg-slate-950 text-white px-8 py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-xl shadow-slate-200 active:scale-95"
-          >
-            <LayoutDashboard size={18} />
-            <span>Process Queue</span>
-          </button>
+        <div className="flex items-center space-x-3">
+          <div className="px-4 py-2 bg-white border border-slate-200 rounded-xl shadow-soft text-sm font-semibold flex items-center space-x-2">
+            <Calendar size={16} className="text-brand-primary" />
+            <span>{format(new Date(), 'MMMM d, yyyy')}</span>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid-auto-fit">
         {[
-          { label: 'Total Leads', value: stats.total, color: 'text-brand-primary', bg: 'bg-brand-primary/5', icon: MessageSquare },
-          { label: 'New Opportunities', value: stats.new, color: 'text-amber-600', bg: 'bg-amber-50', icon: Clock },
-          { label: 'Successful Conversions', value: stats.converted, color: 'text-emerald-600', bg: 'bg-emerald-50', icon: CheckCircle },
-        ].map((stat) => (
-          <div key={stat.label} className="saas-card saas-card-hover p-6">
+          { label: 'Total Employees', value: employeeStats.total, color: 'text-blue-600', bg: 'bg-blue-50', icon: Users, sub: `${employeeStats.active} Active`, privileged: true },
+          { label: 'Salary Expense', value: `${company?.currency || '$'}${employeeStats.salaryExpense.toLocaleString()}`, color: 'text-indigo-600', bg: 'bg-indigo-50', icon: Wallet, sub: 'Monthly projected', privileged: true },
+          { label: 'New Joins', value: employeeStats.newJoins, color: 'text-emerald-600', bg: 'bg-emerald-50', icon: Building2, sub: 'This month', privileged: true },
+          { label: 'Pending Approvals', value: pendingApprovals, color: 'text-amber-600', bg: 'bg-amber-50', icon: Shield, sub: 'Requires action', privileged: true },
+          { label: 'Leads Pipeline', value: stats.total, color: 'text-brand-primary', bg: 'bg-brand-primary/5', icon: MessageSquare, sub: 'All stages', privileged: false },
+        ].filter(s => !s.privileged || (user.role === 'admin' || user.role === 'manager')).map((stat) => (
+          <div key={stat.label} className="saas-card saas-card-hover p-6 flex flex-col justify-between min-h-[160px]">
             <div className="flex items-center justify-between mb-4">
               <div className={`w-10 h-10 rounded-xl ${stat.bg} ${stat.color} flex items-center justify-center`}>
                 <stat.icon size={20} />
               </div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Growth</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Insights</span>
             </div>
-            <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-            <h3 className="text-3xl font-bold text-slate-900 mt-1">{stat.value}</h3>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{stat.label}</p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1">{stat.value}</h3>
+              <p className="text-[10px] font-semibold text-slate-400 mt-2 flex items-center">
+                <span className="w-1 h-1 rounded-full bg-slate-300 mr-1.5" />
+                {stat.sub}
+              </p>
+            </div>
           </div>
         ))}
       </div>
@@ -665,21 +719,31 @@ const Dashboard = ({ user }: { user: UserProfile }) => {
           )}
         </div>
 
-        <div className="bg-brand-primary p-8 rounded-[24px] text-white overflow-hidden relative group">
-          <div className="relative z-10 h-full flex flex-col">
-            <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center mb-6">
-              <ShieldCheck size={28} />
+        <div className="saas-card p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-lg font-bold text-slate-900">Workspace Policies</h3>
+            <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+              <ShieldCheck size={18} />
             </div>
-            <h3 className="text-xl font-bold font-display mb-3">Enterprise Security</h3>
-            <p className="text-sm text-brand-primary-foreground/70 font-medium mb-8 flex-1">Your data is secured with banking-grade encryption and real-time monitoring.</p>
-            <button 
-              onClick={() => navigate('/settings')}
-              className="w-full py-3 bg-white text-brand-primary rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
-            >
-              Review Security
-            </button>
           </div>
-          <Globe className="absolute -bottom-10 -right-10 w-48 h-48 text-white/5 group-hover:scale-110 transition-transform duration-1000" />
+          
+          <div className="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+            {company?.policies && company.policies.length > 0 ? (
+              company.policies.map((policy, idx) => (
+                <div key={idx} className="flex items-start space-x-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <p className="text-xs font-medium text-slate-600 leading-relaxed">{policy}</p>
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-slate-300 text-center">
+                <div className="p-4 bg-slate-50 rounded-2xl mb-4 inline-block">
+                  <ShieldCheck size={32} className="text-slate-200" />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">No Active Policies</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -819,7 +883,7 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
         </div>
       </div>
 
-      <div className="saas-card overflow-hidden">
+      <div className="table-container">
         <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center gap-4">
           <div className="flex items-center space-x-2">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</span>
@@ -954,7 +1018,7 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
               </div>
               
               <form onSubmit={handleAddLead} className="space-y-5">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="form-grid">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Name</label>
                     <input
@@ -976,7 +1040,7 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="form-grid">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Phone</label>
                     <input
@@ -1565,31 +1629,34 @@ const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
   }, [user.companyId]);
 
   return (
-    <div className="flex bg-slate-50 min-h-screen relative overflow-x-hidden">
-      <Sidebar user={user} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
-      
-      <main className="flex-1 lg:ml-80 min-h-screen flex flex-col relative w-full overflow-hidden">
-        <Header user={user} company={company} onToggleSidebar={() => setIsSidebarOpen(true)} />
+    <AuthContext.Provider value={{ user, company }}>
+      <div className="min-h-screen bg-[#fbfbfb] font-sans">
+        <Sidebar user={user} company={company} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
         
-        <div className="flex-1 overflow-y-auto px-4 py-6 md:px-8 xl:px-10 md:py-8 lg:py-10 relative z-10 scroll-smooth">
-          <Routes>
-            <Route path="/" element={<Dashboard user={user} />} />
-            <Route path="/leads" element={<LeadsPage user={user} />} />
-            <Route path="/tasks" element={<TasksPage user={user} />} />
-            <Route path="/profile" element={<ProfilePage user={user} />} />
-            <Route path="/employees" element={<EmployeesPage user={user} company={company} />} />
-            <Route path="/hr" element={<HRManagementPage user={user} company={company} />} />
-            <Route path="/attendance" element={company ? <AttendancePage user={user} /> : <Navigate to="/settings" />} />
-            <Route path="/payroll" element={<PayrollPage user={user} company={company} />} />
-            <Route path="/permissions" element={<PermissionsPage user={user} />} />
-            <Route path="/settings" element={<SettingsPage user={user} />} />
-          </Routes>
+        <div className="lg:pl-80 flex flex-col min-h-screen">
+          <Header user={user} company={company} onToggleSidebar={() => setIsSidebarOpen(true)} />
+          
+          <main className="flex-1 p-4 md:p-8 lg:p-10 xl:p-12 transition-all">
+            <Routes>
+              <Route path="/" element={<Dashboard user={user} company={company} />} />
+              <Route path="/leads" element={<LeadsPage user={user} />} />
+              <Route path="/tasks" element={<TasksPage user={user} />} />
+              <Route path="/profile" element={<ProfilePage user={user} />} />
+              <Route path="/employees" element={<EmployeesPage user={user} company={company} />} />
+              <Route path="/employees/:employeeId" element={<EmployeeProfilePage />} />
+              <Route path="/hr" element={(user.role === 'admin' || user.role === 'manager') ? <HRManagementPage user={user} company={company} /> : <Navigate to="/" />} />
+              <Route path="/payroll" element={(user.role === 'admin' || user.role === 'manager') ? <PayrollPage user={user} company={company} /> : <Navigate to="/" />} />
+              <Route path="/permissions" element={(user.role === 'admin' || user.role === 'manager') ? <PermissionsPage user={user} /> : <Navigate to="/" />} />
+              <Route path="/activity" element={(user.role === 'admin' || user.role === 'manager') ? <ActivityLogsPage user={user} /> : <Navigate to="/" />} />
+              <Route path="/settings" element={<SettingsPage user={user} />} />
+            </Routes>
+          </main>
         </div>
 
         {/* Dynamic Decorative Graphic */}
         <div className="fixed bottom-0 right-0 w-[60vh] h-[60vh] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none -z-0 translate-x-1/3 translate-y-1/3" />
-      </main>
-    </div>
+      </div>
+    </AuthContext.Provider>
   );
 };
 
@@ -1597,6 +1664,17 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionLogged, setSessionLogged] = useState(false);
+
+  useEffect(() => {
+    if (profile && !sessionLogged) {
+      logActivity(profile, 'LOGIN', `Operative ${profile.name} initialized system session.`);
+      setSessionLogged(true);
+    }
+    if (!profile) {
+      setSessionLogged(false);
+    }
+  }, [profile, sessionLogged]);
 
   useEffect(() => {
     let unsubscribeProfile: (() => void) | null = null;

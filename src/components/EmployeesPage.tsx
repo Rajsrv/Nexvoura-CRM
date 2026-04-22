@@ -1,13 +1,26 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs } from 'firebase/firestore';
 import { UserProfile, Invite, AccessRequest, UserRole, Company, Department, EmployeeStatus, Lead } from '../types';
-import { Plus, Trash2, Mail, Shield, User as UserIcon, Check, X, Copy, Globe, Edit2, Phone, Briefcase, Calendar as CalendarIcon, DollarSign, TrendingUp, Users } from 'lucide-react';
+import { Plus, Trash2, Mail, Shield, User as UserIcon, Check, X, Copy, Globe, Edit2, Phone, Briefcase, Calendar as CalendarIcon, DollarSign, TrendingUp, Users, Search, Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
+import { logActivity } from '../services/activityService';
+import { sendNotification } from '../services/notificationService';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 export default function EmployeesPage({ user, company }: { user: UserProfile, company: Company | null }) {
+  const navigate = useNavigate();
   const [team, setTeam] = useState<UserProfile[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [requests, setRequests] = useState<AccessRequest[]>([]);
@@ -171,14 +184,15 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
         joiningDate,
         shiftId,
         memberId,
-        status: 'Active',
+        status: isAdmin ? 'Active' : 'Pending Approval',
         createdAt: new Date().toISOString(),
       };
 
       const docRef = await addDoc(collection(db, 'users'), newUser);
       await updateDoc(docRef, { uid: docRef.id });
 
-      toast.success(`Employee ${name} added directly to Nexus`);
+      logActivity(user, 'EMPLOYEE_EDIT', `Manually created personnel record for ${name} (${isAdmin ? 'Active' : 'Pending Approval'})`, docRef.id, name);
+      toast.success(isAdmin ? `Employee ${name} added directly to Nexus` : `Employee ${name} recorded. Awaiting admin approval.`);
       setShowInviteModal(false);
       setManualEntry({
         name: '',
@@ -215,6 +229,7 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
         status: 'pending'
       });
 
+      logActivity(user, 'EMPLOYEE_EDIT', `Transmitted access invitation to ${inviteEmail}`, undefined, inviteEmail);
       toast.success(`Invite sent to ${inviteEmail}`);
       setShowInviteModal(false);
       setInviteEmail('');
@@ -233,6 +248,23 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
           role: request.requestedRole
         });
         toast.success(`Role ${request.requestedRole} approved for ${request.userName}`);
+        logActivity(user, 'SETTINGS_CHANGE', `Approved role change for ${request.userName} to ${request.requestedRole}`, request.userId, request.userName);
+        await sendNotification(
+          user.companyId,
+          request.userId,
+          'Clearance Level Updated',
+          `Your access level has been elevated to ${request.requestedRole.replace('_', ' ')}. Identity protocols synchronized.`,
+          'admin'
+        );
+      } else {
+        logActivity(user, 'SETTINGS_CHANGE', `Rejected role change for ${request.userName}`, request.userId, request.userName);
+        await sendNotification(
+          user.companyId,
+          request.userId,
+          'Clearance Request Status',
+          'Your request for account level elevation was not authorized at this time.',
+          'admin'
+        );
       }
       await updateDoc(doc(db, 'accessRequests', request.id!), {
         status: approve ? 'approved' : 'rejected'
@@ -241,6 +273,92 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
       toast.error('Failed to process request');
     }
   };
+
+  const handleApproveOnboarding = async (employeeId: string, approve: boolean) => {
+    try {
+      const emp = team.find(t => t.uid === employeeId);
+      if (!emp) return;
+
+      if (approve) {
+        await updateDoc(doc(db, 'users', employeeId), {
+          status: 'Active'
+        });
+        toast.success(`Onboarding approved for ${emp.name}`);
+        logActivity(user, 'EMPLOYEE_EDIT', `Approved onboarding for ${emp.name}`, employeeId, emp.name);
+        await sendNotification(
+          user.companyId,
+          employeeId,
+          'Welcome to the System',
+          `Your identity has been verified. Welcome to ${company?.name || 'the team'}, ${emp.name}. Reach out to your lead for objectives.`,
+          'system'
+        );
+      } else {
+        await deleteDoc(doc(db, 'users', employeeId));
+        toast.success(`Onboarding rejected for ${emp.name}. Record purged.`);
+        logActivity(user, 'EMPLOYEE_EDIT', `Rejected and purged onboarding record for ${emp.name}`, employeeId, emp.name);
+      }
+    } catch (error) {
+      toast.error('Failed to process onboarding request');
+    }
+  };
+
+  const handleApproveHike = async (employeeId: string, hikeId: string, approve: boolean) => {
+    try {
+      const emp = team.find(t => t.uid === employeeId);
+      if (!emp || !emp.salaryHistory) return;
+
+      const hikeIndex = emp.salaryHistory.findIndex(h => h.id === hikeId);
+      if (hikeIndex === -1) return;
+
+      const hike = emp.salaryHistory[hikeIndex];
+      const newHistory = [...emp.salaryHistory];
+      newHistory[hikeIndex] = { 
+        ...hike, 
+        status: approve ? 'approved' : 'rejected', 
+        approvedBy: user.uid, 
+        approvedByName: user.name 
+      };
+
+      const updates: any = { salaryHistory: newHistory };
+      if (approve) {
+        updates.salary = hike.newSalary;
+      }
+
+      await updateDoc(doc(db, 'users', employeeId), updates);
+      
+      if (approve) {
+        toast.success(`Hike approved for ${emp.name}`);
+        logActivity(user, 'SALARY_CHANGE', `Approved salary hike of ${company?.currency || '$'}${hike.amount.toLocaleString()} for ${emp.name}`, employeeId, emp.name);
+        await sendNotification(
+          user.companyId,
+          employeeId,
+          'Compensation Update',
+          `Your projected salary has been increased. New baseline: ${company?.currency || '$'}${hike.newSalary.toLocaleString()}. Details available in profile.`,
+          'salary'
+        );
+      } else {
+        toast.success(`Hike rejected for ${emp.name}`);
+        logActivity(user, 'SALARY_CHANGE', `Rejected salary hike for ${emp.name}`, employeeId, emp.name);
+        await sendNotification(
+          user.companyId,
+          employeeId,
+          'Hike Request Status',
+          'Your recent compensation increment proposal was not authorized at this deployment stage.',
+          'salary'
+        );
+      }
+    } catch (error) {
+      toast.error('Failed to process hike request');
+    }
+  };
+
+  const activeMembers = team.filter(m => m.status !== 'Pending Approval');
+  const pendingOnboarding = team.filter(m => m.status === 'Pending Approval');
+  const pendingHikes = team.flatMap(emp => 
+    (emp.salaryHistory || [])
+      .filter(h => h.status === 'pending')
+      .map(h => ({ ...h, employeeId: emp.uid, employeeName: emp.name }))
+  );
 
   const updateMemberDetails = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -260,10 +378,14 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
       };
 
       if (isAdmin && salary !== undefined) {
+        if (salary !== editingMember.salary) {
+          logActivity(user, 'SALARY_CHANGE', `Updated salary for ${editingMember.name} from ${company?.currency || '$'}${editingMember.salary?.toLocaleString()} to ${company?.currency || '$'}${salary.toLocaleString()}`, editingMember.uid, editingMember.name);
+        }
         updates.salary = salary;
       }
 
       await updateDoc(doc(db, 'users', editingMember.uid), updates);
+      logActivity(user, 'EMPLOYEE_EDIT', `Updated profile parameters for ${editingMember.name}`, editingMember.uid, editingMember.name);
       toast.success('Employee details updated');
       setEditingMember(null);
     } catch (error) {
@@ -279,6 +401,70 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
       toast.success('Invite cancelled');
     } catch (error) {
       toast.error('Failed to cancel invite');
+    }
+  };
+
+  const handleExportExcel = () => {
+    try {
+      const exportData = team.map(emp => ({
+        'Member ID': emp.memberId || 'N/A',
+        'Name': emp.name,
+        'Email': emp.email,
+        'Role': emp.role,
+        'Department': emp.department || 'N/A',
+        'Phone': emp.phone || 'N/A',
+        'Joining Date': emp.joiningDate || 'N/A',
+        'Salary': emp.salary ? `${company?.currency || '$'}${emp.salary.toLocaleString()}` : 'N/A',
+        'Status': emp.status || 'Active'
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Employees');
+      XLSX.writeFile(wb, `Personnel_Data_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      
+      logActivity(user, 'DATA_EXPORT', `Exported personnel data to Excel (${team.length} records)`);
+      toast.success('Excel export complete');
+    } catch (error) {
+      toast.error('Excel export failed');
+    }
+  };
+
+  const handleExportPDF = () => {
+    try {
+      const doc = new jsPDF();
+      
+      doc.setFontSize(18);
+      doc.text(`${company?.name || 'Nexus Agency'} - Personnel Report`, 14, 20);
+      doc.setFontSize(10);
+      doc.text(`Generated on: ${format(new Date(), 'yyyy-MM-dd HH:mm')}`, 14, 26);
+      doc.text(`Extracted by: ${user.name}`, 14, 30);
+
+      const tableRows = team.map(emp => [
+        emp.memberId || 'N/A',
+        emp.name,
+        emp.role,
+        emp.department || 'N/A',
+        emp.joiningDate || 'N/A',
+        emp.salary ? `${company?.currency || '$'}${emp.salary.toLocaleString()}` : 'N/A',
+        emp.status || 'Active'
+      ]);
+
+      (doc as any).autoTable({
+        startY: 35,
+        head: [['ID', 'Name', 'Role', 'Dept', 'Hired', 'Salary', 'Status']],
+        body: tableRows,
+        theme: 'striped',
+        headStyles: { fillColor: '#0F172A', textColor: '#FFFFFF' },
+        styles: { fontSize: 8 }
+      });
+
+      doc.save(`Personnel_Audit_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      logActivity(user, 'DATA_EXPORT', `Exported personnel report to PDF (${team.length} records)`);
+      toast.success('PDF export complete');
+    } catch (error) {
+      console.error(error);
+      toast.error('PDF export failed');
     }
   };
 
@@ -333,6 +519,26 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
               </h3>
             </div>
           </div>
+          
+          <div className="mt-12 pt-12 border-t border-slate-100">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6 px-1">Data Export protocols</h4>
+            <div className="flex flex-wrap gap-4">
+              <button 
+                onClick={handleExportExcel}
+                className="flex items-center space-x-3 bg-slate-50 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-slate-100 hover:border-emerald-100 group"
+              >
+                <FileSpreadsheet size={18} className="group-hover:scale-110 transition-transform" />
+                <span>Export as Excel</span>
+              </button>
+              <button 
+                onClick={handleExportPDF}
+                className="flex items-center space-x-3 bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-700 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-slate-100 hover:border-rose-100 group"
+              >
+                <FileText size={18} className="group-hover:scale-110 transition-transform" />
+                <span>Export as PDF</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -350,15 +556,33 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
             Employees & Team
           </h2>
         </div>
-        {canManage && (
-            <button
-              onClick={() => setShowInviteModal(true)}
-              className="group flex items-center justify-center space-x-3 bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-950 transition-all shadow-xl shadow-indigo-200 active:scale-95"
+        <div className="flex flex-wrap gap-4 items-end">
+          <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
+            <button 
+              onClick={handleExportExcel}
+              className="p-3 hover:bg-white text-slate-400 hover:text-emerald-600 rounded-xl transition-all"
+              title="Export to Excel"
             >
-              <Plus size={18} />
-              <span>Add Employee</span>
+              <FileSpreadsheet size={20} />
             </button>
-        )}
+            <button 
+              onClick={handleExportPDF}
+              className="p-3 hover:bg-white text-slate-400 hover:text-rose-600 rounded-xl transition-all"
+              title="Export to PDF"
+            >
+              <FileText size={20} />
+            </button>
+          </div>
+          {canManage && (
+              <button
+                onClick={() => setShowInviteModal(true)}
+                className="group flex items-center justify-center space-x-3 bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-950 transition-all shadow-xl shadow-indigo-200 active:scale-95"
+              >
+                <Plus size={18} />
+                <span>Add Employee</span>
+              </button>
+          )}
+        </div>
       </div>
 
       {isAdmin && requests.length > 0 && (
@@ -396,8 +620,8 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
 
       <div className="flex space-x-6 border-b border-slate-100">
         {[
-          { id: 'members', label: 'Pulse Members', count: team.length },
-          { id: 'invites', label: 'Pending Access', count: invites.length },
+          { id: 'members', label: 'Pulse Members', count: activeMembers.length },
+          { id: 'invites', label: 'Pending Access', count: invites.length + requests.length + pendingOnboarding.length + pendingHikes.length },
         ].map(tab => (
           <button
             key={tab.id}
@@ -417,103 +641,251 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
 
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
         {activeTab === 'members' ? (
-          <div className="bg-white rounded-[40px] border border-slate-100 overflow-hidden shadow-xl shadow-slate-200/10">
-            <div className="overflow-x-auto custom-scrollbar">
-              <table className="w-full text-left min-w-[800px]">
-                <thead className="bg-slate-50/50 border-b border-slate-100">
-                  <tr>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Role</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Department</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Joining Date</th>
-                    {isAdmin && <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Salary</th>}
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {team.map((member) => {
-                    return (
-                      <tr 
-                        key={member.uid} 
-                        className="group hover:bg-indigo-50/30 transition-all cursor-pointer"
-                        onClick={() => setViewingMember(member)}
-                      >
+          <div className="table-container">
+            <table className="w-full text-left min-w-[800px]">
+              <thead className="bg-slate-50/50 border-b border-slate-100">
+                <tr>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Role</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Department</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Joining Date</th>
+                  {isAdmin && <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Salary</th>}
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {activeMembers.map((member) => {
+                  return (
+                    <tr 
+                      key={member.uid} 
+                      className="group hover:bg-indigo-50/30 transition-all cursor-pointer"
+                      onClick={() => navigate(`/employees/${member.uid}`)}
+                    >
+                      <td className="px-8 py-5">
+                         <div className="flex items-center space-x-4">
+                           <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center overflow-hidden shrink-0 border border-slate-200 shadow-sm">
+                             {member.photoURL ? (
+                               <img src={member.photoURL} alt={member.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                             ) : (
+                               <span className="text-sm font-black text-slate-400">{member.name[0]}</span>
+                             )}
+                           </div>
+                           <div className="min-w-0">
+                             <div className="font-bold text-slate-950 text-sm">{member.name}</div>
+                             <div className="text-[10px] text-slate-400 font-medium truncate">{member.email}</div>
+                           </div>
+                         </div>
+                      </td>
+                      <td className="px-8 py-5">
+                         <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
+                           member.role === 'admin' ? 'bg-indigo-100 text-indigo-700' :
+                           member.role === 'manager' ? 'bg-blue-100 text-blue-700' :
+                           'bg-slate-100 text-slate-600'
+                         }`}>
+                           {member.role.replace('_', ' ')}
+                         </span>
+                      </td>
+                      <td className="px-8 py-5">
+                         <div className="flex items-center space-x-2">
+                           <span className="text-xs font-semibold text-slate-600">{member.department || '—'}</span>
+                         </div>
+                      </td>
+                      <td className="px-8 py-5">
+                         <div className="text-xs font-semibold text-slate-500">
+                           {member.joiningDate ? new Date(member.joiningDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                         </div>
+                      </td>
+                      {isAdmin && (
                         <td className="px-8 py-5">
-                           <div className="flex items-center space-x-4">
-                             <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center overflow-hidden shrink-0 border border-slate-200 shadow-sm">
-                               {member.photoURL ? (
-                                 <img src={member.photoURL} alt={member.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                               ) : (
-                                 <span className="text-sm font-black text-slate-400">{member.name[0]}</span>
-                               )}
-                             </div>
-                             <div className="min-w-0">
-                               <div className="font-bold text-slate-950 text-sm">{member.name}</div>
-                               <div className="text-[10px] text-slate-400 font-medium truncate">{member.email}</div>
-                             </div>
+                           <div className="text-xs font-bold text-slate-950">
+                             {member.salary ? `${company?.currency || '$'}${member.salary.toLocaleString()}` : '—'}
                            </div>
                         </td>
-                        <td className="px-8 py-5">
-                           <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
-                             member.role === 'admin' ? 'bg-indigo-100 text-indigo-700' :
-                             member.role === 'manager' ? 'bg-blue-100 text-blue-700' :
-                             'bg-slate-100 text-slate-600'
-                           }`}>
-                             {member.role.replace('_', ' ')}
-                           </span>
-                        </td>
-                        <td className="px-8 py-5">
-                           <div className="flex items-center space-x-2">
-                             <span className="text-xs font-semibold text-slate-600">{member.department || '—'}</span>
-                           </div>
-                        </td>
-                        <td className="px-8 py-5">
-                           <div className="text-xs font-semibold text-slate-500">
-                             {member.joiningDate ? new Date(member.joiningDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-                           </div>
-                        </td>
-                        {isAdmin && (
-                          <td className="px-8 py-5">
-                             <div className="text-xs font-bold text-slate-950">
-                               {member.salary ? `$${member.salary.toLocaleString()}` : '—'}
-                             </div>
-                          </td>
-                        )}
-                        <td className="px-8 py-5">
-                           <div className="flex items-center space-x-2">
-                             <div className={`w-1.5 h-1.5 rounded-full ${
-                                member.status === 'Active' ? 'bg-emerald-500' :
-                                member.status === 'On Leave' ? 'bg-amber-500' :
-                                'bg-slate-300'
-                              }`} />
-                              <span className="text-[10px] font-bold text-slate-600">
-                                {member.isResigned ? 'Resigned' : (member.status || 'Active')}
-                              </span>
-                           </div>
-                        </td>
-                        <td className="px-8 py-5 text-right">
+                      )}
+                      <td className="px-8 py-5">
+                         <div className="flex items-center space-x-2">
+                           <div className={`w-1.5 h-1.5 rounded-full ${
+                              member.status === 'Active' ? 'bg-emerald-500' :
+                              member.status === 'On Leave' ? 'bg-amber-500' :
+                              'bg-slate-300'
+                            }`} />
+                            <span className="text-[10px] font-bold text-slate-600">
+                              {member.isResigned ? 'Resigned' : (member.status || 'Active')}
+                            </span>
+                         </div>
+                      </td>
+                      <td className="px-8 py-5 text-right">
+                        <div className="flex items-center justify-end space-x-2">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setEditingMember(member);
+                              navigate(`/employees/${member.uid}`);
                             }}
-                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all flex items-center space-x-2"
+                            title="View Profile"
                           >
-                            <Edit2 size={16} />
+                            <Search size={16} />
+                            {!isAdmin && <span className="text-[10px] font-bold uppercase hidden md:inline">View Profile</span>}
                           </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          
+                          {isAdmin && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingMember(member);
+                              }}
+                              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                              title="Edit Member"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {invites.length > 0 ? (
-              invites.map((invite) => (
+          <div className="space-y-12">
+            {/* New Onboarding Approval */}
+            {pendingOnboarding.length > 0 && (
+              <div className="space-y-6">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex items-center space-x-2">
+                  <Plus size={14} className="text-blue-500" />
+                  <span>Personnel Onboarding Requests</span>
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {pendingOnboarding.map((emp) => (
+                    <div key={emp.uid} className="bg-white border border-slate-100 p-6 rounded-[32px] flex justify-between items-center shadow-lg shadow-slate-200/20 group">
+                      <div className="flex items-center space-x-4 min-w-0">
+                        <div className="w-12 h-12 rounded-2xl bg-slate-950 flex items-center justify-center text-white shrink-0">
+                          <UserIcon size={20} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-black text-slate-950 text-sm uppercase truncate">{emp.name}</div>
+                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                            {emp.role} • {emp.department}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2 ml-4">
+                        <button
+                          onClick={() => handleApproveOnboarding(emp.uid, true)}
+                          className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100"
+                          title="Approve Hiring"
+                        >
+                          <Check size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleApproveOnboarding(emp.uid, false)}
+                          className="p-2.5 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all border border-rose-100"
+                          title="Reject Record"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Role Change Approval */}
+            {requests.length > 0 && (
+              <div className="space-y-6">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex items-center space-x-2">
+                  <Shield size={14} className="text-indigo-500" />
+                  <span>Clearance Level Requests</span>
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {requests.map((req) => (
+                    <div key={req.id} className="bg-white border border-slate-100 p-6 rounded-[32px] flex justify-between items-center shadow-lg shadow-slate-200/20">
+                      <div className="flex items-center space-x-4 min-w-0">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shrink-0">
+                          <Shield size={20} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-black text-slate-950 text-sm uppercase truncate">{req.userName}</div>
+                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                            Grant <span className="text-indigo-600 font-black">{req.requestedRole}</span> access
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2 ml-4">
+                        <button
+                          onClick={() => handleRequest(req, true)}
+                          className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100"
+                        >
+                          <Check size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleRequest(req, false)}
+                          className="p-2.5 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all border border-rose-100"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Salary Hike Approval */}
+            {pendingHikes.length > 0 && (
+              <div className="space-y-6">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex items-center space-x-2">
+                  <TrendingUp size={14} className="text-emerald-500" />
+                  <span>Compensation Increment Proposals</span>
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {pendingHikes.map((hike) => (
+                    <div key={hike.id} className="bg-white border border-slate-100 p-6 rounded-[32px] flex justify-between items-center shadow-lg shadow-slate-200/20">
+                      <div className="flex items-center space-x-4 min-w-0">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shrink-0">
+                          <TrendingUp size={20} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-black text-slate-950 text-sm uppercase truncate">{hike.employeeName}</div>
+                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                            Increment: <span className="text-emerald-600">+{company?.currency || '$'}{hike.amount.toLocaleString()}</span>
+                          </div>
+                          <div className="text-[8px] text-slate-400 italic truncate mt-0.5">"{hike.reason}"</div>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2 ml-4">
+                        <button
+                          onClick={() => handleApproveHike(hike.employeeId, hike.id, true)}
+                          className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100"
+                        >
+                          <Check size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleApproveHike(hike.employeeId, hike.id, false)}
+                          className="p-2.5 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all border border-rose-100"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Invitations */}
+            <div className="space-y-6">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex items-center space-x-2">
+                <Mail size={14} className="text-amber-500" />
+                <span>External Access Invitations</span>
+              </h3>
+              <div className="grid-auto-fit">
+                {invites.length > 0 ? (
+                  invites.map((invite) => (
                 <div key={invite.id} className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-lg shadow-slate-200/10 space-y-6 hover:border-blue-100 hover:shadow-2xl transition-all duration-500 relative overflow-hidden group">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50/50 rounded-bl-[60px] -z-10 group-hover:scale-110 transition-transform" />
                   <div className="flex justify-between items-start">
@@ -569,8 +941,9 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
               </div>
             )}
           </div>
-        )}
+        </div>
       </div>
+    )}
 
       <AnimatePresence>
         {showInviteModal && (
@@ -748,26 +1121,26 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
             </motion.div>
           </div>
         )}
+
         {editingMember && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md">
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-white rounded-[40px] p-6 md:p-10 max-w-2xl w-full shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]"
+              className="bg-white rounded-[40px] p-10 max-w-2xl w-full shadow-2xl relative overflow-hidden"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/50 rounded-bl-[80px] -z-10" />
-              <div className="flex justify-between items-center mb-6 md:mb-8">
-                <h3 className="text-2xl md:text-3xl font-black text-slate-950 font-display italic leading-none uppercase tracking-tight">Personnel Configuration</h3>
-                <button 
-                  onClick={() => setEditingMember(null)}
-                  className="p-2 text-slate-300 hover:text-slate-950 transition-colors"
-                >
-                  <X size={24} />
-                </button>
-              </div>
+              <button 
+                onClick={() => setEditingMember(null)}
+                className="absolute top-6 right-6 p-2 text-slate-300 hover:text-slate-950 transition-colors"
+              >
+                <X size={24} />
+              </button>
+
+              <h3 className="text-3xl font-black text-slate-950 mb-8 font-display italic leading-none uppercase tracking-tight">Personnel Configuration</h3>
               
-              <form onSubmit={updateMemberDetails} className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-4">
+              <form onSubmit={updateMemberDetails}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Full Identity Name</label>
@@ -903,15 +1276,20 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
           <EmployeeProfileModal 
             member={viewingMember} 
             stats={getStatsForUser(viewingMember.uid)}
+            user={user}
+            company={company}
             onClose={() => setViewingMember(null)}
           />
         )}
       </AnimatePresence>
     </div>
-  );
+  </div>
+);
 }
 
-function EmployeeProfileModal({ member, stats, onClose }: { member: UserProfile, stats: any, onClose: () => void }) {
+function EmployeeProfileModal({ member, stats, user, company, onClose }: { member: UserProfile, stats: any, user: UserProfile, company: Company | null, onClose: () => void }) {
+  const isAuthorizedToSeeSalary = user.role === 'admin' || member.uid === user.uid;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md">
       <motion.div
@@ -920,23 +1298,23 @@ function EmployeeProfileModal({ member, stats, onClose }: { member: UserProfile,
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
         className="bg-white rounded-[40px] max-w-2xl w-full shadow-2xl overflow-hidden relative"
       >
-        <div className="h-32 md:h-40 bg-indigo-600 relative overflow-hidden">
+        <div className="h-40 bg-indigo-600 relative overflow-hidden">
           <div className="absolute inset-0 opacity-20">
             <div className="absolute -top-20 -right-20 w-80 h-80 bg-white rounded-full blur-3xl animate-pulse" />
             <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-indigo-400 rounded-full blur-3xl" />
           </div>
           <button 
             onClick={onClose}
-            className="absolute top-4 right-4 md:top-6 md:right-6 p-2 bg-white/10 text-white hover:bg-white/20 rounded-full backdrop-blur-sm transition-all"
+            className="absolute top-6 right-6 p-2 bg-white/10 text-white hover:bg-white/20 rounded-full backdrop-blur-sm transition-all"
           >
             <X size={20} />
           </button>
         </div>
 
-        <div className="px-6 md:px-10 pb-6 md:pb-10 -mt-12 md:-mt-16 relative overflow-y-auto custom-scrollbar flex-1">
-          <div className="flex flex-col md:flex-row items-center md:items-end justify-center md:justify-between gap-6 mb-8 text-center md:text-left">
-            <div className="flex flex-col md:flex-row items-center md:items-end space-y-4 md:space-y-0 md:space-x-6">
-              <div className="w-28 h-28 md:w-32 md:h-32 rounded-[32px] bg-white p-1 border-4 border-white shadow-2xl overflow-hidden shadow-indigo-200 shrink-0">
+        <div className="px-10 pb-10 -mt-16">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+            <div className="flex items-end space-x-6">
+              <div className="w-32 h-32 rounded-[32px] bg-white p-1 border-4 border-white shadow-2xl overflow-hidden shadow-indigo-200">
                 <div className="w-full h-full rounded-[24px] bg-slate-100 flex items-center justify-center overflow-hidden">
                   {member.photoURL ? (
                     <img src={member.photoURL} alt={member.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -946,8 +1324,8 @@ function EmployeeProfileModal({ member, stats, onClose }: { member: UserProfile,
                 </div>
               </div>
               <div className="pb-2">
-                <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-none italic uppercase">{member.name}</h2>
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-3">
+                <h2 className="text-3xl font-black text-slate-900 tracking-tight leading-none italic">{member.name}</h2>
+                <div className="flex items-center space-x-3 mt-3">
                   <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100">
                     {member.role.replace('_', ' ')}
                   </span>
@@ -957,71 +1335,85 @@ function EmployeeProfileModal({ member, stats, onClose }: { member: UserProfile,
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-10">
-            <div className="p-5 md:p-6 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-indigo-100 transition-all">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-indigo-100 transition-all">
               <div className="p-3 bg-white rounded-2xl w-fit mb-4 shadow-sm text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all">
                 <Briefcase size={20} />
               </div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Leads Handled</p>
-              <h4 className="text-2xl md:text-3xl font-black text-slate-900 italic">{stats.count}</h4>
+              <h4 className="text-3xl font-black text-slate-900 italic">{stats.count}</h4>
             </div>
-            <div className="p-5 md:p-6 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-emerald-100 transition-all">
+            <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-emerald-100 transition-all">
               <div className="p-3 bg-white rounded-2xl w-fit mb-4 shadow-sm text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all">
                 <TrendingUp size={20} />
               </div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Conversion Rate</p>
-              <h4 className="text-2xl md:text-3xl font-black text-slate-900 italic">{stats.rate}%</h4>
+              <h4 className="text-3xl font-black text-slate-900 italic">{stats.rate}%</h4>
             </div>
-            <div className="p-5 md:p-6 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-blue-100 transition-all">
+            <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-blue-100 transition-all">
               <div className="p-3 bg-white rounded-2xl w-fit mb-4 shadow-sm text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all">
                 <CalendarIcon size={20} />
               </div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nexus Tenure</p>
-              <h4 className="text-lg md:text-xl font-black text-slate-900 italic truncate">
-                {member.joiningDate ? format(parseISO(member.joiningDate), 'MMM dd, yyyy') : 'Pending'}
+              <h4 className="text-xl font-black text-slate-900 italic">
+                {member.joiningDate ? new Date(member.joiningDate).toLocaleDateString() : 'Pending'}
               </h4>
             </div>
           </div>
 
           <div className="space-y-4">
             <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Identity Details</h5>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex items-center space-x-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100 overflow-hidden">
-                <div className="p-2 bg-white rounded-xl text-slate-400 shrink-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center space-x-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                <div className="p-2 bg-white rounded-xl text-slate-400">
                    <Mail size={16} />
                 </div>
-                <div className="min-w-0">
+                <div>
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Network Secure ID</p>
-                  <p className="text-xs font-bold text-slate-900 truncate" title={member.email}>{member.email}</p>
+                  <p className="text-xs font-bold text-slate-900 truncate">{member.email}</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100 overflow-hidden">
-                <div className="p-2 bg-white rounded-xl text-slate-400 shrink-0">
+              <div className="flex items-center space-x-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                <div className="p-2 bg-white rounded-xl text-slate-400">
                    <Phone size={16} />
                 </div>
-                <div className="min-w-0">
+                <div>
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Cellular Decryption</p>
-                  <p className="text-xs font-bold text-slate-900 truncate">{member.phone || '—'}</p>
+                  <p className="text-xs font-bold text-slate-900">{member.phone || '—'}</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100 overflow-hidden">
-                <div className="p-2 bg-white rounded-xl text-slate-400 shrink-0">
+              <div className="flex items-center space-x-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                <div className="p-2 bg-white rounded-xl text-slate-400">
                    <Globe size={16} />
                 </div>
-                <div className="min-w-0">
+                <div>
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nexus Location</p>
-                  <p className="text-xs font-bold text-slate-900 truncate">{member.department || 'Field Ops'}</p>
+                  <p className="text-xs font-bold text-slate-900">{member.department || 'Field Ops'}</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-4 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 overflow-hidden">
-                <div className="p-2 bg-white rounded-xl text-indigo-600 shadow-sm border border-indigo-50 shrink-0">
+              <div className="flex items-center space-x-4 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
+                <div className="p-2 bg-white rounded-xl text-indigo-600 shadow-sm border border-indigo-50">
                    <Shield size={16} />
                 </div>
-                <div className="min-w-0">
+                <div>
                   <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">Security Clearance</p>
-                  <p className="text-xs font-black text-indigo-700 uppercase tracking-tight truncate">{member.role.replace('_', ' ')}</p>
+                  <p className="text-xs font-black text-indigo-700 uppercase tracking-tight">{member.role.replace('_', ' ')}</p>
                 </div>
               </div>
+
+              {isAuthorizedToSeeSalary && (
+                <div className="flex items-center space-x-4 p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100">
+                  <div className="p-2 bg-white rounded-xl text-emerald-600 shadow-sm border border-emerald-50">
+                     <DollarSign size={16} />
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Annual Compensation</p>
+                    <p className="text-xs font-black text-emerald-700">
+                      {member.salary ? `${company?.currency || '$'}${member.salary.toLocaleString()}` : 'Not Disclosed'}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

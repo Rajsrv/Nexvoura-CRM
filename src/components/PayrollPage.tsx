@@ -6,6 +6,17 @@ import { Plus, Check, X, DollarSign, Calendar, Filter, Download, ArrowRight, Wal
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
+import { logActivity } from '../services/activityService';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+
+const calculateTax = (grossAmount: number) => {
+  // Simple progressive tax simulation
+  if (grossAmount <= 15000) return 0;
+  if (grossAmount <= 30000) return Math.round((grossAmount - 15000) * 0.05);
+  if (grossAmount <= 60000) return Math.round(750 + (grossAmount - 30000) * 0.1);
+  return Math.round(3750 + (grossAmount - 60000) * 0.2);
+};
 
 export default function PayrollPage({ user, company }: { user: UserProfile, company: Company | null }) {
   const [employees, setEmployees] = useState<UserProfile[]>([]);
@@ -17,11 +28,12 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
   const [showAddModal, setShowAddModal] = useState(false);
   const [adjustingRecord, setAdjustingRecord] = useState<PayrollRecord | null>(null);
   const [showBreakdown, setShowBreakdown] = useState<string | null>(null); // employeeId for yearly breakdown
+  const [viewingPayslip, setViewingPayslip] = useState<PayrollRecord | null>(null);
 
-  const isAdmin = user.role === 'admin';
+  const canViewPayroll = user.role === 'admin' || user.role === 'manager';
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!canViewPayroll) return;
 
     const employeesQ = query(collection(db, 'users'), where('companyId', '==', user.companyId));
     
@@ -53,7 +65,7 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
       unsubEmployees();
       unsubPayroll();
     };
-  }, [user.companyId, selectedMonth, selectedYear, viewMode, isAdmin]);
+  }, [user.companyId, selectedMonth, selectedYear, viewMode, canViewPayroll]);
 
   const handleGeneratePayroll = async () => {
     setLoading(true);
@@ -64,13 +76,20 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
       for (const emp of employees) {
         if (!existingIds.has(emp.uid) && emp.salary) {
           const baseSalary = Math.round(emp.salary / 12);
+          const taxAmount = calculateTax(baseSalary);
+          const netSalary = baseSalary - taxAmount;
+          
           newRecords.push({
             companyId: user.companyId,
             employeeId: emp.uid,
             employeeName: emp.name,
             month: selectedMonth,
             baseSalary,
-            totalAmount: baseSalary,
+            bonus: 0,
+            deductions: 0,
+            taxAmount,
+            netSalary,
+            totalAmount: baseSalary, // Keep totalAmount for backward compatibility or as gross
             status: 'Pending',
             createdAt: new Date().toISOString()
           });
@@ -81,6 +100,7 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
         toast.info('No new payroll records to generate for this month.');
       } else {
         await Promise.all(newRecords.map(rec => addDoc(collection(db, 'payroll'), rec)));
+        logActivity(user, 'DATA_EXPORT', `Bulk payroll generated for ${selectedMonth}`, undefined, selectedMonth);
         toast.success(`Generated ${newRecords.length} payroll records`);
       }
     } catch (error) {
@@ -102,20 +122,30 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
     }
   };
 
-  const updateAmount = async (id: string, type: 'bonus' | 'deduction', amount: number) => {
+  const updateAmount = async (id: string, type: 'bonus' | 'deduction', amount: number, reason?: string) => {
     const record = payroll.find(p => p.id === id);
     if (!record) return;
 
     const bonus = type === 'bonus' ? amount : (record.bonus || 0);
-    const deduction = type === 'deduction' ? amount : (record.deduction || 0);
-    const totalAmount = record.baseSalary + bonus - deduction;
+    const bonusReason = type === 'bonus' ? reason : (record.bonusReason || '');
+    const deductions = type === 'deduction' ? amount : (record.deductions || record.deduction || 0);
+    const deductionReason = type === 'deduction' ? reason : (record.deductionReason || '');
+    
+    const gross = record.baseSalary + bonus;
+    const taxAmount = calculateTax(gross);
+    const netSalary = gross - deductions - taxAmount;
 
     try {
       await updateDoc(doc(db, 'payroll', id), {
         bonus,
-        deduction,
-        totalAmount
+        bonusReason,
+        deductions,
+        deductionReason,
+        taxAmount,
+        netSalary,
+        totalAmount: gross // Updating totalAmount to be gross for consistency
       });
+      toast.success('Record updated with adjustments and tax calculation');
     } catch (error) {
       toast.error('Failed to update amounts.');
     }
@@ -130,7 +160,7 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
     }
   };
 
-  if (!isAdmin) {
+  if (!canViewPayroll) {
     return (
       <div className="h-[60vh] flex items-center justify-center">
         <div className="text-center">
@@ -157,6 +187,7 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
       totalBase: number;
       totalBonus: number;
       totalDeduction: number;
+      totalTax: number;
       totalNet: number;
       months: string[];
     }> = {};
@@ -169,14 +200,16 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
           totalBase: 0,
           totalBonus: 0,
           totalDeduction: 0,
+          totalTax: 0,
           totalNet: 0,
           months: []
         };
       }
       aggregation[rec.employeeId].totalBase += rec.baseSalary;
       aggregation[rec.employeeId].totalBonus += rec.bonus || 0;
-      aggregation[rec.employeeId].totalDeduction += rec.deduction || 0;
-      aggregation[rec.employeeId].totalNet += rec.totalAmount;
+      aggregation[rec.employeeId].totalDeduction += rec.deductions || rec.deduction || 0;
+      aggregation[rec.employeeId].totalTax += rec.taxAmount || 0;
+      aggregation[rec.employeeId].totalNet += rec.netSalary || rec.totalAmount;
       aggregation[rec.employeeId].months.push(rec.month);
     });
 
@@ -286,23 +319,30 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
               Payroll <span className="text-blue-600">Overview</span>
             </h2>
           </div>
-          <button className="flex items-center space-x-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-950 transition-colors w-fit group">
+          <button 
+            onClick={() => {
+              logActivity(user, 'DATA_EXPORT', `Generated financial report for ${viewMode === 'monthly' ? selectedMonth : selectedYear}`);
+              toast.success('Report generation initiated');
+            }}
+            className="flex items-center space-x-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-950 transition-colors w-fit group"
+          >
             <Download size={16} className="group-hover:-translate-y-1 transition-transform" />
             <span>Generate Report</span>
           </button>
         </div>
 
-        <div className="bg-white rounded-[40px] border border-slate-100 overflow-hidden shadow-xl shadow-slate-200/10">
+        <div className="table-container">
           {(viewMode === 'monthly' ? payroll : yearlyData).length > 0 ? (
             <div className="overflow-x-auto custom-scrollbar">
               <table className="w-full text-left border-collapse min-w-[800px]">
                 <thead className="bg-slate-50/80 border-b border-slate-100 italic">
                   <tr>
                     <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 uppercase tracking-widest uppercase">Employee</th>
-                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 uppercase tracking-widest uppercase">{viewMode === 'monthly' ? 'Base Salary' : 'Yearly Base'}</th>
-                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 uppercase tracking-widest uppercase">Total Adjustments</th>
-                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 uppercase tracking-widest uppercase">Net Total</th>
-                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 uppercase tracking-widest uppercase">{viewMode === 'monthly' ? 'Status' : 'Cycles'}</th>
+                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 uppercase tracking-widest uppercase">{viewMode === 'monthly' ? 'Salary Profile' : 'Yearly Base'}</th>
+                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 uppercase tracking-widest uppercase">Adjustments</th>
+                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 uppercase tracking-widest uppercase">{viewMode === 'monthly' ? 'Tax' : 'Net Total'}</th>
+                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 uppercase tracking-widest uppercase">{viewMode === 'monthly' ? 'Net Payable' : 'Cycles'}</th>
+                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 uppercase tracking-widest uppercase">Status</th>
                     <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 uppercase tracking-widest uppercase text-right">Action</th>
                   </tr>
                 </thead>
@@ -314,18 +354,21 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
                           <div className="font-black text-slate-950 uppercase text-xs tracking-tight">{rec.employeeName}</div>
                         </td>
                         <td className="px-8 py-6">
-                          <div className="text-xs font-bold text-slate-500">${rec.baseSalary.toLocaleString()}</div>
+                          <div className="text-xs font-bold text-slate-500">{company?.currency || '$'}{rec.baseSalary.toLocaleString()}</div>
                         </td>
                         <td className="px-8 py-6">
                           <button 
                             onClick={() => setAdjustingRecord(rec)}
                             className="flex items-center space-x-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all"
                           >
-                             <span>${((rec.bonus || 0) - (rec.deduction || 0)).toLocaleString()} Adjust.</span>
+                             <span>{company?.currency || '$'}{((rec.bonus || 0) - (rec.deductions || rec.deduction || 0)).toLocaleString()} Adjust.</span>
                           </button>
                         </td>
                         <td className="px-8 py-6">
-                          <div className="text-xs font-black text-slate-950">${rec.totalAmount.toLocaleString()}</div>
+                          <div className="text-xs font-bold text-rose-500 italic">-{company?.currency || '$'}{(rec.taxAmount || 0).toLocaleString()}</div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <div className="text-xs font-black text-slate-950">{company?.currency || '$'}{(rec.netSalary || rec.totalAmount).toLocaleString()}</div>
                         </td>
                         <td className="px-8 py-6">
                           <div className={`inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
@@ -335,7 +378,14 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
                           </div>
                         </td>
                         <td className="px-8 py-6 text-right whitespace-nowrap">
-                          <div className="flex justify-end items-center space-x-2">
+                          <div className="flex justify-end items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                             <button
+                               onClick={() => setViewingPayslip(rec)}
+                               className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all border border-blue-100"
+                               title="View Payslip"
+                             >
+                                <Eye size={16} />
+                             </button>
                              <button 
                                onClick={() => updateStatus(rec.id, rec.status === 'Paid' ? 'Pending' : 'Paid')}
                                className={`p-2 rounded-xl border transition-all ${
@@ -343,7 +393,7 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
                                }`}
                                title={rec.status === 'Paid' ? 'Revoke Payment' : 'Mark as Paid'}
                              >
-                               {rec.status === 'Paid' ? <X size={16} /> : <Check size={16} />}
+                                {rec.status === 'Paid' ? <X size={16} /> : <Check size={16} />}
                              </button>
                              <button 
                                onClick={() => deleteRecord(rec.id)}
@@ -362,15 +412,15 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
                           <div className="font-black text-slate-950 uppercase text-xs tracking-tight">{data.employeeName}</div>
                         </td>
                         <td className="px-8 py-6">
-                          <div className="text-xs font-bold text-slate-500">${data.totalBase.toLocaleString()}</div>
+                          <div className="text-xs font-bold text-slate-500">{company?.currency || '$'}{data.totalBase.toLocaleString()}</div>
                         </td>
                         <td className="px-8 py-6">
                           <div className="inline-flex items-center space-x-2 px-3 py-1.5 bg-slate-100 rounded-lg text-[10px] font-black uppercase tracking-widest">
-                             <span>${(data.totalBonus - data.totalDeduction).toLocaleString()} Net Adj.</span>
+                             <span>{company?.currency || '$'}{(data.totalBonus - data.totalDeduction).toLocaleString()} Net Adj.</span>
                           </div>
                         </td>
                         <td className="px-8 py-6">
-                          <div className="text-xs font-black text-slate-950">${data.totalNet.toLocaleString()}</div>
+                          <div className="text-xs font-black text-slate-950">{company?.currency || '$'}{data.totalNet.toLocaleString()}</div>
                         </td>
                         <td className="px-8 py-6 text-xs text-slate-400 font-bold uppercase tracking-widest">
                           {data.months.length} Months
@@ -408,16 +458,23 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
         {adjustingRecord && (
           <DetailAdjustmentModal 
             record={adjustingRecord} 
+            company={company}
             onClose={() => setAdjustingRecord(null)} 
-            onSave={async (bonus, deduction) => {
-              const totalAmount = adjustingRecord.baseSalary + bonus - deduction;
+            onSave={async (bonus, deduction, bonusReason, deductionReason) => {
+              const gross = adjustingRecord.baseSalary + bonus;
+              const taxAmount = calculateTax(gross);
+              const netSalary = gross - deduction - taxAmount;
               try {
                 await updateDoc(doc(db, 'payroll', adjustingRecord.id), {
                   bonus,
-                  deduction,
-                  totalAmount
+                  bonusReason,
+                  deductions: deduction,
+                  deductionReason,
+                  taxAmount,
+                  netSalary,
+                  totalAmount: gross
                 });
-                toast.success('Adjustments applied');
+                toast.success('Payroll adjustments applied');
                 setAdjustingRecord(null);
               } catch (error) {
                 toast.error('Failed to save adjustments');
@@ -426,13 +483,11 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
           />
         )}
         
-        {showBreakdown && (
-          <YearlyBreakdownModal 
-            employeeId={showBreakdown}
-            employeeName={yearlyData.find(d => d.employeeId === showBreakdown)?.employeeName || ''}
-            year={selectedYear}
-            records={payroll.filter(p => p.employeeId === showBreakdown)}
-            onClose={() => setShowBreakdown(null)}
+        {viewingPayslip && (
+          <PayslipModal
+            record={viewingPayslip}
+            company={company}
+            onClose={() => setViewingPayslip(null)}
           />
         )}
       </AnimatePresence>
@@ -440,11 +495,176 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
   );
 }
 
-function YearlyBreakdownModal({ employeeId, employeeName, year, records, onClose }: {
+function PayslipModal({ record, company, onClose }: { record: PayrollRecord, company: Company | null, onClose: () => void }) {
+  const payslipRef = React.useRef<HTMLDivElement>(null);
+  const [downloading, setDownloading] = useState(false);
+
+  const downloadPDF = async () => {
+    if (!payslipRef.current) return;
+    setDownloading(true);
+    try {
+      const canvas = await html2canvas(payslipRef.current, { scale: 2 });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`payslip-${record.employeeName.replace(/\s+/g, '-').toLowerCase()}-${record.month}.pdf`);
+      toast.success('Payslip downloaded');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to generate PDF');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[101] flex items-center justify-center p-4">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl"
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 40 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 40 }}
+        className="relative bg-white w-full max-w-2xl max-h-[90vh] rounded-[40px] shadow-2xl overflow-hidden border border-slate-200 flex flex-col"
+      >
+        <div className="p-10 overflow-y-auto custom-scrollbar flex-1">
+          {/* Document Content to Capture */}
+          <div ref={payslipRef} className="p-8 bg-white text-slate-950">
+            <div className="flex justify-between items-start border-b-4 border-slate-950 pb-8 mb-8">
+              <div>
+                <h1 className="text-2xl font-black italic uppercase tracking-tighter text-blue-600">{company?.name || 'Nexus Agency'}</h1>
+                <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest shrink-0">Corporate Financial Document</p>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-black italic uppercase tracking-tighter">Payslip</p>
+                <p className="text-xs font-bold text-slate-500">{format(parseISO(record.month + '-01'), 'MMMM yyyy')}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-10 mb-12">
+              <div className="space-y-4">
+                <div>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Employee Name</p>
+                   <p className="text-sm font-black uppercase italic">{record.employeeName}</p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Employee ID</p>
+                   <p className="text-sm font-black italic">{record.employeeId.slice(-8).toUpperCase()}</p>
+                </div>
+              </div>
+              <div className="space-y-4 text-right">
+                <div>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Payment Date</p>
+                   <p className="text-sm font-black italic">{record.paidAt ? format(new Date(record.paidAt), 'dd MMM yyyy') : 'Pending'}</p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Reference No</p>
+                   <p className="text-sm font-black italic">{record.id.slice(0, 8).toUpperCase()}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-10">
+                <div className="space-y-4">
+                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 pb-2">Earnings</p>
+                   <div className="flex justify-between text-xs font-bold">
+                     <span>Basic Salary</span>
+                     <span>{company?.currency || '$'}{record.baseSalary.toLocaleString()}</span>
+                   </div>
+                   {record.bonus && (
+                     <div className="flex justify-between text-xs font-bold text-emerald-600">
+                       <span className="flex flex-col">
+                         <span>Bonus</span>
+                         {record.bonusReason && <span className="text-[8px] text-slate-400 uppercase">{record.bonusReason}</span>}
+                       </span>
+                       <span>+{company?.currency || '$'}{record.bonus.toLocaleString()}</span>
+                     </div>
+                   )}
+                </div>
+                <div className="space-y-4">
+                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 pb-2">Deductions</p>
+                   {record.taxAmount ? (
+                     <div className="flex justify-between text-xs font-bold text-rose-500">
+                       <span>Income Tax</span>
+                       <span>-{company?.currency || '$'}{record.taxAmount.toLocaleString()}</span>
+                     </div>
+                   ) : null}
+                   {(record.deductions || record.deduction) ? (
+                     <div className="flex justify-between text-xs font-bold text-rose-500">
+                       <span className="flex flex-col">
+                         <span>Other Deductions</span>
+                         {record.deductionReason && <span className="text-[8px] text-slate-400 uppercase">{record.deductionReason}</span>}
+                       </span>
+                       <span>-{company?.currency || '$'}{(record.deductions || record.deduction || 0).toLocaleString()}</span>
+                     </div>
+                   ) : null}
+                </div>
+              </div>
+
+              <div className="pt-8 border-t-2 border-slate-100 mt-10">
+                 <div className="bg-slate-50 p-6 rounded-2xl flex justify-between items-center">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Net Payable</p>
+                      <p className="text-[8px] font-bold text-slate-400 uppercase mt-1 italic">Electronically Verified Document</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-3xl font-black italic tracking-tighter text-blue-600">{company?.currency || '$'}{(record.netSalary || record.totalAmount).toLocaleString()}</p>
+                    </div>
+                 </div>
+              </div>
+            </div>
+
+            <div className="mt-20 pt-10 border-t border-slate-100 flex justify-between">
+               <div className="text-center w-32 border-t border-slate-200 pt-2">
+                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Employee Sign</p>
+               </div>
+               <div className="text-center w-32 border-t border-slate-200 pt-2">
+                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Authority Sign</p>
+               </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-8 border-t border-slate-100 flex justify-end space-x-3 bg-slate-50/50">
+          <button 
+            onClick={onClose}
+            className="px-6 py-3 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            Close
+          </button>
+          <button 
+            disabled={downloading}
+            onClick={downloadPDF}
+            className="saas-button-primary flex items-center space-x-2 px-8 py-3 text-xs font-black uppercase tracking-widest shadow-xl shadow-blue-500/20"
+          >
+            {downloading ? (
+              <Clock className="animate-spin" size={16} />
+            ) : (
+              <Download size={16} />
+            )}
+            <span>{downloading ? 'Processing...' : 'Download PDF Payslip'}</span>
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function YearlyBreakdownModal({ employeeId, employeeName, year, records, company, onClose }: {
   employeeId: string,
   employeeName: string,
   year: string,
   records: PayrollRecord[],
+  company: Company | null,
   onClose: () => void
 }) {
   const sortedRecords = [...records].sort((a, b) => a.month.localeCompare(b.month));
@@ -480,21 +700,26 @@ function YearlyBreakdownModal({ employeeId, employeeName, year, records, onClose
         </div>
 
         <div className="p-10 overflow-y-auto custom-scrollbar flex-1 bg-slate-50/30">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
               <PieChart size={20} className="text-blue-500 mb-4" />
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total Salary</p>
-              <p className="text-2xl font-black font-display text-slate-950">${records.reduce((s, r) => s+r.baseSalary, 0).toLocaleString()}</p>
+              <p className="text-2xl font-black font-display text-slate-950">{company?.currency || '$'}{records.reduce((s, r) => s+r.baseSalary, 0).toLocaleString()}</p>
             </div>
             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
               <TrendingUp size={20} className="text-emerald-500 mb-4" />
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total Bonuses</p>
-              <p className="text-2xl font-black font-display text-emerald-600">${records.reduce((s, r) => s+(r.bonus || 0), 0).toLocaleString()}</p>
+              <p className="text-2xl font-black font-display text-emerald-600">{company?.currency || '$'}{records.reduce((s, r) => s+(r.bonus || 0), 0).toLocaleString()}</p>
             </div>
             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
               <BarChart3 size={20} className="text-rose-500 mb-4" />
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total Deductions</p>
-              <p className="text-2xl font-black font-display text-rose-600">-${records.reduce((s, r) => s+(r.deduction || 0), 0).toLocaleString()}</p>
+              <p className="text-2xl font-black font-display text-rose-600">-{company?.currency || '$'}{records.reduce((s, r) => s+(r.deduction || 0), 0).toLocaleString()}</p>
+            </div>
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+              <Shield size={20} className="text-orange-500 mb-4" />
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total Tax</p>
+              <p className="text-2xl font-black font-display text-orange-600">-{company?.currency || '$'}{records.reduce((s, r) => s+(r.taxAmount || 0), 0).toLocaleString()}</p>
             </div>
           </div>
 
@@ -503,9 +728,10 @@ function YearlyBreakdownModal({ employeeId, employeeName, year, records, onClose
               <thead>
                 <tr className="bg-slate-50/50">
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Month</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Net Payable</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Gross</th>
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Bonus</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Deduction</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Tax</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Net Payable</th>
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
                 </tr>
               </thead>
@@ -513,9 +739,10 @@ function YearlyBreakdownModal({ employeeId, employeeName, year, records, onClose
                 {sortedRecords.map((r) => (
                   <tr key={r.id}>
                     <td className="px-6 py-4 text-xs font-black text-slate-950 uppercase">{format(parseISO(r.month + '-01'), 'MMMM')}</td>
-                    <td className="px-6 py-4 text-xs font-black text-slate-900">${r.totalAmount.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-xs font-bold text-emerald-600">+${(r.bonus || 0).toLocaleString()}</td>
-                    <td className="px-6 py-4 text-xs font-bold text-rose-600">-${(r.deduction || 0).toLocaleString()}</td>
+                    <td className="px-6 py-4 text-xs font-bold text-slate-900">{company?.currency || '$'}{r.baseSalary.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-xs font-bold text-emerald-600">+{company?.currency || '$'}{(r.bonus || 0).toLocaleString()}</td>
+                    <td className="px-6 py-4 text-xs font-bold text-orange-600">-{company?.currency || '$'}{(r.taxAmount || 0).toLocaleString()}</td>
+                    <td className="px-6 py-4 text-xs font-black text-blue-600">{company?.currency || '$'}{(r.netSalary || r.totalAmount).toLocaleString()}</td>
                     <td className="px-6 py-4">
                       <span className={`text-[9px] font-black uppercase tracking-widest ${r.status === 'Paid' ? 'text-emerald-500' : 'text-amber-500'}`}>
                         {r.status}
@@ -532,15 +759,20 @@ function YearlyBreakdownModal({ employeeId, employeeName, year, records, onClose
   );
 }
 
-function DetailAdjustmentModal({ record, onClose, onSave }: { 
+function DetailAdjustmentModal({ record, company, onClose, onSave }: { 
   record: PayrollRecord, 
+  company: Company | null,
   onClose: () => void, 
-  onSave: (bonus: number, deduction: number) => void 
+  onSave: (bonus: number, deduction: number, bonusReason?: string, deductionReason?: string) => void 
 }) {
   const [bonus, setBonus] = useState(record.bonus || 0);
-  const [deduction, setDeduction] = useState(record.deduction || 0);
+  const [bonusReason, setBonusReason] = useState(record.bonusReason || '');
+  const [deduction, setDeduction] = useState(record.deductions || record.deduction || 0);
+  const [deductionReason, setDeductionReason] = useState(record.deductionReason || '');
 
-  const total = record.baseSalary + bonus - deduction;
+  const gross = record.baseSalary + bonus;
+  const tax = calculateTax(gross);
+  const total = gross - deduction - tax;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -571,7 +803,7 @@ function DetailAdjustmentModal({ record, onClose, onSave }: {
           <div className="space-y-8">
             <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex justify-between items-center">
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Base Salary</span>
-              <span className="text-xl font-black text-slate-900 font-display">${record.baseSalary.toLocaleString()}</span>
+              <span className="text-xl font-black text-slate-900 font-display">{company?.currency || '$'}{record.baseSalary.toLocaleString()}</span>
             </div>
 
             <div className="grid grid-cols-2 gap-6">
@@ -587,6 +819,13 @@ function DetailAdjustmentModal({ record, onClose, onSave }: {
                     placeholder="0"
                   />
                 </div>
+                <input 
+                  type="text"
+                  value={bonusReason}
+                  onChange={(e) => setBonusReason(e.target.value)}
+                  placeholder="Reason (e.g. Sales Commission)"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-medium outline-none mt-2"
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Deductions</label>
@@ -600,13 +839,28 @@ function DetailAdjustmentModal({ record, onClose, onSave }: {
                     placeholder="0"
                   />
                 </div>
+                <input 
+                  type="text"
+                  value={deductionReason}
+                  onChange={(e) => setDeductionReason(e.target.value)}
+                  placeholder="Reason (e.g. Unpaid Leave)"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-medium outline-none mt-2"
+                />
               </div>
+            </div>
+
+            <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 flex justify-between items-center text-blue-600">
+               <div>
+                 <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Projected Income Tax</p>
+                 <p className="text-xl font-black italic">-{company?.currency || '$'}{tax.toLocaleString()}</p>
+               </div>
+               <Shield size={24} className="opacity-40" />
             </div>
 
             <div className="bg-slate-950 p-8 rounded-[32px] text-white flex justify-between items-center shadow-xl shadow-blue-500/10">
               <div>
                 <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Net Payable</p>
-                <h3 className="text-3xl font-black font-display italic tracking-tighter text-blue-400">${total.toLocaleString()}</h3>
+                <h3 className="text-3xl font-black font-display italic tracking-tighter text-blue-400">{company?.currency || '$'}{total.toLocaleString()}</h3>
               </div>
               <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-blue-400">
                 <Wallet size={24} />
@@ -614,7 +868,7 @@ function DetailAdjustmentModal({ record, onClose, onSave }: {
             </div>
 
             <button 
-              onClick={() => onSave(bonus, deduction)}
+              onClick={() => onSave(bonus, deduction, bonusReason, deductionReason)}
               className="w-full bg-slate-950 text-white p-5 rounded-[24px] font-black hover:bg-slate-900 transition-all flex items-center justify-center space-x-3 text-lg"
             >
               <span>Apply Adjustments</span>

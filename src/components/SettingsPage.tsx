@@ -3,13 +3,36 @@ import { db } from '../firebase';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { UserProfile, Company } from '../types';
 import { toast } from 'sonner';
-import { Bell, Clock, Globe, Copy, Check, Layout, Plus, Trash2, GripVertical, Edit3, User as UserIcon, Mail } from 'lucide-react';
+import { Bell, Clock, Globe, Copy, Check, Layout, Plus, Trash2, GripVertical, Edit3, User as UserIcon, Mail, ShieldCheck, DollarSign, FileCheck, X, CheckSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { UserRole, Permission } from '../types';
+
+const ALL_PERMISSIONS: { id: Permission; label: string; category: string }[] = [
+  { id: 'leads:view', label: 'View Leads', category: 'Leads' },
+  { id: 'leads:edit', label: 'Edit Leads', category: 'Leads' },
+  { id: 'leads:delete', label: 'Delete Leads', category: 'Leads' },
+  { id: 'leads:assign', label: 'Assign Leads', category: 'Leads' },
+  { id: 'tasks:view', label: 'View Tasks', category: 'Tasks' },
+  { id: 'tasks:edit', label: 'Edit Tasks', category: 'Tasks' },
+  { id: 'tasks:delete', label: 'Delete Tasks', category: 'Tasks' },
+  { id: 'tasks:assign', label: 'Assign Tasks', category: 'Tasks' },
+  { id: 'team:view', label: 'View Team', category: 'Team' },
+  { id: 'team:manage', label: 'Manage Team', category: 'Team' },
+  { id: 'team:invite', label: 'Invite Members', category: 'Team' },
+  { id: 'finance:view', label: 'View Finance', category: 'Finance' },
+  { id: 'finance:manage', label: 'Manage Finance', category: 'Finance' },
+  { id: 'settings:company', label: 'Company Settings', category: 'Settings' },
+  { id: 'settings:security', label: 'Security Settings', category: 'Settings' },
+];
+
+const ROLES: UserRole[] = ['admin', 'manager', 'team_lead', 'sales'];
 
 export default function SettingsPage({ user }: { user: UserProfile }) {
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [activeRoleTab, setActiveRoleTab] = useState<UserRole>('admin');
+  const [newPolicy, setNewPolicy] = useState('');
 
   useEffect(() => {
     if (user.role !== 'admin' && user.role !== 'manager') return;
@@ -101,6 +124,7 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
       address: formData.get('address') as string,
       logoUrl: formData.get('logoUrl') as string,
       description: formData.get('description') as string,
+      currency: formData.get('currency') as string,
     };
 
     try {
@@ -108,6 +132,59 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
       toast.success('Company information updated');
     } catch (error) {
       toast.error('Failed to update company info');
+    }
+  };
+
+  const togglePermission = async (role: UserRole, permission: Permission) => {
+    if (!company) return;
+    const currentPerms = company.rolePermissions || ({} as Record<UserRole, Permission[]>);
+    const rolePerms = currentPerms[role] || [];
+    
+    let updatedRolePerms: Permission[];
+    if (rolePerms.includes(permission)) {
+      updatedRolePerms = rolePerms.filter(p => p !== permission);
+    } else {
+      updatedRolePerms = [...rolePerms, permission];
+    }
+
+    try {
+      await updateDoc(doc(db, 'companies', company.id), {
+        [`rolePermissions.${role}`]: updatedRolePerms
+      });
+      toast.success(`${permission} status updated for ${role}`);
+    } catch (error) {
+      toast.error('Failed to update permissions');
+    }
+  };
+
+  const addPolicy = async () => {
+    if (!company || !newPolicy.trim()) return;
+    const currentPolicies = company.policies || [];
+    if (currentPolicies.includes(newPolicy.trim())) {
+      toast.error('Policy already exists');
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'companies', company.id), {
+        policies: [...currentPolicies, newPolicy.trim()]
+      });
+      setNewPolicy('');
+      toast.success('Policy added');
+    } catch (error) {
+      toast.error('Failed to add policy');
+    }
+  };
+
+  const removePolicy = async (policy: string) => {
+    if (!company) return;
+    try {
+      await updateDoc(doc(db, 'companies', company.id), {
+        policies: (company.policies || []).filter(p => p !== policy)
+      });
+      toast.success('Policy removed');
+    } catch (error) {
+      toast.error('Failed to remove policy');
     }
   };
 
@@ -237,6 +314,15 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
                 placeholder="Briefly describe your agency..."
               />
             </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Currency Symbol</label>
+              <input
+                name="currency"
+                defaultValue={company?.currency || '$'}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
+                placeholder="$"
+              />
+            </div>
             <div className="md:col-span-2 flex justify-end">
               <button
                 type="submit"
@@ -246,6 +332,118 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
               </button>
             </div>
           </form>
+        </section>
+
+        {/* Role & Permission Management */}
+        <section className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6 md:col-span-2">
+          <div className="flex items-center space-x-3 text-slate-900 mb-2">
+            <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+              <ShieldCheck size={20} />
+            </div>
+            <h3 className="text-lg font-bold">Role & Permissions</h3>
+          </div>
+          <p className="text-sm text-slate-500">
+            Define what each operative level can access and modify within the workspace.
+          </p>
+
+          <div className="flex space-x-1 p-1 bg-slate-100 rounded-xl mb-6 overflow-x-auto">
+            {ROLES.map((role) => (
+              <button
+                key={role}
+                onClick={() => setActiveRoleTab(role)}
+                className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                  activeRoleTab === role
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                {role.replace('_', ' ')}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from(new Set(ALL_PERMISSIONS.map(p => p.category))).map(category => (
+              <div key={category} className="space-y-4">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{category}</h4>
+                <div className="space-y-2">
+                  {ALL_PERMISSIONS.filter(p => p.category === category).map(permission => {
+                    const isGranted = (company?.rolePermissions?.[activeRoleTab] || []).includes(permission.id);
+                    return (
+                      <button
+                        key={permission.id}
+                        onClick={() => togglePermission(activeRoleTab, permission.id)}
+                        className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left ${
+                          isGranted 
+                            ? 'bg-indigo-50 border-indigo-100 text-indigo-700' 
+                            : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'
+                        }`}
+                      >
+                        <span className="text-xs font-bold">{permission.label}</span>
+                        {isGranted ? <CheckSquare size={16} /> : <X size={16} className="opacity-30" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Company Policies */}
+        <section className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6 md:col-span-2">
+          <div className="flex items-center space-x-3 text-slate-900 mb-2">
+            <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+              <FileCheck size={20} />
+            </div>
+            <h3 className="text-lg font-bold">Company Policies</h3>
+          </div>
+          <p className="text-sm text-slate-500">
+            Internal rules and guidelines for your agency. These will be visible to all members.
+          </p>
+
+          <div className="flex gap-2">
+            <input
+              value={newPolicy}
+              onChange={(e) => setNewPolicy(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && addPolicy()}
+              className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-sm font-medium"
+              placeholder="e.g. Leave must be filed 3 days in advance"
+            />
+            <button
+              onClick={addPolicy}
+              className="px-6 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20"
+            >
+              Add Policy
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <AnimatePresence>
+              {(company?.policies || []).map((policy) => (
+                <motion.div
+                  key={policy}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="flex items-center justify-between p-4 bg-emerald-50/50 border border-emerald-100 rounded-xl group"
+                >
+                  <p className="text-sm font-medium text-slate-700">{policy}</p>
+                  <button
+                    onClick={() => removePolicy(policy)}
+                    className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            {(!company?.policies || company.policies.length === 0) && (
+              <div className="md:col-span-2 py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                <p className="text-sm text-slate-400 italic">No policies active yet.</p>
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Task Board Configuration */}
