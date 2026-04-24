@@ -3,6 +3,8 @@ import nodemailer from 'nodemailer';
 import admin from 'firebase-admin';
 import fs from 'fs';
 import path from 'path';
+import { format, parseISO } from 'date-fns';
+import type { PayrollRecord } from '../src/types.ts';
 
 // Load Firebase config
 const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
@@ -46,59 +48,78 @@ export function startNotificationCron() {
   }
   console.log('🚀 Starting Task Notification Cron Job...');
   
-  // Run every hour
-  cron.schedule('0 * * * *', async () => {
+  // Run every minute for more precision
+  cron.schedule('* * * * *', async () => {
     if (!db) return;
-    console.log('⏰ Checking for tasks due soon based on company settings...');
+    console.log('⏰ Checking for tasks due soon...');
     
     try {
-      const companiesSnap = await db.collection('companies').get();
+      const now = new Date();
       
-      for (const companyDoc of companiesSnap.docs) {
-        const company = companyDoc.data();
-        const settings = company.notificationSettings || { enabled: true, dueSoonHours: 24 };
+      // Get all companies to know their default threshold
+      const companiesSnap = await db.collection('companies').get();
+      const companyThresholds: Record<string, number> = {};
+      const companyUnits: Record<string, 'hours' | 'minutes'> = {};
+      const companyEnabled: Record<string, boolean> = {};
+      const companyNames: Record<string, string> = {};
+
+      companiesSnap.forEach(doc => {
+        const data = doc.data();
+        companyThresholds[doc.id] = data.notificationSettings?.dueSoonHours || 24;
+        companyUnits[doc.id] = data.notificationSettings?.dueSoonUnit || 'hours';
+        companyEnabled[doc.id] = data.notificationSettings?.enabled ?? true;
+        companyNames[doc.id] = data.name;
+      });
+
+      // Query tasks that are not done, have reminders enabled, and email hasn't been sent
+      const querySnapshot = await db.collection('tasks')
+        .where('status', '!=', 'Done')
+        .where('reminderEnabled', '==', true)
+        .where('reminderEmailSent', '!=', true)
+        .get();
+      
+      for (const taskDoc of querySnapshot.docs) {
+        const task = taskDoc.data();
+        if (!task.dueDate) continue;
+
+        const companyId = task.companyId;
+        if (!companyEnabled[companyId]) continue;
+
+        const dueDate = new Date(task.dueDate);
         
-        if (!settings.enabled) {
-          console.log(`ℹ️ Notifications disabled for company: ${company.name}`);
-          continue;
+        // Determine the threshold for this specific task
+        // If task has per-task reminderMinutes, use it. Otherwise use company default.
+        let thresholdMinutes = 0;
+        if (typeof task.reminderMinutes === 'number') {
+          thresholdMinutes = task.reminderMinutes;
+        } else {
+          const unit = companyUnits[companyId] || 'hours';
+          thresholdMinutes = unit === 'minutes' ? companyThresholds[companyId] : companyThresholds[companyId] * 60;
         }
 
-        const now = new Date();
-        const threshold = new Date(now.getTime() + (settings.dueSoonHours * 60 * 60 * 1000));
+        const thresholdDate = new Date(dueDate.getTime() - (thresholdMinutes * 60 * 1000));
         
-        // Query tasks for this specific company that are not done and haven't sent notification
-        const querySnapshot = await db.collection('tasks')
-          .where('companyId', '==', companyDoc.id)
-          .where('status', '!=', 'Done')
-          .where('notificationSent', '==', false)
-          .get();
-        
-        for (const taskDoc of querySnapshot.docs) {
-          const task = taskDoc.data();
-          const dueDate = new Date(task.dueDate);
+        // If we are past the threshold date but before the due date (optional: or a bit after if it just passed)
+        if (now >= thresholdDate && now < dueDate) {
+          console.log(`🔔 Task "${task.title}" for ${companyNames[companyId] || companyId} reached threshold (${thresholdMinutes}m). Sending email...`);
           
-          // If due soon based on company threshold
-          if (dueDate > now && dueDate <= threshold) {
-            console.log(`🔔 Task "${task.title}" for ${company.name} is due soon. Sending notification...`);
+          if (task.assignedTo) {
+            const userSnap = await db.collection('users').doc(task.assignedTo).get();
             
-            if (task.assignedTo) {
-              // Fetch user email
-              const userSnap = await db.collection('users').doc(task.assignedTo).get();
+            if (userSnap.exists) {
+              const userData = userSnap.data();
+              const userEmail = userData?.email;
               
-              if (userSnap.exists) {
-                const userData = userSnap.data();
-                const userEmail = userData?.email;
+              if (userEmail) {
+                await sendEmail(userEmail, task.title, task.dueDate);
                 
-                if (userEmail) {
-                  await sendEmail(userEmail, task.title, task.dueDate);
-                  
-                  // Mark as sent
-                  await db.collection('tasks').doc(taskDoc.id).update({
-                    notificationSent: true
-                  });
-                  
-                  console.log(`✅ Notification sent to ${userEmail}`);
-                }
+                // Mark as sent
+                await db.collection('tasks').doc(taskDoc.id).update({
+                  reminderEmailSent: true,
+                  notificationSent: true // Maintain legacy compabitility if needed
+                });
+                
+                console.log(`✅ Email sent to ${userEmail}`);
               }
             }
           }
@@ -132,6 +153,89 @@ async function sendEmail(to: string, taskTitle: string, dueDate: string) {
         <p style="color: #64748b; font-size: 14px;">Please check your dashboard for more details.</p>
         <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
         <p style="color: #94a3b8; font-size: 12px;">This is an automated message from Nexvoura. Please do not reply.</p>
+      </div>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+}
+
+export async function sendPayslipEmail(to: string, employeeName: string, month: string, details: PayrollRecord, currency: string) {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.warn('⚠️ SMTP credentials missing. Skipping email send.');
+    return;
+  }
+
+  const gross = details.baseSalary + (details.bonus || 0);
+  const deductions = (details.deductions || details.deduction || 0) + (details.taxAmount || 0);
+  const net = (details.netSalary || details.totalAmount);
+
+  const mailOptions = {
+    from: process.env.SMTP_FROM || '"Nexvoura Payroll" <payroll@nexvoura.com>',
+    to,
+    subject: `Payslip for ${format(parseISO(month + '-01'), 'MMMM yyyy')}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 24px; background-color: #ffffff;">
+        <div style="border-bottom: 4px solid #1e293b; padding-bottom: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+          <h1 style="color: #4f46e5; margin: 0; font-style: italic; font-weight: 900;">NEXVOURA</h1>
+          <div style="text-align: right;">
+            <p style="margin: 0; font-weight: 900; text-transform: uppercase; font-size: 18px;">PAYSLIP</p>
+            <p style="margin: 0; color: #64748b; font-size: 14px;">${format(parseISO(month + '-01'), 'MMMM yyyy')}</p>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 30px;">
+          <p style="margin: 0; color: #94a3b8; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em;">Employee Details</p>
+          <p style="margin: 5px 0 0 0; font-weight: 900; font-size: 16px; text-transform: uppercase;">${employeeName}</p>
+          <p style="margin: 2px 0 0 0; color: #64748b; font-size: 12px;">ID: ${details.employeeId.slice(-8).toUpperCase()}</p>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+          <thead>
+            <tr style="background-color: #f8fafc;">
+              <th style="padding: 12px; text-align: left; font-size: 10px; font-weight: 800; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0;">Description</th>
+              <th style="padding: 12px; text-align: right; font-size: 10px; font-weight: 800; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px;">Basic Salary</td>
+              <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; text-align: right; font-size: 14px; font-weight: 700;">${currency}${details.baseSalary.toLocaleString()}</td>
+            </tr>
+            ${details.bonus ? `
+            <tr>
+              <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: #059669;">Performance Bonus</td>
+              <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; text-align: right; font-size: 14px; font-weight: 700; color: #059669;">+${currency}${details.bonus.toLocaleString()}</td>
+            </tr>` : ''}
+            <tr style="background-color: #f8fafc;">
+              <td style="padding: 12px; font-size: 14px; font-weight: 700;">Gross Salary</td>
+              <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 900;">${currency}${gross.toLocaleString()}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: #dc2626;">Income Tax</td>
+              <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; text-align: right; font-size: 14px; font-weight: 700; color: #dc2626;">-${currency}${(details.taxAmount || 0).toLocaleString()}</td>
+            </tr>
+            ${(details.deductions || details.deduction) ? `
+            <tr>
+              <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: #dc2626;">Other Deductions</td>
+              <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; text-align: right; font-size: 14px; font-weight: 700; color: #dc2626;">-${currency}${(details.deductions || details.deduction || 0).toLocaleString()}</td>
+            </tr>` : ''}
+          </tbody>
+        </table>
+
+        <div style="background-color: #1e293b; color: #ffffff; padding: 20px; border-radius: 16px; display: flex; justify-content: space-between; align-items: center;">
+          <div style="flex: 1;">
+            <p style="margin: 0; font-size: 10px; font-weight: 800; text-transform: uppercase; color: #94a3b8;">Total Net Payable</p>
+            <p style="margin: 5px 0 0 0; font-size: 24px; font-weight: 900; color: #60a5fa;">${currency}${net.toLocaleString()}</p>
+          </div>
+          <div style="text-align: right; flex: 1;">
+            <p style="margin: 0; font-size: 10px; font-weight: 700; color: #94a3b8; font-style: italic;">Verified by Nexvoura System</p>
+          </div>
+        </div>
+
+        <div style="margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 20px; text-align: center;">
+          <p style="color: #94a3b8; font-size: 10px; margin: 0; text-transform: uppercase; letter-spacing: 0.1em;">This is an electronically generated payslip and does not require a physical signature.</p>
+        </div>
       </div>
     `,
   };

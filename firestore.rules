@@ -85,14 +85,14 @@ service cloud.firestore {
     // 3. CRM (Leads & Tasks)
     // -------------------------------------------------------------------------
     match /leads/{leadId} {
-      allow get: if isCompanyMember(resource.data.companyId);
-      allow list: if isCompanyMember(resource.data.companyId);
+      allow get: if isCompanyMember(resource.data.companyId) && (isAdmin() || isManager() || resource.data.assignedTo == request.auth.uid);
+      allow list: if isCompanyMember(resource.data.companyId) && (isAdmin() || isManager() || resource.data.assignedTo == request.auth.uid);
       allow write: if isCompanyMember(incoming().companyId) && (isAdmin() || isManager() || hasRole(['sales']));
     }
 
     match /tasks/{taskId} {
-      allow get: if isCompanyMember(resource.data.companyId);
-      allow list: if isCompanyMember(resource.data.companyId);
+      allow get: if isCompanyMember(resource.data.companyId) && (isAdmin() || isManager() || resource.data.assignedTo == request.auth.uid);
+      allow list: if isCompanyMember(resource.data.companyId) && (isAdmin() || isManager() || resource.data.assignedTo == request.auth.uid);
       allow write: if isCompanyMember(incoming().companyId) && (isAdmin() || isManager() || hasRole(['team_lead', 'sales', 'manager']));
     }
 
@@ -186,6 +186,87 @@ service cloud.firestore {
     match /invites/{inviteId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. Chat (Conversations & Messages)
+    // -------------------------------------------------------------------------
+    function isConversationMember(memberIds) {
+      return isSignedIn() && request.auth.uid in memberIds;
+    }
+
+    match /conversations/{conversationId} {
+      allow get: if isConversationMember(resource.data.memberIds);
+      allow list: if isSignedIn() && request.auth.uid in resource.data.memberIds;
+      
+      function isValidConversation(data) {
+        return data.companyId is string &&
+               data.type in ['direct', 'group'] &&
+               data.memberIds is list &&
+               data.memberIds.size() >= 2 &&
+               data.memberIds.size() <= 50 &&
+               (data.type == 'direct' ? data.memberIds.size() == 2 : true);
+      }
+
+      allow create: if isSignedIn() && 
+                    isCompanyMember(incoming().companyId) && 
+                    isValidConversation(incoming()) &&
+                    request.auth.uid in incoming().memberIds;
+      
+      allow update: if isSignedIn() && 
+                    isConversationMember(existing().memberIds) && (
+                      // Update lastMessage and updatedAt during chat
+                      incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'updatedAt']) ||
+                      // Admins / Group Creators can manage group metadata
+                      (existing().type == 'group' && (isAdmin() || request.auth.uid == existing().createdBy) && 
+                       incoming().diff(existing()).affectedKeys().hasOnly(['name', 'photoURL', 'memberIds', 'updatedAt']))
+                    );
+
+      match /messages/{messageId} {
+        function isValidChatMessage(data) {
+          return data.conversationId == conversationId &&
+                 data.senderId == request.auth.uid &&
+                 data.content is string &&
+                 data.content.size() > 0 &&
+                 data.content.size() <= 2000;
+        }
+
+        allow read: if isSignedIn() && 
+                    exists(/databases/$(database)/documents/conversations/$(conversationId)) &&
+                    request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.memberIds;
+        
+        allow create: if isSignedIn() && 
+                      isValidChatMessage(incoming()) &&
+                      exists(/databases/$(database)/documents/conversations/$(conversationId)) &&
+                      request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.memberIds;
+        
+        allow update: if isSignedIn() && 
+                      request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.memberIds &&
+                      incoming().diff(existing()).affectedKeys().hasOnly(['readBy']);
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 7. Presence
+    // -------------------------------------------------------------------------
+    match /userPresence/{userId} {
+      allow read: if isSignedIn() && 
+                   exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                   exists(/databases/$(database)/documents/users/$(userId)) &&
+                   getUserData(request.auth.uid).companyId == getUserData(userId).companyId;
+      
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. Notifications
+    // -------------------------------------------------------------------------
+    match /notifications/{notificationId} {
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isCompanyMember(incoming().companyId);
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && (isAdmin() || incoming().diff(existing()).affectedKeys().hasOnly(['read']));
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
   }
 }

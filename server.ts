@@ -2,7 +2,8 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import "dotenv/config";
-import { startNotificationCron } from "./server/notifications.ts";
+import { startNotificationCron, sendPayslipEmail } from "./server/notifications.ts";
+import { createEmployeeAccount } from "./server/auth.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,6 +35,38 @@ async function startServer() {
     } catch (error) {
       console.error("Error submitting lead:", error);
       res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/payroll/send-payslip", async (req, res) => {
+    try {
+      const { to, employeeName, month, details, currency } = req.body;
+      
+      if (!to || !employeeName || !month || !details) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      await sendPayslipEmail(to, employeeName, month, details, currency || "$");
+      res.json({ success: true, message: "Payslip sent successfully" });
+    } catch (error) {
+      console.error("Error sending payslip:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/admin/create-employee", async (req, res) => {
+    try {
+      const { adminUid, employeeData } = req.body;
+      
+      if (!adminUid || !employeeData) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const result = await createEmployeeAccount(adminUid, employeeData);
+      res.status(201).json({ success: true, user: result });
+    } catch (error: any) {
+      console.error("Error creating employee:", error);
+      res.status(403).json({ error: error.message });
     }
   });
 

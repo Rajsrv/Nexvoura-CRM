@@ -287,6 +287,8 @@
         "subtasks": { "type": "array", "items": { "type": "object" } },
         "attachments": { "type": "array", "items": { "type": "object" } },
         "reminderEnabled": { "type": "boolean" },
+        "reminderMinutes": { "type": "number", "default": 30 },
+        "reminderEmailSent": { "type": "boolean" },
         "startedAt": { "type": "string", "format": "date-time" },
         "completedAt": { "type": "string", "format": "date-time" },
         "createdAt": { "type": "string", "format": "date-time" }
@@ -324,9 +326,93 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["companyId", "actorId", "actorName", "action", "details", "createdAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Real-time in-app notifications for users.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "companyId": { "type": "string" },
+        "type": { "type": "string", "enum": ["salary_update", "task_assigned", "profile_update", "admin_alert", "role_request", "new_message"] },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "read": { "type": "boolean" },
+        "link": { "type": "string" },
+        "metadata": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "companyId", "type", "title", "message", "read", "createdAt"]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "A 1:1 or group chat conversation.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "type": { "type": "string", "enum": ["direct", "group"] },
+        "name": { "type": "string", "description": "Display name for group chats." },
+        "photoURL": { "type": "string", "description": "Avatar for group chats." },
+        "memberIds": { "type": "array", "items": { "type": "string" }, "description": "UIDs of participants." },
+        "lastMessage": {
+          "type": "object",
+          "properties": {
+            "content": { "type": "string" },
+            "senderId": { "type": "string" },
+            "senderName": { "type": "string" },
+            "createdAt": { "type": "string", "format": "date-time" }
+          }
+        },
+        "createdBy": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "type", "memberIds", "updatedAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A single message in a conversation.",
+      "type": "object",
+      "properties": {
+        "conversationId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "readBy": { "type": "array", "items": { "type": "string" } },
+        "mentions": { "type": "array", "items": { "type": "string" } },
+        "threadId": { "type": "string", "description": "For message threading/replies." }
+      },
+      "required": ["conversationId", "senderId", "senderName", "content", "createdAt"]
+    },
+    "UserPresence": {
+      "title": "UserPresence",
+      "description": "Real-time user status and typing indicators.",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["online", "offline"] },
+        "lastSeen": { "type": "string", "format": "date-time" },
+        "typingIn": { "type": "string", "description": "ID of conversation user is typing in." }
+      },
+      "required": ["status", "lastSeen"]
     }
   },
   "firestore": {
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications."
+    },
+    "/conversations/{conversationId}": {
+      "schema": "Conversation",
+      "description": "Chat conversations."
+    },
+    "/conversations/{conversationId}/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Messages within a conversation."
+    },
+    "/userPresence/{userId}": {
+      "schema": "UserPresence",
+      "description": "User presence tracking."
+    },
     "/companies/{companyId}": {
       "schema": "Company",
       "description": "Tenant company data."

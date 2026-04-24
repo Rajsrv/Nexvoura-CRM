@@ -29,6 +29,7 @@ export interface Company {
   notificationSettings?: {
     enabled: boolean;
     dueSoonHours: number;
+    dueSoonUnit?: 'hours' | 'minutes';
   };
   taskStatuses?: string[];
 }
@@ -249,6 +250,8 @@ export interface Task {
   startedAt?: string;
   completedAt?: string;
   reminderEnabled?: boolean;
+  reminderMinutes?: number; // Minutes before due date to send email
+  reminderEmailSent?: boolean;
   createdAt: string;
 }
 
@@ -296,14 +299,53 @@ export interface ActivityLog {
   createdAt: string;
 }
 
-export interface AppNotification {
+export type NotificationType = 'salary_update' | 'task_assigned' | 'profile_update' | 'admin_alert' | 'role_request' | 'new_message';
+
+export interface Conversation {
   id: string;
   companyId: string;
+  type: 'direct' | 'group';
+  name?: string;
+  photoURL?: string;
+  memberIds: string[];
+  lastMessage?: {
+    content: string;
+    senderId: string;
+    senderName: string;
+    createdAt: string;
+  };
+  createdBy: string;
+  updatedAt: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  createdAt: string;
+  readBy: string[];
+  mentions?: string[];
+  threadId?: string;
+}
+
+export interface UserPresence {
+  uid: string;
+  status: 'online' | 'offline';
+  lastSeen: string;
+  typingIn: string | null;
+}
+
+export interface AppNotification {
+  id: string;
   userId: string;
+  companyId: string;
+  type: NotificationType;
   title: string;
   message: string;
-  type: 'salary' | 'task' | 'profile' | 'admin' | 'system';
   read: boolean;
   link?: string;
+  metadata?: Record<string, any>;
   createdAt: string;
 }

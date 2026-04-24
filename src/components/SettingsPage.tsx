@@ -3,9 +3,10 @@ import { db } from '../firebase';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { UserProfile, Company } from '../types';
 import { toast } from 'sonner';
-import { Bell, Clock, Globe, Copy, Check, Layout, Plus, Trash2, GripVertical, Edit3, User as UserIcon, Mail, ShieldCheck, DollarSign, FileCheck, X, CheckSquare } from 'lucide-react';
+import { Bell, Clock, Globe, Copy, Check, Layout, Plus, Trash2, GripVertical, Edit3, User as UserIcon, Mail, ShieldCheck, DollarSign, FileCheck, X, CheckSquare, Sun, Moon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserRole, Permission } from '../types';
+import { useTheme } from '../contexts/ThemeContext';
 
 const ALL_PERMISSIONS: { id: Permission; label: string; category: string }[] = [
   { id: 'leads:view', label: 'View Leads', category: 'Leads' },
@@ -26,6 +27,66 @@ const ALL_PERMISSIONS: { id: Permission; label: string; category: string }[] = [
 ];
 
 const ROLES: UserRole[] = ['admin', 'manager', 'team_lead', 'sales'];
+
+function AppearanceSettings() {
+  const { theme, setTheme } = useTheme();
+
+  return (
+    <section className="saas-card p-10 space-y-6 lg:col-span-2">
+      <div className="flex items-center space-x-3 text-slate-900 dark:text-white mb-2">
+        <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
+          <Layout size={20} />
+        </div>
+        <h3 className="text-xl font-bold">Appearance</h3>
+      </div>
+      <p className="text-sm text-slate-500 dark:text-dark-text-muted">
+        Customize how Nexvoura looks on your device. This preference is saved locally.
+      </p>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+        <button
+          onClick={() => setTheme('light')}
+          className={`flex items-center justify-between p-6 rounded-2xl border transition-all ${
+            theme === 'light' 
+              ? 'bg-slate-50 dark:bg-slate-800 border-indigo-200 dark:border-indigo-500/50 ring-4 ring-indigo-500/5' 
+              : 'bg-white dark:bg-dark-bg border-slate-100 dark:border-dark-border hover:bg-slate-50 dark:hover:bg-slate-800'
+          }`}
+        >
+          <div className="flex items-center space-x-4">
+            <div className={`p-3 rounded-xl ${theme === 'light' ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+              <Sun size={20} />
+            </div>
+            <div className="text-left">
+              <span className={`block text-sm font-bold ${theme === 'light' ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-dark-text-muted'}`}>Light Mode</span>
+              <span className="text-[10px] text-slate-400 mt-0.5 block">Standard workspace view</span>
+            </div>
+          </div>
+          {theme === 'light' && <div className="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-white scale-110 shadow-lg shadow-indigo-500/20 transition-all"><Check size={14} /></div>}
+        </button>
+
+        <button
+          onClick={() => setTheme('dark')}
+          className={`flex items-center justify-between p-6 rounded-2xl border transition-all ${
+            theme === 'dark' 
+              ? 'bg-slate-900 border-indigo-500/50 ring-4 ring-indigo-500/5' 
+              : 'bg-white dark:bg-dark-bg border-slate-100 dark:border-dark-border hover:bg-slate-50 dark:hover:bg-slate-800'
+          }`}
+        >
+          <div className="flex items-center space-x-4">
+            <div className={`p-3 rounded-xl ${theme === 'dark' ? 'bg-indigo-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+              <Moon size={20} />
+            </div>
+            <div className="text-left">
+              <span className={`block text-sm font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-600 dark:text-dark-text-muted'}`}>Dark Mode</span>
+              <span className="text-[10px] text-slate-500 mt-0.5 block">Better for night operations</span>
+            </div>
+          </div>
+          {theme === 'dark' && <div className="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-white scale-110 shadow-lg shadow-indigo-500/20 transition-all"><Check size={14} /></div>}
+        </button>
+      </div>
+    </section>
+  );
+}
 
 export default function SettingsPage({ user }: { user: UserProfile }) {
   const [company, setCompany] = useState<Company | null>(null);
@@ -190,30 +251,30 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
 
   if (user.role !== 'admin' && user.role !== 'manager') {
     return (
-      <div className="p-8 text-center text-slate-500">
-        <h2 className="text-xl font-bold text-slate-900 mb-2">Access Denied</h2>
+      <div className="p-8 text-center text-slate-500 dark:text-dark-text-muted">
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Access Denied</h2>
         <p>You do not have permission to view this page.</p>
       </div>
     );
   }
 
-  if (loading) return <div className="p-8 text-center text-slate-500">Loading settings...</div>;
+  if (loading) return <div className="p-8 text-center text-slate-500 dark:text-dark-text-muted flex items-center justify-center h-40">Loading settings...</div>;
 
   return (
     <div className="space-y-8 max-w-4xl pb-20">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Settings</h2>
-        <p className="text-slate-500">Manage your agency preferences and integrations</p>
+        <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Settings</h2>
+        <p className="text-slate-500 dark:text-dark-text-muted">Manage your agency preferences and integrations</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Company Information */}
-        <section className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6 md:col-span-2">
-          <div className="flex items-center space-x-3 text-slate-900 mb-2">
-            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+        <section className="saas-card p-10 space-y-8 md:col-span-2">
+          <div className="flex items-center space-x-3 text-slate-900 dark:text-white mb-2">
+            <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
               <UserIcon size={20} />
             </div>
-            <h3 className="text-lg font-bold">Company Profile</h3>
+            <h3 className="text-xl font-bold">Company Profile</h3>
           </div>
           
           <div className="mb-8 p-6 bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden relative group">
@@ -248,85 +309,85 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
             </div>
           </div>
 
-          <form onSubmit={updateCompanyInfo} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Company Name</label>
+          <form onSubmit={updateCompanyInfo} className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest px-1">Company Name</label>
               <input
                 name="name"
                 defaultValue={company?.name}
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
+                className="saas-input py-4 font-bold"
                 placeholder="Nexvoura Solutions"
                 required
               />
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Website</label>
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest px-1">Website</label>
               <input
                 name="website"
                 defaultValue={company?.website}
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
+                className="saas-input py-4 font-bold"
                 placeholder="https://nexvoura.com"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Phone Number</label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-dark-text-muted uppercase tracking-wider mb-2">Phone Number</label>
               <input
                 name="phone"
                 defaultValue={company?.phone}
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
+                className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium text-slate-900 dark:text-white"
                 placeholder="+1 234 567 890"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Industry</label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-dark-text-muted uppercase tracking-wider mb-2">Industry</label>
               <input
                 name="industry"
                 defaultValue={company?.industry}
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
+                className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium text-slate-900 dark:text-white"
                 placeholder="e.g. Marketing, SaaS"
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Office Address</label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-dark-text-muted uppercase tracking-wider mb-2">Office Address</label>
               <input
                 name="address"
                 defaultValue={company?.address}
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
+                className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium text-slate-900 dark:text-white"
                 placeholder="123 business St, City"
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Company Logo URL</label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-dark-text-muted uppercase tracking-wider mb-2">Company Logo URL</label>
               <input
                 name="logoUrl"
                 defaultValue={company?.logoUrl}
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
+                className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium text-slate-900 dark:text-white"
                 placeholder="https://example.com/logo.png"
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Bio / Description</label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-dark-text-muted uppercase tracking-wider mb-2">Bio / Description</label>
               <textarea
                 name="description"
                 defaultValue={company?.description}
                 rows={3}
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium resize-none"
+                className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium resize-none text-slate-900 dark:text-white"
                 placeholder="Briefly describe your agency..."
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Currency Symbol</label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-dark-text-muted uppercase tracking-wider mb-2">Currency Symbol</label>
               <input
                 name="currency"
                 defaultValue={company?.currency || '$'}
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
+                className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium text-slate-900 dark:text-white"
                 placeholder="$"
               />
             </div>
             <div className="md:col-span-2 flex justify-end">
               <button
                 type="submit"
-                className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
+                className="bg-slate-950 dark:bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 dark:shadow-indigo-500/10"
               >
                 Save Profile
               </button>
@@ -335,26 +396,26 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
         </section>
 
         {/* Role & Permission Management */}
-        <section className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6 md:col-span-2">
-          <div className="flex items-center space-x-3 text-slate-900 mb-2">
-            <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+        <section className="saas-card p-10 space-y-8 md:col-span-2">
+          <div className="flex items-center space-x-3 text-slate-900 dark:text-white mb-2">
+            <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
               <ShieldCheck size={20} />
             </div>
-            <h3 className="text-lg font-bold">Role & Permissions</h3>
+            <h3 className="text-xl font-bold">Role & Permissions</h3>
           </div>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 dark:text-dark-text-muted">
             Define what each operative level can access and modify within the workspace.
           </p>
 
-          <div className="flex space-x-1 p-1 bg-slate-100 rounded-xl mb-6 overflow-x-auto">
+          <div className="flex space-x-1 p-1 bg-slate-100 dark:bg-dark-bg rounded-2xl mb-6 overflow-x-auto">
             {ROLES.map((role) => (
               <button
                 key={role}
                 onClick={() => setActiveRoleTab(role)}
-                className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                className={`px-8 py-3 rounded-[14px] text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                   activeRoleTab === role
-                    ? 'bg-white text-indigo-600 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-900'
+                    ? 'bg-white dark:bg-dark-surface text-indigo-600 dark:text-indigo-400 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-600'
                 }`}
               >
                 {role.replace('_', ' ')}
@@ -365,7 +426,7 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from(new Set(ALL_PERMISSIONS.map(p => p.category))).map(category => (
               <div key={category} className="space-y-4">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{category}</h4>
+                <h4 className="text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-[0.2em]">{category}</h4>
                 <div className="space-y-2">
                   {ALL_PERMISSIONS.filter(p => p.category === category).map(permission => {
                     const isGranted = (company?.rolePermissions?.[activeRoleTab] || []).includes(permission.id);
@@ -375,8 +436,8 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
                         onClick={() => togglePermission(activeRoleTab, permission.id)}
                         className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left ${
                           isGranted 
-                            ? 'bg-indigo-50 border-indigo-100 text-indigo-700' 
-                            : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'
+                            ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-100 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-400' 
+                            : 'bg-slate-50 dark:bg-dark-bg border-slate-100 dark:border-dark-border text-slate-500 dark:text-dark-text-muted hover:bg-slate-100 dark:hover:bg-dark-surface'
                         }`}
                       >
                         <span className="text-xs font-bold">{permission.label}</span>
@@ -391,28 +452,28 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
         </section>
 
         {/* Company Policies */}
-        <section className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6 md:col-span-2">
-          <div className="flex items-center space-x-3 text-slate-900 mb-2">
-            <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+        <section className="saas-card p-10 space-y-8 md:col-span-2">
+          <div className="flex items-center space-x-3 text-slate-900 dark:text-white mb-2">
+            <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg text-emerald-600 dark:text-emerald-400">
               <FileCheck size={20} />
             </div>
-            <h3 className="text-lg font-bold">Company Policies</h3>
+            <h3 className="text-xl font-bold">Company Policies</h3>
           </div>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 dark:text-dark-text-muted">
             Internal rules and guidelines for your agency. These will be visible to all members.
           </p>
 
-          <div className="flex gap-2">
+          <div className="flex gap-4">
             <input
               value={newPolicy}
               onChange={(e) => setNewPolicy(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && addPolicy()}
-              className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-sm font-medium"
+              className="saas-input py-4 font-medium"
               placeholder="e.g. Leave must be filed 3 days in advance"
             />
             <button
               onClick={addPolicy}
-              className="px-6 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20"
+              className="saas-button-primary"
             >
               Add Policy
             </button>
@@ -426,12 +487,12 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
-                  className="flex items-center justify-between p-4 bg-emerald-50/50 border border-emerald-100 rounded-xl group"
+                  className="flex items-center justify-between p-4 bg-emerald-50/50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 rounded-xl group"
                 >
-                  <p className="text-sm font-medium text-slate-700">{policy}</p>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{policy}</p>
                   <button
                     onClick={() => removePolicy(policy)}
-                    className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors"
+                    className="p-1.5 text-slate-400 dark:text-dark-text-muted hover:text-rose-500 transition-colors"
                   >
                     <X size={16} />
                   </button>
@@ -439,34 +500,34 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
               ))}
             </AnimatePresence>
             {(!company?.policies || company.policies.length === 0) && (
-              <div className="md:col-span-2 py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                <p className="text-sm text-slate-400 italic">No policies active yet.</p>
+              <div className="md:col-span-2 py-8 text-center bg-slate-50 dark:bg-dark-bg rounded-2xl border border-dashed border-slate-200 dark:border-dark-border">
+                <p className="text-sm text-slate-400 dark:text-dark-text-muted italic">No policies active yet.</p>
               </div>
             )}
           </div>
         </section>
 
         {/* Task Board Configuration */}
-        <section className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+        <section className="saas-card p-10 space-y-8">
           <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center space-x-3 text-slate-900">
-              <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
+            <div className="flex items-center space-x-3 text-slate-900 dark:text-white">
+              <div className="p-2 bg-purple-50 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
                 <Layout size={20} />
               </div>
-              <h3 className="text-lg font-bold">Task Board Columns</h3>
+              <h3 className="text-xl font-bold">Workflow</h3>
             </div>
             <button
               onClick={addStatus}
-              className="p-1.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-all shadow-md shadow-slate-200"
+              className="saas-button-primary p-2 flex items-center justify-center !w-10 !h-10"
             >
-              <Plus size={16} />
+              <Plus size={20} />
             </button>
           </div>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 dark:text-dark-text-muted">
             Customize the workflow of your project board. Add, remove, or rename columns.
           </p>
           
-          <div className="space-y-3">
+          <div className="space-y-4">
             <AnimatePresence mode="popLayout">
               {(company?.taskStatuses || ['Todo', 'In Progress', 'Done']).map((status, index) => (
                 <motion.div
@@ -475,24 +536,24 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl group"
+                  className="flex items-center justify-between p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-[18px] group"
                 >
-                  <div className="flex items-center space-x-3">
-                    <span className="w-5 h-5 flex items-center justify-center bg-slate-200 text-slate-500 text-[10px] font-bold rounded-md">
+                  <div className="flex items-center space-x-4">
+                    <span className="w-6 h-6 flex items-center justify-center bg-white dark:bg-dark-surface text-slate-500 dark:text-dark-text-muted text-[10px] font-black rounded-lg shadow-sm border border-slate-100 dark:border-dark-border">
                       {index + 1}
                     </span>
-                    <span className="text-sm font-bold text-slate-700">{status}</span>
+                    <span className="text-sm font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight">{status}</span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <button
                       onClick={() => renameStatus(status)}
-                      className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                      className="p-1.5 text-slate-400 dark:text-dark-text-muted hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white dark:hover:bg-dark-surface rounded-lg transition-all opacity-0 group-hover:opacity-100"
                     >
                       <Edit3 size={14} />
                     </button>
                     <button
                       onClick={() => removeStatus(status)}
-                      className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-white rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                      className="p-1.5 text-slate-400 dark:text-dark-text-muted hover:text-rose-500 dark:hover:text-rose-400 hover:bg-white dark:hover:bg-dark-surface rounded-lg transition-all opacity-0 group-hover:opacity-100"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -504,47 +565,50 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
         </section>
 
         {/* Public Lead Lead Form */}
-        <section className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6">
-          <div className="flex items-center space-x-3 text-slate-900 mb-2">
-            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+        <section className="saas-card p-10 space-y-8">
+          <div className="flex items-center space-x-3 text-slate-900 dark:text-white mb-2">
+            <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
               <Globe size={20} />
             </div>
-            <h3 className="text-lg font-bold">Public Lead Form</h3>
+            <h3 className="text-xl font-bold">Lead Pipeline</h3>
           </div>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 dark:text-dark-text-muted">
             Share this URL with clients or embed it in your website to receive leads directly in Nexvoura.
           </p>
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between group">
-            <code className="text-blue-600 font-mono text-xs truncate mr-4">
+          <div className="bg-slate-50 dark:bg-dark-bg p-5 rounded-2xl border border-slate-200 dark:border-dark-border flex items-center justify-between group">
+            <code className="text-blue-600 dark:text-blue-400 font-mono text-xs truncate mr-4">
               {window.location.origin}/submit-lead/{user.companyId}
             </code>
             <button
               onClick={copyUrl}
-              className="flex-shrink-0 p-2 hover:bg-white rounded-lg transition-colors text-slate-400 hover:text-slate-900 border border-transparent hover:border-slate-200"
+              className="flex-shrink-0 p-2.5 hover:bg-white dark:hover:bg-dark-surface rounded-xl transition-all text-slate-400 hover:text-slate-900 dark:hover:text-white border border-transparent hover:border-slate-200 dark:hover:border-dark-border"
             >
-              {copied ? <Check size={18} className="text-emerald-500" /> : <Copy size={18} />}
+              {copied ? <Check size={20} className="text-emerald-500" /> : <Copy size={20} />}
             </button>
           </div>
         </section>
 
+        {/* Global Key Component: Theme Toggle */}
+        <AppearanceSettings />
+
         {/* Task Notification Settings */}
-        <section className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6">
-          <div className="flex items-center space-x-3 text-slate-900 mb-2">
-            <div className="p-2 bg-amber-50 rounded-lg text-amber-600">
+        <section className="bg-white dark:bg-dark-surface p-8 rounded-2xl border border-slate-100 dark:border-dark-border shadow-sm space-y-6 transition-colors">
+          <div className="flex items-center space-x-3 text-slate-900 dark:text-white mb-2">
+            <div className="p-2 bg-amber-50 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">
               <Bell size={20} />
             </div>
             <h3 className="text-lg font-bold">Task Notifications</h3>
           </div>
           
-          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+          <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-dark-bg rounded-xl border border-slate-100 dark:border-dark-border transition-colors">
             <div>
-              <p className="font-bold text-slate-800">Email Alerts</p>
-              <p className="text-xs text-slate-500">Receive an email when a task is due soon.</p>
+              <p className="font-bold text-slate-800 dark:text-white">Email Alerts</p>
+              <p className="text-xs text-slate-500 dark:text-dark-text-muted">Receive an email when a task is due soon.</p>
             </div>
             <button
               onClick={() => updateSettings({ enabled: !(company?.notificationSettings?.enabled ?? true) })}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                (company?.notificationSettings?.enabled ?? true) ? 'bg-blue-600' : 'bg-slate-200'
+                (company?.notificationSettings?.enabled ?? true) ? 'bg-blue-600 dark:bg-indigo-600' : 'bg-slate-200 dark:bg-dark-border'
               }`}
             >
               <span
@@ -557,7 +621,7 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 text-sm font-bold text-slate-700">
+              <div className="flex items-center space-x-2 text-sm font-bold text-slate-700 dark:text-slate-300">
                 <Clock size={16} />
                 <span>Notify me before</span>
               </div>
@@ -565,17 +629,25 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
                 <input
                   type="number"
                   min="1"
-                  max="168"
-                  className="w-16 p-2 bg-slate-50 border border-slate-200 rounded-lg text-center font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
+                  max={(company?.notificationSettings?.dueSoonUnit ?? 'hours') === 'minutes' ? 10080 : 168}
+                  className="w-20 p-2 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-lg text-center font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
                   value={company?.notificationSettings?.dueSoonHours ?? 24}
-                  onChange={(e) => updateSettings({ dueSoonHours: parseInt(e.target.value) || 24 })}
+                  onChange={(e) => updateSettings({ dueSoonHours: parseInt(e.target.value) || 1 })}
                   disabled={!(company?.notificationSettings?.enabled ?? true)}
                 />
-                <span className="text-sm font-medium text-slate-500">hours</span>
+                <select
+                  value={company?.notificationSettings?.dueSoonUnit ?? 'hours'}
+                  onChange={(e) => updateSettings({ dueSoonUnit: e.target.value as 'hours' | 'minutes' })}
+                  disabled={!(company?.notificationSettings?.enabled ?? true)}
+                  className="bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-lg px-2 py-2 text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                >
+                  <option value="hours" className="dark:bg-dark-surface">hours</option>
+                  <option value="minutes" className="dark:bg-dark-surface">minutes</option>
+                </select>
               </div>
             </div>
-            <p className="text-[10px] text-slate-400">
-              Set how many hours before the deadline you want to be notified. Max 168h (1 week).
+            <p className="text-[10px] text-slate-400 dark:text-dark-text-muted">
+              Set how much time before the deadline you want to be notified. Max 168h or 10080m (1 week).
             </p>
           </div>
         </section>

@@ -39,6 +39,7 @@ export function AddTaskModal({
     assignedTo: '',
     leadId: '',
     reminderEnabled: false,
+    reminderMinutes: 30,
     subtasks: [] as { id: string; title: string; completed: boolean }[]
   });
   const [newSubtask, setNewSubtask] = useState('');
@@ -105,23 +106,23 @@ export function AddTaskModal({
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="relative w-full max-w-4xl bg-white rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="relative w-full max-w-4xl bg-white dark:bg-dark-surface rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-colors"
       >
         {/* Modern Header */}
-        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-[#fcfcfc]">
+        <div className="p-8 border-b border-slate-100 dark:border-dark-border flex justify-between items-center bg-[#fcfcfc] dark:bg-dark-bg/50">
           <div className="flex items-center space-x-4">
             <div className="w-12 h-12 bg-brand-primary rounded-2xl flex items-center justify-center text-white shadow-lg shadow-brand-primary/20">
               <Plus size={24} />
             </div>
             <div>
-              <h3 className="text-2xl font-bold tracking-tight text-slate-900">Initiate Task</h3>
-              <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-0.5">Define objectives & strategic alignment</p>
+              <h3 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Initiate Task</h3>
+              <p className="text-slate-400 dark:text-dark-text-muted text-[10px] font-bold uppercase tracking-widest mt-0.5">Define objectives & strategic alignment</p>
             </div>
           </div>
           <button 
             type="button"
             onClick={onClose}
-            className="p-3 hover:bg-slate-100 rounded-2xl text-slate-400 transition-colors"
+            className="p-3 hover:bg-slate-100 dark:hover:bg-dark-bg rounded-2xl text-slate-400 dark:text-dark-text-muted transition-colors"
           >
             <X size={24} />
           </button>
@@ -130,10 +131,10 @@ export function AddTaskModal({
         <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
           {/* Templates Section */}
           {templates.length > 0 && (
-            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+            <div className="bg-slate-50 dark:bg-dark-bg/50 p-6 rounded-3xl border border-slate-100 dark:border-dark-border">
                <div className="flex items-center space-x-2 mb-4">
                   <Star size={14} className="text-brand-primary fill-brand-primary" />
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Rapid Templates</label>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-dark-text-muted uppercase tracking-widest">Rapid Templates</label>
                </div>
                <div className="flex flex-wrap gap-2">
                  {templates.map(tmpl => (
@@ -141,7 +142,7 @@ export function AddTaskModal({
                      <button
                        type="button"
                        onClick={() => handleApplyTemplate(tmpl)}
-                       className="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl hover:bg-brand-primary hover:text-white hover:border-brand-primary transition-all shadow-sm flex items-center space-x-2"
+                       className="px-4 py-2 bg-white dark:bg-dark-surface border border-slate-200 dark:border-dark-border text-slate-700 dark:text-dark-text text-xs font-bold rounded-xl hover:bg-brand-primary hover:text-white hover:border-brand-primary transition-all shadow-sm dark:shadow-none flex items-center space-x-2"
                      >
                        <span>{tmpl.name}</span>
                      </button>
@@ -162,7 +163,7 @@ export function AddTaskModal({
             {/* Column 1: Core Details */}
             <div className="space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Task Objective</label>
+                <label className="text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest ml-1">Task Objective</label>
                 <input
                   type="text"
                   required
@@ -175,7 +176,7 @@ export function AddTaskModal({
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Strategic Brief</label>
+                <label className="text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest ml-1">Strategic Brief</label>
                 <textarea
                   className="saas-input h-32 resize-none text-sm font-medium leading-relaxed"
                   value={newTask.description}
@@ -185,7 +186,7 @@ export function AddTaskModal({
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Assignee</label>
+                <label className="text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest ml-1">Assignee</label>
                 <UserSelector 
                   team={team}
                   value={newTask.assignedTo}
@@ -194,19 +195,19 @@ export function AddTaskModal({
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Related Pipeline (Lead)</label>
+                <label className="text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest ml-1">Related Pipeline (Lead)</label>
                 <div className="relative">
                   <select
                     className="saas-input appearance-none"
                     value={newTask.leadId}
                     onChange={(e) => setNewTask({ ...newTask, leadId: e.target.value })}
                   >
-                    <option value="">No context (Internal Task)</option>
+                    <option value="" className="dark:bg-dark-surface">No context (Internal Task)</option>
                     {leads.map(lead => (
-                      <option key={lead.id} value={lead.id}>{lead.name} — {lead.service}</option>
+                      <option key={lead.id} value={lead.id} className="dark:bg-dark-surface">{lead.name} — {lead.service}</option>
                     ))}
                   </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-dark-text-muted">
                     <LinkIcon size={14} />
                   </div>
                 </div>
@@ -217,9 +218,9 @@ export function AddTaskModal({
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Deadline</label>
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest ml-1">Deadline</label>
                   <div className="relative">
-                    <Calendar size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Calendar size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dark-text-muted" />
                     <input
                       type="date"
                       className="saas-input pl-10 text-xs font-bold"
@@ -229,7 +230,7 @@ export function AddTaskModal({
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Priority</label>
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest ml-1">Priority</label>
                   <div className="relative">
                     <Flag size={14} className={`absolute left-4 top-1/2 -translate-y-1/2 ${
                       newTask.priority === 'High' ? 'text-rose-500' :
@@ -240,23 +241,23 @@ export function AddTaskModal({
                       value={newTask.priority}
                       onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as any })}
                     >
-                      <option value="Low">Low Priority</option>
-                      <option value="Medium">Medium Priority</option>
-                      <option value="High">High Priority</option>
+                      <option value="Low" className="dark:bg-dark-surface">Low Priority</option>
+                      <option value="Medium" className="dark:bg-dark-surface">Medium Priority</option>
+                      <option value="High" className="dark:bg-dark-surface">High Priority</option>
                     </select>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Notification Protocol</label>
+                <label className="text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest ml-1">Notification Protocol</label>
                 <button
                   type="button"
                   onClick={() => setNewTask(prev => ({ ...prev, reminderEnabled: !prev.reminderEnabled }))}
                   className={`w-full p-4 rounded-2xl flex items-center justify-between border transition-all duration-300 ${
                     newTask.reminderEnabled 
                       ? 'bg-brand-primary border-brand-primary text-white shadow-lg shadow-brand-primary/20' 
-                      : 'bg-white border-slate-100 text-slate-500'
+                      : 'bg-white dark:bg-dark-bg border-slate-100 dark:border-dark-border text-slate-500 dark:text-dark-text-muted'
                   }`}
                 >
                   <div className="flex items-center space-x-3">
@@ -265,21 +266,37 @@ export function AddTaskModal({
                        {newTask.reminderEnabled ? 'Arrival Alert Active' : 'Enable Due Date Alert'}
                      </span>
                   </div>
-                  <div className={`w-8 h-4 rounded-full relative transition-colors ${newTask.reminderEnabled ? 'bg-white/20' : 'bg-slate-200'}`}>
+                  <div className={`w-8 h-4 rounded-full relative transition-colors ${newTask.reminderEnabled ? 'bg-white/20' : 'bg-slate-200 dark:bg-dark-surface'}`}>
                      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm ${newTask.reminderEnabled ? 'right-0.5' : 'left-0.5'}`} />
                   </div>
                 </button>
               </div>
 
+              {newTask.reminderEnabled && (
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest ml-1">Email Alert Threshold (Minutes Before)</label>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="number"
+                      min="1"
+                      className="saas-input py-3 text-xs font-bold w-32"
+                      value={newTask.reminderMinutes}
+                      onChange={(e) => setNewTask({ ...newTask, reminderMinutes: parseInt(e.target.value) || 0 })}
+                    />
+                    <span className="text-xs font-bold text-slate-400 dark:text-dark-text-muted">min before deadline</span>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Sub-Task Breakdown</label>
-                <div className="bg-slate-50 rounded-[24px] p-6 border border-slate-100 space-y-4">
+                <label className="text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest ml-1">Sub-Task Breakdown</label>
+                <div className="bg-slate-50 dark:bg-dark-bg/50 rounded-[24px] p-6 border border-slate-100 dark:border-dark-border space-y-4">
                   <div className="max-h-40 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                     {newTask.subtasks.map((sub) => (
-                      <div key={sub.id} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-100 group shadow-sm transition-all hover:bg-slate-50">
+                      <div key={sub.id} className="flex items-center justify-between bg-white dark:bg-dark-surface p-3 rounded-xl border border-slate-100 dark:border-dark-border group shadow-sm transition-all hover:bg-slate-50 dark:hover:bg-dark-bg">
                         <div className="flex items-center space-x-3 overflow-hidden">
-                           <CheckCircle2 size={14} className="text-slate-300 flex-shrink-0" />
-                           <span className="text-[11px] font-semibold text-slate-600 truncate">{sub.title}</span>
+                           <CheckCircle2 size={14} className="text-slate-300 dark:text-slate-600 flex-shrink-0" />
+                           <span className="text-[11px] font-semibold text-slate-600 dark:text-dark-text-muted truncate">{sub.title}</span>
                         </div>
                         <button 
                           type="button"
@@ -291,8 +308,8 @@ export function AddTaskModal({
                       </div>
                     ))}
                     {newTask.subtasks.length === 0 && (
-                      <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-2xl">
-                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No milestones defined</p>
+                      <div className="text-center py-6 border-2 border-dashed border-slate-200 dark:border-dark-border rounded-2xl">
+                         <p className="text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">No milestones defined</p>
                       </div>
                     )}
                   </div>
@@ -308,7 +325,7 @@ export function AddTaskModal({
                     <button 
                       type="button"
                       onClick={addSubtask}
-                      className="bg-slate-900 text-white w-10 h-10 rounded-xl flex items-center justify-center hover:bg-slate-800 transition-colors shrink-0 shadow-lg shadow-slate-200"
+                      className="bg-slate-900 dark:bg-indigo-600 text-white w-10 h-10 rounded-xl flex items-center justify-center hover:bg-slate-800 dark:hover:bg-indigo-700 transition-colors shrink-0 shadow-lg shadow-slate-200 dark:shadow-none"
                     >
                       <Plus size={20} />
                     </button>
@@ -320,7 +337,7 @@ export function AddTaskModal({
         </div>
 
         {/* Action Footer */}
-        <div className="p-8 bg-[#fcfcfc] border-t border-slate-100 flex flex-col sm:flex-row gap-4">
+        <div className="p-8 bg-[#fcfcfc] dark:bg-dark-bg/50 border-t border-slate-100 dark:border-dark-border flex flex-col sm:flex-row gap-4">
           <button
             type="button"
             onClick={() => onSaveTemplate(newTask)}

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch, getDocs } from 'firebase/firestore';
-import { UserProfile, Task, Lead, TaskTemplate, Company, Attachment } from '../types';
-import { sendNotification } from '../services/notificationService';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch, getDocs, getDoc } from 'firebase/firestore';
+import { UserProfile, Task, Lead, TaskTemplate, Company, Attachment, AppNotification } from '../types';
+import { useNotifications } from '../contexts/NotificationContext';
 import { Plus, Trash2, CheckCircle2, Circle, Clock, Calendar, Filter, User as UserIcon, MessageSquare, Flag, CheckSquare, Square, UserPlus, X, RefreshCcw, ChevronDown, Download, Search, Info, Bell, BellOff, Edit2, PlayCircle, CheckCircle, Save, Copy, Paperclip, Link as LinkIcon, ExternalLink, File as FileIcon, AlertCircle, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
@@ -84,8 +84,8 @@ function DraggableTaskCard({ user, task, leads, team, deleteTask, toggleStatus, 
       {...listeners}
       {...attributes}
       onClick={() => onOpenDetail(task)}
-      className={`bg-white p-5 rounded-2xl border transition-all group relative cursor-pointer active:cursor-grabbing hover:shadow-xl hover:shadow-slate-200/50 ${
-        isSelected ? 'border-brand-primary ring-4 ring-brand-primary/5 shadow-xl shadow-brand-primary/10' : 'border-slate-100 shadow-sm'
+      className={`bg-white dark:bg-dark-surface p-5 rounded-2xl border transition-all group relative cursor-pointer active:cursor-grabbing hover:shadow-xl hover:shadow-slate-200/50 dark:hover:shadow-none ${
+        isSelected ? 'border-brand-primary ring-4 ring-brand-primary/5 shadow-xl shadow-brand-primary/10' : 'border-slate-100 dark:border-dark-border shadow-sm'
       }`}
     >
       <div className="flex justify-between items-start mb-3">
@@ -93,20 +93,20 @@ function DraggableTaskCard({ user, task, leads, team, deleteTask, toggleStatus, 
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); onToggleSelect(task.id); }}
-            className={`mt-1 transition-colors ${isSelected ? 'text-brand-primary' : 'text-slate-300 hover:text-slate-400'}`}
+            className={`mt-1 transition-colors ${isSelected ? 'text-brand-primary' : 'text-slate-300 dark:text-slate-600 hover:text-slate-400'}`}
           >
             {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
           </button>
           <div className="min-w-0">
-            <h4 className="font-bold text-slate-900 leading-tight text-[15px] group-hover:text-brand-primary transition-colors truncate">
+            <h4 className="font-bold text-slate-900 dark:text-white leading-tight text-[15px] group-hover:text-brand-primary transition-colors truncate">
               {task.title}
             </h4>
             <div className="flex items-center space-x-2 mt-1">
                {task.reminderEnabled && <Bell size={10} className="text-brand-primary" />}
                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest ${
-                 task.priority === 'High' ? 'bg-rose-50 text-rose-500' :
-                 task.priority === 'Medium' ? 'bg-amber-50 text-amber-500' :
-                 'bg-blue-50 text-blue-500'
+                 task.priority === 'High' ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500' :
+                 task.priority === 'Medium' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-500' :
+                 'bg-blue-50 dark:bg-blue-500/10 text-blue-500'
                }`}>
                  {task.priority || 'Normal'}
                </span>
@@ -117,33 +117,33 @@ function DraggableTaskCard({ user, task, leads, team, deleteTask, toggleStatus, 
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
-            className="text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all p-1"
+            className="text-slate-300 dark:text-slate-600 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all p-1"
           >
             <Trash2 size={14} />
           </button>
         )}
       </div>
       
-      <p className="text-[13px] text-slate-500 line-clamp-2 mb-4 font-medium leading-relaxed">
+      <p className="text-[13px] text-slate-500 dark:text-dark-text-muted line-clamp-2 mb-4 font-medium leading-relaxed">
         {task.description}
       </p>
       
       {/* Subtasks Summary */}
       {totalSubtasks > 0 && (
-        <div className="mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100/50">
+        <div className="mb-4 bg-slate-50 dark:bg-dark-bg/50 p-2.5 rounded-xl border border-slate-100/50 dark:border-dark-border">
            <div className="flex justify-between items-center mb-1.5">
              <div className="flex items-center space-x-1.5">
                 <CheckCircle2 size={12} className="text-emerald-500" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Progress</span>
+                <span className="text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Progress</span>
              </div>
              <div className="flex items-center space-x-2">
-                <span className="text-[10px] font-black text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-100 shadow-sm">
+                <span className="text-[10px] font-black text-slate-900 dark:text-white bg-white dark:bg-dark-surface px-1.5 py-0.5 rounded border border-slate-100 dark:border-dark-border shadow-sm">
                   {Math.round((completedSubtasks / totalSubtasks) * 100)}%
                 </span>
-                <span className="text-[10px] font-bold text-slate-400">{completedSubtasks}/{totalSubtasks}</span>
+                <span className="text-[10px] font-bold text-slate-400 dark:text-dark-text-muted">{completedSubtasks}/{totalSubtasks}</span>
              </div>
            </div>
-           <div className="w-full bg-slate-200/50 h-1 rounded-full overflow-hidden">
+           <div className="w-full bg-slate-200/50 dark:bg-dark-border h-1 rounded-full overflow-hidden">
              <motion.div 
                 initial={{ width: 0 }}
                 animate={{ width: `${(completedSubtasks/totalSubtasks)*100}%` }}
@@ -153,21 +153,21 @@ function DraggableTaskCard({ user, task, leads, team, deleteTask, toggleStatus, 
         </div>
       )}
 
-      <div className="flex items-center justify-between pt-3 border-t border-slate-50">
+      <div className="flex items-center justify-between pt-3 border-t border-slate-50 dark:border-dark-border">
         <div className="flex -space-x-1.5">
           {task.assignedTo ? (
-            <div className="w-7 h-7 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-slate-600 shadow-sm" title={team.find(m => m.uid === task.assignedTo)?.name}>
+            <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-dark-bg border-2 border-white dark:border-dark-surface flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-dark-text-muted shadow-sm" title={team.find(m => m.uid === task.assignedTo)?.name}>
               {team.find(m => m.uid === task.assignedTo)?.name[0]}
             </div>
           ) : (
-            <div className="w-7 h-7 rounded-full bg-slate-50 border-2 border-white flex items-center justify-center text-[10px] font-bold text-slate-300 italic">
+            <div className="w-7 h-7 rounded-full bg-slate-50 dark:bg-dark-bg border-2 border-white dark:border-dark-surface flex items-center justify-center text-[10px] font-bold text-slate-300 dark:text-slate-700 italic">
                ?
             </div>
           )}
         </div>
         
         {task.dueDate && (
-          <div className="flex items-center space-x-1 text-[11px] font-bold text-slate-400">
+          <div className="flex items-center space-x-1 text-[11px] font-bold text-slate-400 dark:text-dark-text-muted">
             <Clock size={11} />
             <span>{new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
           </div>
@@ -195,19 +195,19 @@ function DroppableColumn({ status, children, count }: { status: string, children
   return (
     <div 
       ref={setNodeRef}
-      className={`flex flex-col h-full min-h-[500px] rounded-[24px] p-5 transition-all duration-300 bg-slate-50/50 border border-slate-100 ${
-        isOver ? 'bg-brand-primary/5 border-brand-primary border-dashed scale-[0.99]' : ''
+      className={`flex flex-col h-full min-h-[500px] rounded-[24px] p-5 transition-all duration-300 bg-slate-50/50 dark:bg-dark-bg/30 border border-slate-100 dark:border-dark-border ${
+        isOver ? 'bg-brand-primary/5 dark:bg-brand-primary/10 border-brand-primary border-dashed scale-[0.99]' : ''
       }`}
     >
       <div className="flex items-center justify-between mb-6 px-1">
         <div className="flex items-center space-x-3">
           <div className={`w-2 h-2 rounded-full bg-gradient-to-br ${getStatusColor(status)} shadow-sm`} />
-          <h3 className="font-bold text-slate-900 tracking-tight text-sm uppercase tracking-wider">{status}</h3>
-          <span className="bg-white px-2 py-0.5 rounded-lg text-[10px] font-bold text-slate-400 border border-slate-200 shadow-sm">
+          <h3 className="font-bold text-slate-900 dark:text-white tracking-tight text-sm uppercase tracking-wider">{status}</h3>
+          <span className="bg-white dark:bg-dark-surface px-2 py-0.5 rounded-lg text-[10px] font-bold text-slate-400 dark:text-dark-text-muted border border-slate-200 dark:border-dark-border shadow-sm">
             {count}
           </span>
         </div>
-        <button className="p-1.5 text-slate-400 hover:text-brand-primary hover:bg-white rounded-lg transition-all shadow-sm">
+        <button className="p-1.5 text-slate-400 dark:text-dark-text-muted hover:text-brand-primary hover:bg-white dark:hover:bg-dark-surface rounded-lg transition-all shadow-sm">
           <Plus size={16} />
         </button>
       </div>
@@ -235,6 +235,7 @@ export default function TasksPage({ user }: { user: UserProfile }) {
   const [activeMobileColumn, setActiveMobileColumn] = useState<string>('');
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [bulkAssignUserId, setBulkAssignUserId] = useState<string>('');
+  const [quickTaskTitle, setQuickTaskTitle] = useState('');
 
   const taskStatuses = company?.taskStatuses?.length ? company.taskStatuses : ['Todo', 'In Progress', 'Done'];
   const lastStatus = taskStatuses[taskStatuses.length - 1];
@@ -246,12 +247,13 @@ export default function TasksPage({ user }: { user: UserProfile }) {
   }, [taskStatuses, activeMobileColumn]);
 
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const { sendNotification } = useNotifications();
 
   useEffect(() => {
     let tasksQ = query(collection(db, 'tasks'), where('companyId', '==', user.companyId));
     let leadsQ = query(collection(db, 'leads'), where('companyId', '==', user.companyId));
 
-    if (user.role === 'sales') {
+    if (user.role === 'sales' || user.role === 'team_lead') {
       tasksQ = query(
         collection(db, 'tasks'),
         where('companyId', '==', user.companyId),
@@ -344,27 +346,44 @@ export default function TasksPage({ user }: { user: UserProfile }) {
 
   const handleAddTask = async (taskData: any) => {
     try {
-      await addDoc(collection(db, 'tasks'), {
+      const docRef = await addDoc(collection(db, 'tasks'), {
         ...taskData,
         companyId: user.companyId,
-        notificationSent: false,
+        notificationSent: true,
         createdAt: new Date().toISOString()
       });
-      toast.success('Task created successfully');
-      if (taskData.assignedTo) {
-        await sendNotification(
-          user.companyId,
-          taskData.assignedTo,
-          'Strategic Task Initiated',
-          `You have been assigned to: ${taskData.title}. Review depth and priority in the command center.`,
-          'task',
-          '/tasks'
-        );
+
+      if (taskData.assignedTo && taskData.assignedTo !== user.uid) {
+        await sendNotification({
+          userId: taskData.assignedTo,
+          type: 'task_assigned',
+          title: 'New Mission Directive',
+          message: `You have been assigned to: ${taskData.title}. Status: High Priority.`,
+          link: '/tasks'
+        });
       }
+
+      toast.success('Task created successfully');
       setShowAddModal(false);
     } catch (error) {
       toast.error('Failed to create task');
     }
+  };
+
+  const handleQuickAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickTaskTitle.trim()) return;
+    
+    await handleAddTask({
+      title: quickTaskTitle.trim(),
+      description: '',
+      status: taskStatuses[0],
+      priority: 'Medium',
+      subtasks: [],
+      assignedTo: '',
+      dueDate: null
+    });
+    setQuickTaskTitle('');
   };
 
   const handleSaveTemplateUI = async (taskData: any) => {
@@ -429,7 +448,24 @@ export default function TasksPage({ user }: { user: UserProfile }) {
 
   const updateTask = async (taskId: string, updates: Partial<Task>) => {
     try {
-      await updateDoc(doc(db, 'tasks', taskId), updates);
+      const taskRef = doc(db, 'tasks', taskId);
+      
+      if (updates.assignedTo) {
+        const taskSnap = await getDoc(taskRef);
+        const oldTask = taskSnap.data() as Task;
+        
+        if (updates.assignedTo !== oldTask.assignedTo && updates.assignedTo !== user.uid) {
+          await sendNotification({
+            userId: updates.assignedTo,
+            type: 'task_assigned',
+            title: 'Mission Reassignment',
+            message: `Priority objective "${updates.title || oldTask.title}" has been assigned to your queue.`,
+            link: '/tasks'
+          });
+        }
+      }
+
+      await updateDoc(taskRef, updates);
       toast.success('Task updated');
       if (selectedTask?.id === taskId) {
         setSelectedTask(prev => prev ? { ...prev, ...updates } : null);
@@ -521,14 +557,6 @@ export default function TasksPage({ user }: { user: UserProfile }) {
       await batch.commit();
       const userName = team.find(m => m.uid === userId)?.name || 'user';
       toast.success(`Assigned ${selectedTaskIds.length} tasks to ${userName}`);
-      await sendNotification(
-        user.companyId,
-        userId,
-        'Bulk Task Assignment',
-        `A batch of ${selectedTaskIds.length} tasks has been assigned to your queue for immediate processing.`,
-        'task',
-        '/tasks'
-      );
       setSelectedTaskIds([]);
       setBulkAssignUserId('');
     } catch (error) {
@@ -561,7 +589,7 @@ export default function TasksPage({ user }: { user: UserProfile }) {
     });
 
   return (
-    <div className="p-4 md:p-8 pt-6 max-w-[1600px] mx-auto space-y-8 min-h-screen bg-white">
+    <div className="p-4 md:p-8 pt-6 max-w-[1600px] mx-auto space-y-8 min-h-screen bg-white dark:bg-dark-bg transition-colors duration-300">
       {/* Task Detail Modal */}
       <AnimatePresence>
         {selectedTask && (
@@ -577,21 +605,21 @@ export default function TasksPage({ user }: { user: UserProfile }) {
       </AnimatePresence>
 
       {/* Header Dashboard Section */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-6 border-b border-slate-100">
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-6 border-b border-slate-100 dark:border-dark-border">
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Task Management</h1>
-          <p className="text-slate-500 font-medium">Coordinate your team's tactical execution</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Task Management</h1>
+          <p className="text-slate-500 dark:text-dark-text-muted font-medium">Coordinate your team's tactical execution</p>
         </div>
         
         <div className="flex items-center gap-3">
           <div className="flex -space-x-2 mr-4">
              {team.slice(0, 5).map(m => (
-               <div key={m.uid} className="w-9 h-9 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 shadow-sm" title={m.name}>
+               <div key={m.uid} className="w-9 h-9 rounded-full border-2 border-white dark:border-dark-border bg-slate-100 dark:bg-dark-surface flex items-center justify-center text-xs font-bold text-slate-600 dark:text-dark-text-muted shadow-sm" title={m.name}>
                  {m.name[0]}
                </div>
              ))}
              {team.length > 5 && (
-               <div className="w-9 h-9 rounded-full border-2 border-white bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold shadow-sm">
+               <div className="w-9 h-9 rounded-full border-2 border-white dark:border-dark-border bg-slate-900 dark:bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold shadow-sm">
                  +{team.length - 5}
                </div>
              )}
@@ -607,26 +635,26 @@ export default function TasksPage({ user }: { user: UserProfile }) {
       </div>
 
       {/* Control Bar */}
-      <div className="bg-[#fcfcfc] border border-slate-100 rounded-3xl p-4 shadow-sm">
+      <div className="bg-[#fcfcfc] dark:bg-dark-surface border border-slate-100 dark:border-dark-border rounded-3xl p-4 shadow-sm">
         <div className="flex flex-col lg:flex-row gap-4 items-center">
           <div className="relative flex-1 w-full">
-            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600" />
             <input
               type="text"
               placeholder="Filter by title or objective..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="saas-input pl-12 bg-white border-slate-100"
+              className="saas-input pl-12 bg-white dark:bg-dark-bg border-slate-100 dark:border-dark-border"
             />
           </div>
 
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-            <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm flex-1 md:flex-none">
-              <Filter size={14} className="text-slate-400" />
+            <div className="flex items-center space-x-2 bg-white dark:bg-dark-bg px-4 py-2 rounded-2xl border border-slate-100 dark:border-dark-border shadow-sm flex-1 md:flex-none">
+              <Filter size={14} className="text-slate-400 dark:text-slate-600" />
               <select
                 value={filterAssignee}
                 onChange={(e) => setFilterAssignee(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-600 outline-none border-none focus:ring-0 cursor-pointer"
+                className="bg-transparent text-xs font-bold text-slate-600 dark:text-dark-text outline-none border-none focus:ring-0 cursor-pointer"
               >
                 <option value="All">All Operatives</option>
                 <option value="Unassigned">Unassigned</option>
@@ -634,12 +662,12 @@ export default function TasksPage({ user }: { user: UserProfile }) {
               </select>
             </div>
 
-            <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm flex-1 md:flex-none">
-              <Flag size={14} className="text-slate-400" />
+            <div className="flex items-center space-x-2 bg-white dark:bg-dark-bg px-4 py-2 rounded-2xl border border-slate-100 dark:border-dark-border shadow-sm flex-1 md:flex-none">
+              <Flag size={14} className="text-slate-400 dark:text-slate-600" />
               <select
                 value={filterPriority}
                 onChange={(e) => setFilterPriority(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-600 outline-none border-none focus:ring-0 cursor-pointer"
+                className="bg-transparent text-xs font-bold text-slate-600 dark:text-dark-text outline-none border-none focus:ring-0 cursor-pointer"
               >
                 <option value="All">All Priority</option>
                 <option value="High">High Clearance</option>
@@ -650,7 +678,7 @@ export default function TasksPage({ user }: { user: UserProfile }) {
 
             <button 
               onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-              className="p-2.5 bg-white text-slate-600 rounded-2xl border border-slate-100 shadow-sm hover:text-brand-primary transition-all"
+              className="p-2.5 bg-white dark:bg-dark-bg text-slate-600 dark:text-dark-text rounded-2xl border border-slate-100 dark:border-dark-border shadow-sm hover:text-brand-primary transition-all"
             >
               <RefreshCcw size={18} className={sortOrder === 'asc' ? 'rotate-180' : ''} />
             </button>
@@ -669,15 +697,15 @@ export default function TasksPage({ user }: { user: UserProfile }) {
       <div className="flex flex-col lg:flex-row gap-10">
         {/* Board Area */}
         <div className="flex-1 min-w-0">
-          <div className="flex lg:hidden overflow-x-auto no-scrollbar gap-2 mb-4 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+          <div className="flex lg:hidden overflow-x-auto no-scrollbar gap-2 mb-4 bg-slate-50 dark:bg-dark-bg/50 p-1.5 rounded-2xl border border-slate-100 dark:border-dark-border">
             {taskStatuses.map((status) => (
               <button
                 key={status}
                 onClick={() => setActiveMobileColumn(status)}
                 className={`flex-1 min-w-[120px] py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${
                   activeMobileColumn === status 
-                    ? 'bg-slate-900 text-white shadow-lg' 
-                    : 'text-slate-400 hover:bg-white'
+                    ? 'bg-slate-900 dark:bg-indigo-600 text-white shadow-lg' 
+                    : 'text-slate-400 dark:text-dark-text-muted hover:bg-white dark:hover:bg-dark-surface'
                 }`}
               >
                 {status} ({filteredTasks.filter(t => t.status === status).length})
@@ -714,9 +742,26 @@ export default function TasksPage({ user }: { user: UserProfile }) {
                         />
                       ))}
                       {filteredTasks.filter(t => t.status === status).length === 0 && (
-                        <div className="text-center py-16 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
-                          <Info size={24} className="mx-auto text-slate-200 mb-2" />
-                          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Zone Clear</p>
+                        <div className="text-center py-16 border border-dashed border-slate-200 dark:border-dark-border rounded-2xl bg-slate-50/50 dark:bg-dark-bg/20">
+                          <Info size={24} className="mx-auto text-slate-200 dark:text-slate-700 mb-2" />
+                          <p className="text-slate-400 dark:text-dark-text-muted text-xs font-bold uppercase tracking-widest">Zone Clear</p>
+                        </div>
+                      )}
+
+                      {status === taskStatuses[0] && (
+                        <div className="mt-2">
+                          <form onSubmit={handleQuickAdd} className="relative group">
+                            <input
+                              type="text"
+                              placeholder="Quick add (Enter)..."
+                              value={quickTaskTitle}
+                              onChange={(e) => setQuickTaskTitle(e.target.value)}
+                              className="w-full bg-white dark:bg-dark-surface border border-slate-100 dark:border-dark-border rounded-xl px-4 py-3 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-primary outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 shadow-sm"
+                            />
+                            <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 hover:text-brand-primary transition-colors">
+                              <Plus size={14} />
+                            </button>
+                          </form>
                         </div>
                       )}
                     </div>
@@ -729,29 +774,29 @@ export default function TasksPage({ user }: { user: UserProfile }) {
 
         {/* Action/Detail Sidebar (Right Side) */}
         <div className="hidden xl:block w-80 space-y-6 shrink-0">
-          <div className="bg-[#fcfcfc] border border-slate-100 rounded-3xl p-6 shadow-sm">
+          <div className="bg-[#fcfcfc] dark:bg-dark-surface border border-slate-100 dark:border-dark-border rounded-3xl p-6 shadow-sm">
              <div className="flex items-center space-x-3 mb-6">
                 <div className="w-10 h-10 bg-brand-primary/10 text-brand-primary rounded-xl flex items-center justify-center">
                   <Clock size={20} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900">Task velocity</h3>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Team Performance</p>
+                  <h3 className="font-bold text-slate-900 dark:text-dark-text">Task velocity</h3>
+                  <p className="text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Team Performance</p>
                 </div>
              </div>
              
              <div className="space-y-4">
-                <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Operations</p>
-                   <p className="text-2xl font-bold text-slate-900">{tasks.length}</p>
+                <div className="p-4 bg-white dark:bg-dark-bg rounded-2xl border border-slate-100 dark:border-dark-border shadow-sm">
+                   <p className="text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-1">Total Operations</p>
+                   <p className="text-2xl font-bold text-slate-900 dark:text-dark-text">{tasks.length}</p>
                 </div>
-                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 shadow-sm">
-                   <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Completed</p>
-                   <p className="text-2xl font-bold text-emerald-700">{tasks.filter(t => t.status === lastStatus).length}</p>
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl border border-emerald-100 dark:border-emerald-500/20 shadow-sm">
+                   <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-1">Completed</p>
+                   <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-500">{tasks.filter(t => t.status === lastStatus).length}</p>
                 </div>
-                <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 shadow-sm">
-                   <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest mb-1">Overdue High-Value</p>
-                   <p className="text-2xl font-bold text-rose-700">
+                <div className="p-4 bg-rose-50 dark:bg-rose-500/10 rounded-2xl border border-rose-100 dark:border-rose-500/20 shadow-sm">
+                   <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-widest mb-1">Overdue High-Value</p>
+                   <p className="text-2xl font-bold text-rose-700 dark:text-rose-500">
                      {tasks.filter(t => t.priority === 'High' && t.dueDate && isPast(parseISO(t.dueDate)) && t.status !== lastStatus).length}
                    </p>
                 </div>
@@ -788,10 +833,10 @@ export default function TasksPage({ user }: { user: UserProfile }) {
           >
             <div className="flex items-center justify-between w-full md:w-auto md:border-r border-slate-700 md:pr-6">
               <div className="flex items-center space-x-3">
-                <span className="bg-blue-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
+                <span className="bg-brand-primary text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
                   {selectedTaskIds.length}
                 </span>
-                <span className="text-sm font-bold whitespace-nowrap">Selected</span>
+                <span className="text-sm font-bold whitespace-nowrap text-white">Selected</span>
               </div>
               <button 
                 onClick={() => setSelectedTaskIds([])}
