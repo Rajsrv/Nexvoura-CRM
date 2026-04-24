@@ -12,14 +12,15 @@ import {
   Trash2, Download, Search, Filter, Shield, Briefcase, ChevronRight, 
   Moon, Sun, Globe, Smartphone, User, FilePlus, ExternalLink, HardDrive,
   MapPin, UserCheck, Star, ThumbsUp, TrendingUp as TrendingUpIcon, Award,
-  Check, Bell
+  Check, Bell, DollarSign, X
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { requestService, SystemRequest } from '../services/requestService';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, parseISO, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns';
 import { logActivity } from '../services/activityService';
 
-type HRTab = 'shifts' | 'holidays' | 'documents' | 'exits' | 'attendance' | 'leave' | 'performance' | 'comms';
+type HRTab = 'shifts' | 'holidays' | 'documents' | 'exits' | 'attendance' | 'leave' | 'performance' | 'comms' | 'service';
 
 export default function HRManagementPage({ user, company }: { user: UserProfile, company: Company | null }) {
   const [activeTab, setActiveTab] = useState<HRTab>('shifts');
@@ -31,6 +32,7 @@ export default function HRManagementPage({ user, company }: { user: UserProfile,
   const [attendance, setAttendance] = useState<any[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [performanceReviews, setPerformanceReviews] = useState<any[]>([]);
+  const [serviceRequests, setServiceRequests] = useState<SystemRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
   const isAdmin = user.role === 'admin';
@@ -46,6 +48,7 @@ export default function HRManagementPage({ user, company }: { user: UserProfile,
     const attendanceQ = query(collection(db, 'attendance'), where('companyId', '==', user.companyId));
     const leaveQ = query(collection(db, 'leaveRequests'), where('companyId', '==', user.companyId));
     const perfQ = query(collection(db, 'performanceReviews'), where('companyId', '==', user.companyId));
+    const serviceQ = query(collection(db, 'serviceRequests'), where('companyId', '==', user.companyId));
 
     const unsubShifts = onSnapshot(shiftsQ, (snap) => {
       setShifts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Shift)));
@@ -71,6 +74,9 @@ export default function HRManagementPage({ user, company }: { user: UserProfile,
     const unsubPerf = onSnapshot(perfQ, (snap) => {
       setPerformanceReviews(snap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
     });
+    const unsubService = onSnapshot(serviceQ, (snap) => {
+      setServiceRequests(snap.docs.map(d => ({ id: d.id, ...d.data() } as SystemRequest)));
+    });
 
     setLoading(false);
 
@@ -83,6 +89,7 @@ export default function HRManagementPage({ user, company }: { user: UserProfile,
       unsubAttendance();
       unsubLeave();
       unsubPerf();
+      unsubService();
     };
   }, [user.companyId]);
 
@@ -105,9 +112,10 @@ export default function HRManagementPage({ user, company }: { user: UserProfile,
         </div>
 
         {/* Tab Switcher */}
-        <div className="bg-white dark:bg-dark-surface p-1.5 rounded-2xl border border-slate-100 dark:border-dark-border flex shadow-sm overflow-x-auto custom-scrollbar no-scrollbar transition-colors">
+        <div className="bg-white dark:bg-dark-surface p-1.5 rounded-2xl border border-slate-200 dark:border-dark-border flex shadow-sm overflow-x-auto custom-scrollbar no-scrollbar transition-colors">
           {[
             { id: 'attendance', label: 'Attendance', icon: UserCheck },
+            { id: 'service', label: 'Portal', icon: HardDrive },
             { id: 'leave', label: 'Leaves', icon: AlertCircle },
             { id: 'shifts', label: 'Shifts', icon: Clock },
             { id: 'holidays', label: 'Holidays', icon: CalendarIcon },
@@ -122,7 +130,7 @@ export default function HRManagementPage({ user, company }: { user: UserProfile,
               className={`flex items-center space-x-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                 activeTab === tab.id 
                   ? 'bg-slate-950 dark:bg-indigo-600 text-white shadow-lg shadow-slate-950/20 dark:shadow-indigo-500/20' 
-                  : 'text-slate-400 dark:text-dark-text-muted hover:text-slate-600 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-dark-bg'
+                  : 'text-slate-500 dark:text-dark-text-muted hover:text-slate-700 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-dark-bg'
               }`}
             >
               <tab.icon size={14} />
@@ -146,6 +154,7 @@ export default function HRManagementPage({ user, company }: { user: UserProfile,
           {activeTab === 'shifts' && <ShiftTab shifts={shifts} companyId={user.companyId} isAdmin={isAdmin} />}
           {activeTab === 'holidays' && <HolidayTab holidays={holidays} companyId={user.companyId} isAdmin={isAdmin} />}
           {activeTab === 'performance' && <PerformanceTab reviews={performanceReviews} team={team} companyId={user.companyId} isAdmin={isAdmin} user={user} />}
+          {activeTab === 'service' && <ServiceRequestTab requests={serviceRequests} isAdmin={isAdmin} />}
           {activeTab === 'comms' && isAdmin && <CommsTab team={team} user={user} />}
           {activeTab === 'documents' && <DocumentTab documents={documents} team={team} companyId={user.companyId} isAdmin={isAdmin} />}
           {activeTab === 'exits' && <ExitTab exits={exits} team={team} companyId={user.companyId} isAdmin={isAdmin} />}
@@ -214,18 +223,18 @@ function CommsTab({ team, user }: { team: UserProfile[], user: UserProfile }) {
         </div>
       </div>
 
-      <form onSubmit={handleBroadcast} className="bg-white dark:bg-dark-surface p-12 rounded-[48px] border border-slate-100 dark:border-dark-border shadow-2xl dark:shadow-none space-y-8 relative overflow-hidden transition-colors">
+      <form onSubmit={handleBroadcast} className="bg-white dark:bg-dark-surface p-12 rounded-[48px] border border-slate-200 dark:border-dark-border shadow-2xl dark:shadow-none space-y-8 relative overflow-hidden transition-colors">
         <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none text-slate-900 dark:text-white">
           <Globe size={180} />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
           <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Target Phalanx</label>
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1 italic">Target Phalanx</label>
             <select 
               value={broadcast.target} 
               onChange={e => setBroadcast({...broadcast, target: e.target.value})}
-              className="w-full p-5 bg-slate-50 dark:bg-dark-bg rounded-3xl border border-slate-100 dark:border-dark-border font-black text-xs uppercase outline-none focus:ring-4 focus:ring-blue-100 dark:focus:ring-indigo-500/20 transition-all shadow-inner text-slate-900 dark:text-white"
+              className="w-full p-5 bg-slate-100/50 dark:bg-dark-bg rounded-3xl border border-slate-200 dark:border-dark-border font-black text-xs uppercase outline-none focus:ring-4 focus:ring-blue-100 dark:focus:ring-indigo-500/20 transition-all shadow-inner text-slate-900 dark:text-white"
             >
               <option value="all" className="dark:bg-dark-surface">Entire Workforce (All)</option>
               <optgroup label="Role-Based Commands" className="dark:bg-dark-surface">
@@ -256,23 +265,23 @@ function CommsTab({ team, user }: { team: UserProfile[], user: UserProfile }) {
         </div>
 
         <div className="space-y-2 relative z-10">
-          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Directive Objective (Title)</label>
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1 italic">Directive Objective (Title)</label>
           <input 
             type="text" 
             value={broadcast.title}
             onChange={e => setBroadcast({...broadcast, title: e.target.value})}
             placeholder="SYSTEM COMMAND / EMERGENCY PROTOCOL..."
-            className="w-full p-5 bg-slate-50 dark:bg-dark-bg rounded-3xl border border-slate-100 dark:border-dark-border font-black text-sm italic outline-none focus:ring-4 focus:ring-blue-100 dark:focus:ring-indigo-500/20 transition-all shadow-inner text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600"
+            className="w-full p-5 bg-slate-100/50 dark:bg-dark-bg rounded-3xl border border-slate-200 dark:border-dark-border font-black text-sm italic outline-none focus:ring-4 focus:ring-blue-100 dark:focus:ring-indigo-500/20 transition-all shadow-inner text-slate-900 dark:text-white placeholder:text-slate-500/60 dark:placeholder:text-slate-600"
           />
         </div>
 
         <div className="space-y-2 relative z-10">
-          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Tactical Brief (Message)</label>
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1 italic">Tactical Brief (Message)</label>
           <textarea 
             value={broadcast.message}
             onChange={e => setBroadcast({...broadcast, message: e.target.value})}
             placeholder="Detailed instructions for the taskforce..."
-            className="w-full p-6 bg-slate-50 dark:bg-dark-bg rounded-[32px] border border-slate-100 dark:border-dark-border font-medium text-slate-600 dark:text-dark-text-muted italic text-sm outline-none focus:ring-4 focus:ring-blue-100 dark:focus:ring-indigo-500/20 transition-all min-h-[160px] shadow-inner"
+            className="w-full p-6 bg-slate-100/50 dark:bg-dark-bg rounded-[32px] border border-slate-200 dark:border-dark-border font-medium text-slate-700 dark:text-dark-text-muted italic text-sm outline-none focus:ring-4 focus:ring-blue-100 dark:focus:ring-indigo-500/20 transition-all min-h-[160px] shadow-inner"
           />
         </div>
 
@@ -284,6 +293,84 @@ function CommsTab({ team, user }: { team: UserProfile[], user: UserProfile }) {
           {loading ? 'TRANSMITTING...' : 'INITIATE BROADCAST'}
         </button>
       </form>
+    </div>
+  );
+}
+
+function ServiceRequestTab({ requests, isAdmin }: { requests: SystemRequest[], isAdmin: boolean }) {
+  const handleAction = async (id: string, status: SystemRequest['status']) => {
+    try {
+      await requestService.updateRequestStatus(id, status);
+      toast.success(`Directive synchronized: ${status.toLowerCase()}`);
+    } catch (err) {
+      toast.error('Failed to update system state');
+    }
+  };
+
+  return (
+    <div className="saas-card p-10 space-y-10 animate-in fade-in slide-in-from-bottom-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-3xl font-black italic text-slate-950 dark:text-white tracking-tighter uppercase">Portal Transactions</h3>
+          <p className="text-slate-400 dark:text-dark-text-muted text-[10px] font-black uppercase tracking-[0.2em] mt-1 italic">Operative Service Requests</p>
+        </div>
+        <div className="px-5 py-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl border border-indigo-100 dark:border-indigo-500/20">
+          <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{requests.filter(r => r.status === 'PENDING').length} Actionable</span>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {requests.length === 0 ? (
+          <div className="py-32 text-center bg-slate-100/30 dark:bg-dark-bg/50 rounded-[40px] border-2 border-dashed border-slate-200 dark:border-dark-border">
+            <p className="text-sm font-black text-slate-400 uppercase tracking-[0.3em] italic leading-loose">Digital queue is clear</p>
+          </div>
+        ) : (
+          requests.sort((a,b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)).map((req) => (
+            <div key={req.id} className="flex flex-col md:flex-row md:items-center justify-between p-8 bg-white dark:bg-dark-surface border border-slate-200 dark:border-dark-border rounded-[32px] group hover:border-indigo-200 dark:hover:border-indigo-500/50 transition-all shadow-sm">
+              <div className="flex items-center space-x-6 mb-6 md:mb-0">
+                <div className="w-16 h-16 rounded-[24px] bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 shadow-inner shrink-0">
+                  {req.type === 'LEAVE' && <CalendarIcon size={24} />}
+                  {req.type === 'SALARY_SLIP' && <DollarSign size={24} />}
+                  {req.type === 'DOCUMENT' && <FileText size={24} />}
+                  {req.type === 'PROFILE_CHANGE' && <User size={24} />}
+                </div>
+                <div>
+                  <div className="flex items-center space-x-3 mb-1">
+                    <h4 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight leading-none">{req.userName}</h4>
+                    <span className="px-3 py-1 bg-slate-100 dark:bg-dark-bg text-[10px] font-black text-slate-500 uppercase tracking-widest rounded-full">{req.type}</span>
+                  </div>
+                  <p className="text-xs font-medium text-slate-500 dark:text-dark-text-muted mt-1 max-w-xl italic leading-relaxed">
+                    {req.type === 'LEAVE' ? `${req.details.reason} (${req.details.startDate} → ${req.details.endDate})` : 
+                     req.type === 'SALARY_SLIP' ? `Requesting Payroll Slip for ${req.details.month}` :
+                     req.type === 'DOCUMENT' ? `System Upload: ${req.details.documentType}` :
+                     'Credential / Profile Identity Update'}
+                  </p>
+                  <div className="flex items-center space-x-4 mt-3">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none">
+                      {req.createdAt?.toDate ? req.createdAt.toDate().toLocaleDateString() : 'Active Transmission'}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest leading-none ${
+                        req.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                        req.status === 'REJECTED' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
+                        'bg-amber-50 text-amber-600 border border-amber-100'
+                    }`}>
+                      {req.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {req.status === 'PENDING' && isAdmin && (
+                <div className="flex items-center space-x-2">
+                  <button onClick={() => handleAction(req.id!, 'APPROVED')} className="p-4 bg-emerald-500 text-white rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-emerald-500/20"><Check size={20} /></button>
+                  <button onClick={() => handleAction(req.id!, 'PROCESSING')} className="p-4 bg-amber-500 text-white rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-amber-500/20"><Clock size={20} /></button>
+                  <button onClick={() => handleAction(req.id!, 'REJECTED')} className="p-4 bg-rose-500 text-white rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-rose-500/20"><X size={20} /></button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
@@ -388,22 +475,22 @@ function AttendanceTab({ attendance, user, companyId, isAdmin, team }: { attenda
             </div>
             <div className="relative z-10">
                <h3 className="text-3xl font-black italic mb-2 tracking-tighter">My Presence</h3>
-               <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-8">Personal Timekeeping</p>
+               <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-8">Personal Timekeeping</p>
                
                <div className="space-y-4 mb-10">
-                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
-                     <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">Current Date</span>
+                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10">
+                     <span className="text-[10px] font-black uppercase text-slate-500">Current Date</span>
                      <span className="text-sm font-bold italic">{format(new Date(), 'MMMM dd, yyyy')}</span>
                   </div>
                   {todayRecord?.checkIn && (
-                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
-                      <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">Check-in</span>
+                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10">
+                      <span className="text-[10px] font-black uppercase text-slate-500">Check-in</span>
                       <span className="text-sm font-bold italic text-blue-400 dark:text-indigo-400">{format(parseDate(todayRecord.checkIn), 'HH:mm:ss')}</span>
                     </div>
                   )}
                   {todayRecord?.location && (
-                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
-                      <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">Location Auth</span>
+                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10">
+                      <span className="text-[10px] font-black uppercase text-slate-500">Location Auth</span>
                       <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{todayRecord.location.lat.toFixed(4)}, {todayRecord.location.lng.toFixed(4)}</span>
                     </div>
                   )}
@@ -433,18 +520,18 @@ function AttendanceTab({ attendance, user, companyId, isAdmin, team }: { attenda
             </div>
           </div>
 
-          <div className="bg-white dark:bg-dark-surface p-8 rounded-[40px] border border-slate-100 dark:border-dark-border shadow-sm transition-colors">
-             <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6">Daily Snapshot ({format(parseDate(selectedDate), 'MMM dd')})</h4>
+          <div className="bg-white dark:bg-dark-surface p-8 rounded-[40px] border border-slate-200 dark:border-dark-border shadow-sm transition-colors">
+             <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-6 italic">Daily Snapshot ({format(parseDate(selectedDate), 'MMM dd')})</h4>
              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-emerald-50 dark:bg-emerald-500/10 p-4 rounded-2xl text-center">
+                <div className="bg-emerald-50 dark:bg-emerald-500/10 p-4 rounded-2xl text-center border border-emerald-100/50 dark:border-transparent">
                    <p className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase mb-1">Present</p>
                    <p className="text-xl font-black text-emerald-700 dark:text-emerald-500 leading-none">{presentCount}</p>
                 </div>
-                <div className="bg-amber-50 dark:bg-amber-500/10 p-4 rounded-2xl text-center">
+                <div className="bg-amber-50 dark:bg-amber-500/10 p-4 rounded-2xl text-center border border-amber-100/50 dark:border-transparent">
                    <p className="text-[8px] font-black text-amber-600 dark:text-amber-400 uppercase mb-1">Late</p>
                    <p className="text-xl font-black text-amber-700 dark:text-amber-500 leading-none">{lateCount}</p>
                 </div>
-                <div className="bg-rose-50 dark:bg-rose-500/10 p-4 rounded-2xl text-center">
+                <div className="bg-rose-50 dark:bg-rose-500/10 p-4 rounded-2xl text-center border border-rose-100/50 dark:border-transparent">
                    <p className="text-[8px] font-black text-rose-600 dark:text-rose-400 uppercase mb-1">Absent</p>
                    <p className="text-xl font-black text-rose-700 dark:text-rose-500 leading-none">{absentCount}</p>
                 </div>
@@ -469,9 +556,9 @@ function AttendanceTab({ attendance, user, companyId, isAdmin, team }: { attenda
             </div>
           </div>
 
-          <div className="table-container">
+          <div className="table-container shadow-xl shadow-slate-200/50 dark:shadow-none">
              <table className="w-full text-left">
-                <thead className="bg-slate-50/50 dark:bg-dark-bg/50 text-[10px] font-black uppercase tracking-widest text-slate-400 border-b dark:border-dark-border">
+                <thead className="bg-slate-100/50 dark:bg-dark-bg/50 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-200 dark:border-dark-border">
                   <tr>
                     <th className="px-8 py-5">Personnel</th>
                     <th className="px-8 py-5">Check In/Out</th>
@@ -479,16 +566,16 @@ function AttendanceTab({ attendance, user, companyId, isAdmin, team }: { attenda
                     {isAdmin && <th className="px-8 py-5 text-right">Actions</th>}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50 dark:divide-dark-border">
+                <tbody className="divide-y divide-slate-100 dark:divide-dark-border">
                   {team.map(member => {
                     const record = filteredAttendance.find(a => a.employeeId === member.uid);
                     return (
-                      <tr key={member.uid} className="hover:bg-slate-50/30 dark:hover:bg-white/5 transition-colors group">
+                      <tr key={member.uid} className="hover:bg-slate-100/30 dark:hover:bg-white/5 transition-colors group">
                          <td className="px-8 py-6">
                             <div className="flex items-center space-x-3">
-                               <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-dark-bg flex items-center justify-center border border-white dark:border-dark-border overflow-hidden shadow-sm">
-                                 {member.photoURL ? <img src={member.photoURL} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" /> : <span className="text-[10px] font-black text-slate-400 dark:text-dark-text-muted">{member.name[0]}</span>}
-                               </div>
+          <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-dark-bg flex items-center justify-center border border-white dark:border-dark-border overflow-hidden shadow-sm">
+            {member.photoURL ? <img src={member.photoURL} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" /> : <span className="text-[10px] font-black text-slate-500 dark:text-dark-text-muted">{member.name[0]}</span>}
+          </div>
                                <div>
                                   <p className="text-xs font-black text-slate-950 dark:text-white uppercase leading-none mb-1">{member.name}</p>
                                   <p className="text-[8px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">{member.department || 'General'}</p>
@@ -605,10 +692,10 @@ function LeaveTab({ requests, user, companyId, isAdmin, team }: { requests: any[
     <div className="space-y-10">
       <div className="flex justify-between items-end">
          <div>
-            <h3 className="text-3xl font-black italic text-slate-950 tracking-tighter">Time Off Management</h3>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em] mt-1">Resource Availability Pipeline</p>
+            <h3 className="text-3xl font-black italic text-slate-900 tracking-tighter uppercase leading-none">Time Off Management</h3>
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em] mt-1">Resource Availability Pipeline</p>
          </div>
-         <button onClick={() => setShowApply(true)} className="bg-slate-950 dark:bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-slate-950/20 dark:shadow-none flex items-center space-x-2">
+         <button onClick={() => setShowApply(true)} className="bg-slate-900 dark:bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-slate-200/50 dark:shadow-none flex items-center space-x-2 hover:bg-black transition-all">
             <Plus size={16} />
             <span>Request Break</span>
          </button>
@@ -618,15 +705,15 @@ function LeaveTab({ requests, user, companyId, isAdmin, team }: { requests: any[
         {requests.sort((a,b) => b.createdAt.localeCompare(a.createdAt)).map(req => {
           const requester = team.find(t => t.uid === req.employeeId);
           return (
-            <div key={req.id} className="bg-white dark:bg-dark-surface p-8 rounded-[40px] border border-slate-100 dark:border-dark-border shadow-sm hover:shadow-md transition-all transition-colors">
+            <div key={req.id} className="bg-white dark:bg-dark-surface p-8 rounded-[40px] border border-slate-200 dark:border-dark-border shadow-sm hover:shadow-md transition-all transition-colors">
                <div className="flex justify-between items-start mb-6">
                   <div className="flex items-center space-x-4">
-                     <div className="w-12 h-12 bg-slate-50 dark:bg-dark-bg rounded-2xl flex items-center justify-center border border-slate-100 dark:border-dark-border overflow-hidden">
-                        {requester?.photoURL ? <img src={requester.photoURL} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" /> : <User className="text-slate-300" />}
+                     <div className="w-12 h-12 bg-slate-100 dark:bg-dark-bg rounded-2xl flex items-center justify-center border border-slate-200 dark:border-dark-border overflow-hidden">
+                        {requester?.photoURL ? <img src={requester.photoURL} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" /> : <User className="text-slate-400" />}
                      </div>
                      <div>
-                        <h4 className="font-black text-slate-950 uppercase tracking-tight">{requester?.name || 'Unknown'}</h4>
-                        <p className="text-slate-400 text-[9px] font-black uppercase tracking-widest">{req.type} Strategy</p>
+                        <h4 className="font-black text-slate-900 uppercase tracking-tight">{requester?.name || 'Unknown'}</h4>
+                        <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">{req.type} Strategy</p>
                      </div>
                   </div>
                   <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-[0.2em] ${
@@ -637,15 +724,15 @@ function LeaveTab({ requests, user, companyId, isAdmin, team }: { requests: any[
                   </span>
                </div>
 
-               <div className="bg-slate-50 dark:bg-dark-bg p-6 rounded-3xl border border-slate-100 dark:border-dark-border mb-6 flex justify-between items-center transition-colors">
+               <div className="bg-slate-100/50 dark:bg-dark-bg p-6 rounded-3xl border border-slate-200 dark:border-dark-border mb-6 flex justify-between items-center transition-colors">
                   <div className="text-center flex-1">
-                     <p className="text-[8px] font-black uppercase text-slate-400 mb-1">Depart</p>
-                     <p className="font-black italic text-slate-950 dark:text-white text-sm uppercase">{format(parseDate(req.startDate), 'MMM dd')}</p>
+                     <p className="text-[8px] font-black uppercase text-slate-500 mb-1">Depart</p>
+                     <p className="font-black italic text-slate-900 dark:text-white text-sm uppercase">{format(parseDate(req.startDate), 'MMM dd')}</p>
                   </div>
                   <div className="h-8 w-px bg-slate-200" />
                   <div className="text-center flex-1">
-                     <p className="text-[8px] font-black uppercase text-slate-400 mb-1">Return</p>
-                     <p className="font-black italic text-slate-950 dark:text-white text-sm uppercase">{format(parseDate(req.endDate), 'MMM dd')}</p>
+                     <p className="text-[8px] font-black uppercase text-slate-500 mb-1">Return</p>
+                     <p className="font-black italic text-slate-900 dark:text-white text-sm uppercase">{format(parseDate(req.endDate), 'MMM dd')}</p>
                   </div>
                </div>
 
@@ -1124,16 +1211,29 @@ function HolidayTab({ holidays, companyId, isAdmin }: { holidays: Holiday[], com
                         <div className="text-sm font-black text-slate-900 dark:text-white uppercase">{h.name}</div>
                       </td>
                       <td className="px-8 py-6">
-                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                          h.type === 'Public' ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-500/20' :
-                          h.type === 'Company' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-500/20' : 'bg-slate-50 dark:bg-dark-bg text-slate-400 dark:text-dark-text-muted border border-slate-100 dark:border-dark-border'
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${
+                          h.type === 'Public' ? 'bg-indigo-50 dark:bg-blue-500/10 text-indigo-700 dark:text-blue-400 border-indigo-100 dark:border-blue-500/20 shadow-sm shadow-indigo-100' :
+                          h.type === 'Company' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-500/20 shadow-sm shadow-amber-100' : 
+                          'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20 shadow-sm shadow-emerald-100'
                         }`}>
                           {h.type}
                         </span>
                       </td>
                       <td className="px-8 py-6 text-right">
                          {isAdmin && (
-                           <button onClick={() => deleteDoc(doc(db, 'holidays', h.id))} className="text-slate-300 hover:text-rose-600 transition-colors p-2">
+                           <button 
+                            onClick={async () => {
+                              if (window.confirm('Terminate this holiday directive? This action is irreversible.')) {
+                                try {
+                                  await deleteDoc(doc(db, 'holidays', h.id));
+                                  toast.success('Holiday directive purged');
+                                } catch (e) {
+                                  toast.error('Purge failed');
+                                }
+                              }
+                            }} 
+                            className="text-slate-300 hover:text-rose-600 transition-colors p-2 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl"
+                           >
                              <Trash2 size={16} />
                            </button>
                          )}

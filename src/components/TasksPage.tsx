@@ -85,7 +85,7 @@ function DraggableTaskCard({ user, task, leads, team, deleteTask, toggleStatus, 
       {...attributes}
       onClick={() => onOpenDetail(task)}
       className={`bg-white dark:bg-dark-surface p-5 rounded-2xl border transition-all group relative cursor-pointer active:cursor-grabbing hover:shadow-xl hover:shadow-slate-200/50 dark:hover:shadow-none ${
-        isSelected ? 'border-brand-primary ring-4 ring-brand-primary/5 shadow-xl shadow-brand-primary/10' : 'border-slate-100 dark:border-dark-border shadow-sm'
+        isSelected ? 'border-brand-primary ring-4 ring-brand-primary/5 shadow-xl shadow-brand-primary/10' : 'border-slate-200 dark:border-dark-border shadow-sm'
       }`}
     >
       <div className="flex justify-between items-start mb-3">
@@ -130,7 +130,7 @@ function DraggableTaskCard({ user, task, leads, team, deleteTask, toggleStatus, 
       
       {/* Subtasks Summary */}
       {totalSubtasks > 0 && (
-        <div className="mb-4 bg-slate-50 dark:bg-dark-bg/50 p-2.5 rounded-xl border border-slate-100/50 dark:border-dark-border">
+        <div className="mb-4 bg-slate-100/50 dark:bg-dark-bg/50 p-2.5 rounded-xl border border-slate-200/50 dark:border-dark-border">
            <div className="flex justify-between items-center mb-1.5">
              <div className="flex items-center space-x-1.5">
                 <CheckCircle2 size={12} className="text-emerald-500" />
@@ -195,7 +195,7 @@ function DroppableColumn({ status, children, count }: { status: string, children
   return (
     <div 
       ref={setNodeRef}
-      className={`flex flex-col h-full min-h-[500px] rounded-[24px] p-5 transition-all duration-300 bg-slate-50/50 dark:bg-dark-bg/30 border border-slate-100 dark:border-dark-border ${
+      className={`flex flex-col h-full min-h-[500px] rounded-[24px] p-5 transition-all duration-300 bg-slate-100/30 dark:bg-dark-bg/30 border border-slate-200 dark:border-dark-border ${
         isOver ? 'bg-brand-primary/5 dark:bg-brand-primary/10 border-brand-primary border-dashed scale-[0.99]' : ''
       }`}
     >

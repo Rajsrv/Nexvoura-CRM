@@ -287,20 +287,20 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
           <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-blue-600/20 rounded-full blur-3xl" />
         </div>
 
-        <div className="bg-white dark:bg-dark-surface p-8 rounded-[40px] border border-slate-100 dark:border-dark-border shadow-sm space-y-6 transition-colors">
-          <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Parameter Selection</h4>
+        <div className="bg-white dark:bg-dark-surface p-8 rounded-[40px] border border-slate-200 dark:border-dark-border shadow-sm space-y-6 transition-colors">
+          <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dark-text-muted">Parameter Selection</h4>
           {viewMode === 'monthly' ? (
             <input 
               type="month" 
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl font-black text-xs uppercase tracking-widest outline-none focus:ring-2 focus:ring-blue-500 transition-all text-slate-900 dark:text-white"
+              className="w-full p-4 bg-slate-100/50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl font-black text-xs uppercase tracking-widest outline-none focus:ring-2 focus:ring-blue-500 transition-all text-slate-900 dark:text-white"
             />
           ) : (
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl font-black text-xs uppercase tracking-widest outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer text-slate-900 dark:text-white"
+              className="w-full p-4 bg-slate-100/50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl font-black text-xs uppercase tracking-widest outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer text-slate-900 dark:text-white"
             >
               {[2024, 2025, 2026, 2027].map(y => (
                 <option key={y} value={y.toString()} className="dark:bg-dark-surface">{y} Strategy</option>
@@ -312,7 +312,7 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
             <button 
               disabled={loading}
               onClick={handleGeneratePayroll}
-              className="w-full group flex items-center justify-between bg-slate-100 dark:bg-dark-bg text-slate-950 dark:text-white p-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 dark:hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+              className="w-full group flex items-center justify-between bg-slate-900 dark:bg-dark-bg text-white dark:text-white p-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 dark:hover:bg-indigo-600 transition-all shadow-sm"
             >
               <span>Auto-Gen Records</span>
               <Plus size={16} />
@@ -338,55 +338,55 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
               logActivity(user, 'DATA_EXPORT', `Generated financial report for ${viewMode === 'monthly' ? selectedMonth : selectedYear}`);
               toast.success('Report generation initiated');
             }}
-            className="flex items-center space-x-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dark-text-muted hover:text-slate-950 dark:hover:text-white transition-colors w-fit group"
+            className="flex items-center space-x-2 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dark-text-muted hover:text-slate-950 dark:hover:text-white transition-colors w-fit group italic"
           >
             <Download size={16} className="group-hover:-translate-y-1 transition-transform" />
             <span>Generate Report</span>
           </button>
         </div>
 
-        <div className="table-container">
+        <div className="table-container shadow-xl shadow-slate-200/50 dark:shadow-none">
           {(viewMode === 'monthly' ? payroll : yearlyData).length > 0 ? (
             <div className="overflow-x-auto custom-scrollbar">
               <table className="w-full text-left border-collapse min-w-[800px]">
-                <thead className="bg-slate-50/80 dark:bg-dark-bg/80 border-b border-slate-100 dark:border-dark-border italic">
+                <thead className="bg-slate-100/80 dark:bg-dark-bg/80 border-b border-slate-200 dark:border-dark-border italic">
                   <tr>
-                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Employee</th>
-                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">{viewMode === 'monthly' ? 'Salary Profile' : 'Yearly Base'}</th>
-                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Adjustments</th>
-                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">{viewMode === 'monthly' ? 'Tax' : 'Net Total'}</th>
-                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">{viewMode === 'monthly' ? 'Net Payable' : 'Cycles'}</th>
-                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Status</th>
-                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-400 dark:text-dark-text-muted uppercase tracking-widest text-right">Action</th>
+                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-500 dark:text-dark-text-muted uppercase tracking-[0.1em]">Employee</th>
+                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-500 dark:text-dark-text-muted uppercase tracking-[0.1em]">{viewMode === 'monthly' ? 'Salary Profile' : 'Yearly Base'}</th>
+                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-500 dark:text-dark-text-muted uppercase tracking-[0.1em]">Adjustments</th>
+                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-500 dark:text-dark-text-muted uppercase tracking-[0.1em]">{viewMode === 'monthly' ? 'Tax' : 'Net Total'}</th>
+                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-500 dark:text-dark-text-muted uppercase tracking-[0.1em]">{viewMode === 'monthly' ? 'Net Payable' : 'Cycles'}</th>
+                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-500 dark:text-dark-text-muted uppercase tracking-[0.1em]">Status</th>
+                    <th className="px-8 py-5 text-[10px] font-black font-display text-slate-500 dark:text-dark-text-muted uppercase tracking-[0.1em] text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50 dark:divide-dark-border">
+                <tbody className="divide-y divide-slate-100 dark:divide-dark-border">
                   {viewMode === 'monthly' ? (
                     payroll.map((rec) => (
-                      <tr key={rec.id} className="group hover:bg-slate-50/30 dark:hover:bg-dark-bg/30 transition-colors">
+                      <tr key={rec.id} className="group hover:bg-slate-50 dark:hover:bg-dark-bg/30 transition-colors">
                         <td className="px-8 py-6">
-                          <div className="font-black text-slate-950 dark:text-white uppercase text-xs tracking-tight">{rec.employeeName}</div>
+                          <div className="font-black text-slate-900 dark:text-white uppercase text-xs tracking-tight">{rec.employeeName}</div>
                         </td>
                         <td className="px-8 py-6">
-                          <div className="text-xs font-bold text-slate-500 dark:text-dark-text-muted">{company?.currency || '$'}{rec.baseSalary.toLocaleString()}</div>
+                          <div className="text-xs font-bold text-slate-600 dark:text-dark-text-muted">{company?.currency || '$'}{rec.baseSalary.toLocaleString()}</div>
                         </td>
                         <td className="px-8 py-6">
                           <button 
                             onClick={() => setAdjustingRecord(rec)}
-                            className="flex items-center space-x-2 px-3 py-1.5 bg-slate-100 dark:bg-dark-bg hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all text-slate-900 dark:text-white"
+                            className="flex items-center space-x-2 px-3 py-1.5 bg-slate-100 dark:bg-dark-bg hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all text-slate-900 dark:text-white border border-slate-200 dark:border-dark-border"
                           >
                              <span>{company?.currency || '$'}{((rec.bonus || 0) - (rec.deductions || rec.deduction || 0)).toLocaleString()} Adjust.</span>
                           </button>
                         </td>
                         <td className="px-8 py-6">
-                          <div className="text-xs font-bold text-rose-500 italic">-{company?.currency || '$'}{(rec.taxAmount || 0).toLocaleString()}</div>
+                          <div className="text-xs font-black text-rose-500 italic">-{company?.currency || '$'}{(rec.taxAmount || 0).toLocaleString()}</div>
                         </td>
                         <td className="px-8 py-6">
-                          <div className="text-xs font-black text-slate-950 dark:text-white">{company?.currency || '$'}{(rec.netSalary || rec.totalAmount).toLocaleString()}</div>
+                          <div className="text-xs font-black text-slate-900 dark:text-white">{company?.currency || '$'}{(rec.netSalary || rec.totalAmount).toLocaleString()}</div>
                         </td>
                         <td className="px-8 py-6">
                           <div className={`inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                            rec.status === 'Paid' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20' : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/20'
+                            rec.status === 'Paid' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20 shadow-sm' : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/20 shadow-sm'
                           }`}>
                             {rec.status}
                           </div>
@@ -394,24 +394,24 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
                         <td className="px-8 py-6 text-right whitespace-nowrap">
                           <div className="flex justify-end items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                              <button
-                               onClick={() => setViewingPayslip(rec)}
-                               className="p-2 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-600 hover:text-white transition-all border border-blue-100 dark:border-blue-500/20"
-                               title="View Payslip"
+                                onClick={() => setViewingPayslip(rec)}
+                                className="p-2 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-600 hover:text-white transition-all border border-blue-200 dark:border-blue-500/20 shadow-sm"
+                                title="View Payslip"
                              >
                                 <Eye size={16} />
                              </button>
                              <button 
-                               onClick={() => updateStatus(rec.id, rec.status === 'Paid' ? 'Pending' : 'Paid')}
-                               className={`p-2 rounded-xl border transition-all ${
-                                 rec.status === 'Paid' ? 'bg-slate-50 dark:bg-dark-bg border-slate-100 dark:border-dark-border text-slate-400 dark:text-dark-text-muted' : 'bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-500/20'
-                               }`}
-                               title={rec.status === 'Paid' ? 'Revoke Payment' : 'Mark as Paid'}
+                                onClick={() => updateStatus(rec.id, rec.status === 'Paid' ? 'Pending' : 'Paid')}
+                                className={`p-2 rounded-xl border transition-all shadow-sm ${
+                                  rec.status === 'Paid' ? 'bg-white dark:bg-dark-bg border-slate-200 dark:border-dark-border text-slate-400 dark:text-dark-text-muted hover:bg-slate-50' : 'bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                                }`}
+                                title={rec.status === 'Paid' ? 'Revoke Payment' : 'Mark as Paid'}
                              >
                                 {rec.status === 'Paid' ? <X size={16} /> : <Check size={16} />}
                              </button>
                              <button 
-                               onClick={() => deleteRecord(rec.id)}
-                               className="p-2 bg-white dark:bg-dark-surface border border-slate-100 dark:border-dark-border text-slate-300 dark:text-dark-text-muted hover:text-rose-600 hover:border-rose-100 dark:hover:border-rose-500/50 rounded-xl transition-all"
+                                onClick={() => deleteRecord(rec.id)}
+                                className="p-2 bg-white dark:bg-dark-surface border border-slate-200 dark:border-dark-border text-slate-400 dark:text-dark-text-muted hover:text-rose-600 hover:border-rose-200 dark:hover:border-rose-500/50 rounded-xl transition-all shadow-sm"
                              >
                                 <Trash2 size={16} />
                              </button>
@@ -421,28 +421,28 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
                     ))
                   ) : (
                     yearlyData.map((data) => (
-                      <tr key={data.employeeId} className="group hover:bg-slate-50/30 dark:hover:bg-dark-bg/30 transition-colors">
+                      <tr key={data.employeeId} className="group hover:bg-slate-50 dark:hover:bg-dark-bg/30 transition-colors">
                         <td className="px-8 py-6">
-                          <div className="font-black text-slate-950 dark:text-white uppercase text-xs tracking-tight">{data.employeeName}</div>
+                          <div className="font-black text-slate-900 dark:text-white uppercase text-xs tracking-tight">{data.employeeName}</div>
                         </td>
                         <td className="px-8 py-6">
-                          <div className="text-xs font-bold text-slate-500 dark:text-dark-text-muted">{company?.currency || '$'}{data.totalBase.toLocaleString()}</div>
+                          <div className="text-xs font-bold text-slate-600 dark:text-dark-text-muted">{company?.currency || '$'}{data.totalBase.toLocaleString()}</div>
                         </td>
                         <td className="px-8 py-6">
-                          <div className="inline-flex items-center space-x-2 px-3 py-1.5 bg-slate-100 dark:bg-dark-bg rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-900 dark:text-white">
+                          <div className="inline-flex items-center space-x-2 px-3 py-1.5 bg-slate-100 dark:bg-dark-bg rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-900 dark:text-white border border-slate-200 dark:border-dark-border">
                              <span>{company?.currency || '$'}{(data.totalBonus - data.totalDeduction).toLocaleString()} Net Adj.</span>
                           </div>
                         </td>
                         <td className="px-8 py-6">
-                          <div className="text-xs font-black text-slate-950 dark:text-white">{company?.currency || '$'}{data.totalNet.toLocaleString()}</div>
+                          <div className="text-xs font-black text-slate-900 dark:text-white">{company?.currency || '$'}{data.totalNet.toLocaleString()}</div>
                         </td>
-                        <td className="px-8 py-6 text-xs text-slate-400 dark:text-dark-text-muted font-bold uppercase tracking-widest">
+                        <td className="px-8 py-6 text-xs text-slate-500 dark:text-dark-text-muted font-bold uppercase tracking-widest">
                           {data.months.length} Months
                         </td>
                         <td className="px-8 py-6 text-right whitespace-nowrap">
                           <button 
                             onClick={() => setShowBreakdown(data.employeeId)}
-                            className="bg-slate-950 dark:bg-indigo-600 text-white text-[10px] font-black uppercase tracking-[0.2em] px-4 py-2.5 rounded-xl hover:bg-blue-600 dark:hover:bg-indigo-700 transition-all flex items-center space-x-2 ml-auto"
+                            className="bg-slate-900 dark:bg-indigo-600 text-white text-[10px] font-black uppercase tracking-[0.2em] px-4 py-2.5 rounded-xl hover:bg-blue-600 dark:hover:bg-indigo-700 transition-all flex items-center space-x-2 ml-auto shadow-lg shadow-slate-900/10 dark:shadow-none"
                           >
                              <span>Breakdown</span>
                              <BarChart3 size={14} />
@@ -456,11 +456,11 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
             </div>
           ) : (
             <div className="text-center py-40">
-               <div className="w-20 h-20 bg-slate-50 dark:bg-dark-bg rounded-3xl flex items-center justify-center mx-auto mb-6 text-slate-200 dark:text-slate-700 border border-slate-100 dark:border-dark-border transition-colors">
+               <div className="w-20 h-20 bg-slate-100 dark:bg-dark-bg rounded-3xl flex items-center justify-center mx-auto mb-6 text-slate-400 dark:text-slate-700 border border-slate-200 dark:border-dark-border transition-colors">
                   <Wallet size={36} />
                </div>
                <h4 className="text-slate-950 dark:text-white font-black italic text-xl tracking-tight">No Records Initialized</h4>
-               <p className="text-slate-400 dark:text-dark-text-muted text-xs font-bold uppercase tracking-widest mt-2">
+               <p className="text-slate-500 dark:text-dark-text-muted text-[10px] font-black uppercase tracking-[0.2em] mt-2 opacity-60">
                  {viewMode === 'monthly' ? 'Use Auto-Gen to create monthly payroll cycles.' : `No data found for the year ${selectedYear}.`}
                </p>
             </div>
@@ -596,33 +596,33 @@ function PayslipModal({ record, company, employees, onClose }: {
             <div className="flex justify-between items-start border-b-4 border-slate-950 dark:border-white pb-8 mb-8">
               <div>
                 <h1 className="text-2xl font-black italic uppercase tracking-tighter text-blue-600 dark:text-indigo-400">{company?.name || 'Nexus Agency'}</h1>
-                <p className="text-[10px] font-bold text-slate-400 dark:text-dark-text-muted mt-1 uppercase tracking-widest shrink-0">Corporate Financial Document</p>
+                <p className="text-[10px] font-black text-slate-500 dark:text-dark-text-muted mt-1 uppercase tracking-widest shrink-0 italic">Corporate Financial Document</p>
               </div>
               <div className="text-right">
-                <p className="text-lg font-black italic uppercase tracking-tighter">Payslip</p>
-                <p className="text-xs font-bold text-slate-500 dark:text-dark-text-muted">{format(parseISO(record.month + '-01'), 'MMMM yyyy')}</p>
+                <p className="text-lg font-black italic uppercase tracking-tighter text-slate-950 dark:text-white">Payslip</p>
+                <p className="text-xs font-black text-slate-600 dark:text-dark-text-muted italic">{format(parseISO(record.month + '-01'), 'MMMM yyyy')}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-10 mb-12">
               <div className="space-y-4">
                 <div>
-                  <p className="text-[8px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-1">Employee Name</p>
-                   <p className="text-sm font-black uppercase italic">{record.employeeName}</p>
+                  <p className="text-[8px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-1 italic">Employee Name</p>
+                   <p className="text-sm font-black uppercase italic text-slate-900 dark:text-white">{record.employeeName}</p>
                 </div>
                 <div>
-                  <p className="text-[8px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-1">Employee ID</p>
-                   <p className="text-sm font-black italic">{record.employeeId.slice(-8).toUpperCase()}</p>
+                  <p className="text-[8px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-1 italic">Employee ID</p>
+                   <p className="text-sm font-black italic text-slate-900 dark:text-white">{record.employeeId.slice(-8).toUpperCase()}</p>
                 </div>
               </div>
               <div className="space-y-4 text-right">
                 <div>
-                  <p className="text-[8px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-1">Payment Date</p>
-                   <p className="text-sm font-black italic">{record.paidAt ? format(new Date(record.paidAt), 'dd MMM yyyy') : 'Pending'}</p>
+                  <p className="text-[8px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-1 italic">Payment Date</p>
+                   <p className="text-sm font-black italic text-slate-900 dark:text-white">{record.paidAt ? format(new Date(record.paidAt), 'dd MMM yyyy') : 'Pending'}</p>
                 </div>
                 <div>
-                  <p className="text-[8px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-1">Reference No</p>
-                   <p className="text-sm font-black italic">{record.id.slice(0, 8).toUpperCase()}</p>
+                  <p className="text-[8px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-1 italic">Reference No</p>
+                   <p className="text-sm font-black italic text-slate-900 dark:text-white">{record.id.slice(0, 8).toUpperCase()}</p>
                 </div>
               </div>
             </div>
@@ -630,8 +630,8 @@ function PayslipModal({ record, company, employees, onClose }: {
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-10">
                 <div className="space-y-4">
-                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-dark-text-muted border-b border-slate-100 dark:border-dark-border pb-2">Earnings</p>
-                   <div className="flex justify-between text-xs font-bold">
+                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-dark-text-muted border-b border-slate-200 dark:border-dark-border pb-2 italic">Earnings</p>
+                   <div className="flex justify-between text-xs font-bold text-slate-700 dark:text-white">
                      <span>Basic Salary</span>
                      <span>{company?.currency || '$'}{record.baseSalary.toLocaleString()}</span>
                    </div>
@@ -639,14 +639,14 @@ function PayslipModal({ record, company, employees, onClose }: {
                      <div className="flex justify-between text-xs font-bold text-emerald-600 dark:text-emerald-400">
                        <span className="flex flex-col">
                          <span>Bonus</span>
-                         {record.bonusReason && <span className="text-[8px] text-slate-400 dark:text-dark-text-muted uppercase">{record.bonusReason}</span>}
+                         {record.bonusReason && <span className="text-[8px] text-slate-400 dark:text-dark-text-muted uppercase italic">{record.bonusReason}</span>}
                        </span>
                        <span>+{company?.currency || '$'}{record.bonus.toLocaleString()}</span>
                      </div>
                    )}
                 </div>
                 <div className="space-y-4">
-                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-dark-text-muted border-b border-slate-100 dark:border-dark-border pb-2">Deductions</p>
+                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-dark-text-muted border-b border-slate-200 dark:border-dark-border pb-2 italic">Deductions</p>
                    {record.taxAmount ? (
                      <div className="flex justify-between text-xs font-bold text-rose-500">
                        <span>Income Tax</span>
@@ -657,7 +657,7 @@ function PayslipModal({ record, company, employees, onClose }: {
                      <div className="flex justify-between text-xs font-bold text-rose-500">
                        <span className="flex flex-col">
                          <span>Other Deductions</span>
-                         {record.deductionReason && <span className="text-[8px] text-slate-400 dark:text-dark-text-muted uppercase">{record.deductionReason}</span>}
+                         {record.deductionReason && <span className="text-[8px] text-slate-400 dark:text-dark-text-muted uppercase italic">{record.deductionReason}</span>}
                        </span>
                        <span>-{company?.currency || '$'}{(record.deductions || record.deduction || 0).toLocaleString()}</span>
                      </div>
@@ -665,11 +665,11 @@ function PayslipModal({ record, company, employees, onClose }: {
                 </div>
               </div>
 
-              <div className="pt-8 border-t-2 border-slate-100 dark:border-dark-border mt-10">
-                 <div className="bg-slate-50 dark:bg-dark-bg p-6 rounded-2xl flex justify-between items-center">
+              <div className="pt-8 border-t-2 border-slate-200 dark:border-dark-border mt-10">
+                 <div className="bg-slate-100/50 dark:bg-dark-bg p-6 rounded-2xl flex justify-between items-center border border-slate-200 dark:border-dark-border">
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dark-text-muted">Total Net Payable</p>
-                      <p className="text-[8px] font-bold text-slate-400 dark:text-dark-text-muted uppercase mt-1 italic">Electronically Verified Document</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dark-text-muted">Total Net Payable</p>
+                      <p className="text-[8px] font-black text-slate-400 dark:text-dark-text-muted uppercase mt-1 italic">Electronically Verified Document</p>
                     </div>
                     <div className="text-right">
                       <p className="text-3xl font-black italic tracking-tighter text-blue-600 dark:text-indigo-400">{company?.currency || '$'}{(record.netSalary || record.totalAmount).toLocaleString()}</p>
@@ -678,12 +678,12 @@ function PayslipModal({ record, company, employees, onClose }: {
               </div>
             </div>
 
-            <div className="mt-20 pt-10 border-t border-slate-100 dark:border-dark-border flex justify-between">
-               <div className="text-center w-32 border-t border-slate-200 dark:border-dark-border pt-2">
-                 <p className="text-[8px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Employee Sign</p>
+            <div className="mt-20 pt-10 border-t border-slate-200 dark:border-dark-border flex justify-between">
+               <div className="text-center w-32 border-t border-slate-300 dark:border-dark-border pt-2">
+                 <p className="text-[8px] font-black text-slate-500 dark:text-dark-text-muted uppercase tracking-widest italic">Employee Sign</p>
                </div>
-               <div className="text-center w-32 border-t border-slate-200 dark:border-dark-border pt-2">
-                 <p className="text-[8px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Authority Sign</p>
+               <div className="text-center w-32 border-t border-slate-300 dark:border-dark-border pt-2">
+                 <p className="text-[8px] font-black text-slate-500 dark:text-dark-text-muted uppercase tracking-widest italic">Authority Sign</p>
                </div>
             </div>
           </div>
@@ -751,59 +751,59 @@ function YearlyBreakdownModal({ employeeId, employeeName, year, records, company
         exit={{ opacity: 0, scale: 0.9, y: 40 }}
         className="relative bg-white dark:bg-dark-surface w-full max-w-4xl max-h-[90vh] rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 dark:border-dark-border flex flex-col transition-colors text-slate-950 dark:text-white"
       >
-        <div className="p-10 flex-shrink-0 border-b border-slate-50 dark:border-dark-border">
+        <div className="p-10 flex-shrink-0 border-b border-slate-200 dark:border-dark-border">
           <div className="flex justify-between items-start">
             <div>
-              <div className="inline-flex items-center space-x-2 text-[10px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-widest bg-blue-50 dark:bg-blue-500/10 px-3 py-1 rounded-full border border-blue-100 dark:border-blue-500/20 mb-2 transition-colors">
+              <div className="inline-flex items-center space-x-2 text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest bg-blue-50 dark:bg-blue-500/10 px-3 py-1 rounded-full border border-blue-200 dark:border-blue-500/20 mb-2 transition-colors italic">
                 Annual Breakdown
               </div>
               <h2 className="text-4xl font-black font-display italic tracking-tight text-slate-950 dark:text-white leading-none">
                 {employeeName}
               </h2>
-              <p className="text-slate-400 dark:text-dark-text-muted text-xs font-bold uppercase tracking-widest mt-1">
+              <p className="text-slate-500 dark:text-dark-text-muted text-[10px] font-black uppercase tracking-[0.2em] mt-1 italic">
                 Fiscal Performance Strategy • {year}
               </p>
             </div>
-            <button onClick={onClose} className="p-3 hover:bg-slate-50 dark:hover:bg-dark-bg rounded-2xl text-slate-400 dark:text-dark-text-muted transition-colors">
+            <button onClick={onClose} className="p-3 hover:bg-slate-100 dark:hover:bg-dark-bg rounded-2xl text-slate-400 dark:text-dark-text-muted transition-colors border border-transparent hover:border-slate-200">
               <X size={24} />
             </button>
           </div>
         </div>
 
-        <div className="p-10 overflow-y-auto custom-scrollbar flex-1 bg-slate-50/30 dark:bg-dark-bg/30">
+        <div className="p-10 overflow-y-auto custom-scrollbar flex-1 bg-slate-100/30 dark:bg-dark-bg/30">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-            <div className="bg-white dark:bg-dark-surface p-6 rounded-3xl border border-slate-100 dark:border-dark-border shadow-sm transition-colors">
-              <PieChart size={20} className="text-blue-500 dark:text-blue-400 mb-4" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dark-text-muted mb-1">Total Salary</p>
-              <p className="text-2xl font-black font-display text-slate-950 dark:text-white">{company?.currency || '$'}{records.reduce((s, r) => s+r.baseSalary, 0).toLocaleString()}</p>
+            <div className="bg-white dark:bg-dark-surface p-6 rounded-3xl border border-slate-200 dark:border-dark-border shadow-sm transition-colors">
+              <PieChart size={20} className="text-blue-600 dark:text-blue-400 mb-4" />
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dark-text-muted mb-1">Total Salary</p>
+              <p className="text-2xl font-black font-display text-slate-900 dark:text-white">{company?.currency || '$'}{records.reduce((s, r) => s+r.baseSalary, 0).toLocaleString()}</p>
             </div>
-            <div className="bg-white dark:bg-dark-surface p-6 rounded-3xl border border-slate-100 dark:border-dark-border shadow-sm transition-colors">
-              <TrendingUp size={20} className="text-emerald-500 dark:text-emerald-400 mb-4" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dark-text-muted mb-1">Total Bonuses</p>
+            <div className="bg-white dark:bg-dark-surface p-6 rounded-3xl border border-slate-200 dark:border-dark-border shadow-sm transition-colors">
+              <TrendingUp size={20} className="text-emerald-600 dark:text-emerald-400 mb-4" />
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dark-text-muted mb-1">Total Bonuses</p>
               <p className="text-2xl font-black font-display text-emerald-600 dark:text-emerald-400">{company?.currency || '$'}{records.reduce((s, r) => s+(r.bonus || 0), 0).toLocaleString()}</p>
             </div>
-            <div className="bg-white dark:bg-dark-surface p-6 rounded-3xl border border-slate-100 dark:border-dark-border shadow-sm transition-colors">
-              <BarChart3 size={20} className="text-rose-500 dark:text-rose-400 mb-4" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dark-text-muted mb-1">Total Deductions</p>
+            <div className="bg-white dark:bg-dark-surface p-6 rounded-3xl border border-slate-200 dark:border-dark-border shadow-sm transition-colors">
+              <BarChart3 size={20} className="text-rose-600 dark:text-rose-400 mb-4" />
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dark-text-muted mb-1">Total Deductions</p>
               <p className="text-2xl font-black font-display text-rose-600 dark:text-rose-400">-{company?.currency || '$'}{records.reduce((s, r) => s+(r.deductions || r.deduction || 0), 0).toLocaleString()}</p>
             </div>
-            <div className="bg-white dark:bg-dark-surface p-6 rounded-3xl border border-slate-100 dark:border-dark-border shadow-sm transition-colors">
-              <Shield size={20} className="text-orange-500 dark:text-orange-400 mb-4" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dark-text-muted mb-1">Total Tax</p>
+            <div className="bg-white dark:bg-dark-surface p-6 rounded-3xl border border-slate-200 dark:border-dark-border shadow-sm transition-colors">
+              <Shield size={20} className="text-orange-600 dark:text-orange-400 mb-4" />
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dark-text-muted mb-1">Total Tax</p>
               <p className="text-2xl font-black font-display text-orange-600 dark:text-orange-400">-{company?.currency || '$'}{records.reduce((s, r) => s+(r.taxAmount || 0), 0).toLocaleString()}</p>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-dark-surface rounded-[32px] border border-slate-100 dark:border-dark-border overflow-hidden shadow-sm transition-colors">
+          <div className="bg-white dark:bg-dark-surface rounded-[32px] border border-slate-200 dark:border-dark-border overflow-hidden shadow-sm transition-colors">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-50/50 dark:bg-dark-bg/50 border-b border-slate-100 dark:border-dark-border transition-colors">
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dark-text-muted">Month</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dark-text-muted">Gross</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dark-text-muted">Bonus</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dark-text-muted">Tax</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dark-text-muted">Net Payable</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dark-text-muted">Status</th>
+                <tr className="bg-slate-100/50 dark:bg-dark-bg/50 border-b border-slate-200 dark:border-dark-border transition-colors italic">
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dark-text-muted">Month</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dark-text-muted">Gross</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dark-text-muted">Bonus</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dark-text-muted">Tax</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dark-text-muted">Net Payable</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dark-text-muted">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-dark-border">
@@ -865,30 +865,30 @@ function DetailAdjustmentModal({ record, company, onClose, onSave }: {
         <div className="p-10">
           <div className="flex justify-between items-start mb-8">
             <div>
-              <h2 className="text-3xl font-black font-display italic tracking-tight text-slate-950 dark:text-white">Adjust Payroll</h2>
-              <p className="text-slate-400 dark:text-dark-text-muted text-xs font-bold uppercase tracking-widest mt-1">{record.employeeName} • {record.month}</p>
+              <h2 className="text-3xl font-black font-display italic tracking-tight text-slate-900 dark:text-white">Adjust Payroll</h2>
+              <p className="text-slate-500 dark:text-dark-text-muted text-[10px] font-black uppercase tracking-[0.2em] mt-1 italic">{record.employeeName} • {record.month}</p>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-slate-50 dark:hover:bg-dark-bg rounded-xl text-slate-400 dark:text-dark-text-muted transition-colors">
+            <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-dark-bg rounded-xl text-slate-400 dark:text-dark-text-muted transition-colors border border-transparent hover:border-slate-200">
               <X size={24} />
             </button>
           </div>
 
           <div className="space-y-8">
-            <div className="bg-slate-50 dark:bg-dark-bg p-6 rounded-3xl border border-slate-100 dark:border-dark-border flex justify-between items-center transition-colors">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dark-text-muted">Base Salary</span>
-              <span className="text-xl font-black text-slate-900 dark:text-white font-display">{company?.currency || '$'}{record.baseSalary.toLocaleString()}</span>
+            <div className="bg-slate-100/50 dark:bg-dark-bg p-6 rounded-3xl border border-slate-200 dark:border-dark-border flex justify-between items-center transition-colors">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dark-text-muted">Base Salary</span>
+              <span className="text-xl font-black text-slate-900 dark:text-white font-display italic tracking-tighter">{company?.currency || '$'}{record.baseSalary.toLocaleString()}</span>
             </div>
 
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dark-text-muted px-1">Performance Bonus</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dark-text-muted px-1 italic">Performance Bonus</label>
                 <div className="relative">
-                  <DollarSign size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" />
+                  <DollarSign size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600" />
                   <input 
                     type="number"
                     value={bonus}
                     onChange={(e) => setBonus(Number(e.target.value))}
-                    className="w-full pl-10 pr-4 py-4 bg-emerald-50/50 dark:bg-emerald-500/5 border-2 border-transparent focus:border-emerald-200 dark:focus:border-emerald-500/30 outline-none rounded-2xl font-black text-sm text-emerald-700 dark:text-emerald-400 transition-all"
+                    className="w-full pl-10 pr-4 py-4 bg-emerald-50 dark:bg-emerald-500/5 border-2 border-emerald-100/50 focus:border-emerald-500 outline-none rounded-2xl font-black text-sm text-emerald-700 dark:text-emerald-400 transition-all shadow-sm"
                     placeholder="0"
                   />
                 </div>
@@ -897,18 +897,18 @@ function DetailAdjustmentModal({ record, company, onClose, onSave }: {
                   value={bonusReason}
                   onChange={(e) => setBonusReason(e.target.value)}
                   placeholder="Reason (e.g. Sales Commission)"
-                  className="w-full px-4 py-2 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-xl text-[10px] font-medium outline-none mt-2 text-slate-900 dark:text-white"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl text-[10px] font-black uppercase outline-none mt-2 text-slate-900 dark:text-white placeholder:text-slate-400/60 transition-all focus:bg-white"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dark-text-muted px-1">Deductions</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-dark-text-muted px-1 italic">Deductions</label>
                 <div className="relative">
-                  <DollarSign size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-500" />
+                  <DollarSign size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-600" />
                   <input 
                     type="number"
                     value={deduction}
                     onChange={(e) => setDeduction(Number(e.target.value))}
-                    className="w-full pl-10 pr-4 py-4 bg-rose-50/50 dark:bg-rose-500/5 border-2 border-transparent focus:border-rose-200 dark:focus:border-rose-500/30 outline-none rounded-2xl font-black text-sm text-rose-700 dark:text-rose-400 transition-all"
+                    className="w-full pl-10 pr-4 py-4 bg-rose-50 dark:bg-rose-500/5 border-2 border-rose-100/50 focus:border-rose-500 outline-none rounded-2xl font-black text-sm text-rose-700 dark:text-rose-400 transition-all shadow-sm"
                     placeholder="0"
                   />
                 </div>
@@ -917,7 +917,7 @@ function DetailAdjustmentModal({ record, company, onClose, onSave }: {
                   value={deductionReason}
                   onChange={(e) => setDeductionReason(e.target.value)}
                   placeholder="Reason (e.g. Unpaid Leave)"
-                  className="w-full px-4 py-2 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-xl text-[10px] font-medium outline-none mt-2 text-slate-900 dark:text-white"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl text-[10px] font-black uppercase outline-none mt-2 text-slate-900 dark:text-white placeholder:text-slate-400/60 transition-all focus:bg-white"
                 />
               </div>
             </div>

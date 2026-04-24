@@ -12,8 +12,16 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    function getUserData(userId) {
+      let path = /databases/$(database)/documents/users/$(userId);
+      return exists(path) ? get(path).data : null;
+    }
+
+    function isCompanyMember(companyId) {
+      let userData = getUserData(request.auth.uid);
+      return isSignedIn() && 
+             userData != null &&
+             userData.companyId == companyId;
     }
 
     function incoming() {
@@ -24,14 +32,8 @@ service cloud.firestore {
       return resource.data;
     }
 
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
-    }
-
-    function isCompanyMember(companyId) {
-      return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             getUserData(request.auth.uid).companyId == companyId;
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
     function hasRole(roles) {
@@ -52,15 +54,18 @@ service cloud.firestore {
     // 1. Companies
     // -------------------------------------------------------------------------
     match /companies/{companyId} {
-      allow read: if isSignedIn() && isCompanyMember(companyId);
-      allow write: if isAdmin() && isCompanyMember(companyId);
+      allow get: if isCompanyMember(companyId);
+      allow list: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin() && isCompanyMember(companyId);
     }
 
     // -------------------------------------------------------------------------
     // 2. Users (Personnel)
     // -------------------------------------------------------------------------
     match /users/{userId} {
-      allow read: if (isSignedIn() && (resource.data.companyId == getUserData(request.auth.uid).companyId)) || (isSignedIn() && request.auth.uid == userId);
+      allow get: if isSignedIn() && (request.auth.uid == userId || (getUserData(request.auth.uid) != null && getUserData(request.auth.uid).companyId == resource.data.companyId));
+      allow list: if isSignedIn() && (getUserData(request.auth.uid) != null && resource.data.companyId == getUserData(request.auth.uid).companyId);
       
       function isValidUser(data) {
         return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
@@ -69,15 +74,18 @@ service cloud.firestore {
                data.role in ['admin', 'manager', 'team_lead', 'sales'];
       }
 
-      allow create: if isSignedIn() && isValidUser(incoming());
+      allow create: if isManager() && isCompanyMember(incoming().companyId) && isValidUser(incoming());
       
       allow update: if isSignedIn() && (
         // Self-update limited fields
-        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'photoURL'])) ||
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'photoURL', 'interests', 'pfp', 'memberId'])) || 
+        // Manager hierarchy control (Manager can update same-company users but not their role/company)
+        (isManager() && 
+         getUserData(request.auth.uid).companyId == existing().companyId && 
+         incoming().companyId == existing().companyId &&
+         (incoming().role == existing().role || isAdmin())) || 
         // Admin total control
-        isAdmin() ||
-        // Manager hierarchy control
-        (isManager() && getUserData(userId).role in ['team_lead', 'sales'] && !incoming().diff(existing()).affectedKeys().hasAny(['role', 'companyId']))
+        isAdmin()
       );
     }
 
@@ -156,8 +164,12 @@ service cloud.firestore {
     }
 
     match /intelligence/{postId} {
-      allow read: if isSignedIn() && (resource.data.type == 'Global' || isCompanyMember(resource.data.companyId));
-      allow create, update: if (incoming().type == 'Internal' && isAdmin() && isCompanyMember(incoming().companyId)) || (incoming().type == 'Global' && isAdmin());
+      allow get: if isSignedIn() && (resource.data.type == 'Global' || isCompanyMember(resource.data.companyId));
+      allow list: if isSignedIn() && (
+        (resource.data.type == 'Global') || 
+        (resource.data.type == 'Internal' && isCompanyMember(resource.data.companyId))
+      );
+      allow create, update: if (incoming().type == 'Internal' && isManager() && isCompanyMember(incoming().companyId)) || (incoming().type == 'Global' && isAdmin());
       allow delete: if isAdmin();
     }
 
@@ -175,6 +187,13 @@ service cloud.firestore {
       allow update: if isCompanyMember(incoming().companyId) && (isAdmin() || isManager());
     }
     
+    match /serviceRequests/{requestId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isManager());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || (isManager() && resource.data.companyId == getUserData(request.auth.uid).companyId));
+      allow create: if isCompanyMember(incoming().companyId) && request.auth.uid == incoming().userId;
+      allow update: if isCompanyMember(incoming().companyId) && (isManager() || (request.auth.uid == resource.data.userId && resource.data.status == 'PENDING'));
+    }
+
     match /activityLogs/{logId} {
       function isValidActivityLog(data) {
         return data.companyId is string &&
@@ -190,8 +209,12 @@ service cloud.firestore {
     }
     
     match /invites/{inviteId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow read: if true;
+      allow update: if isSignedIn() && (
+        (resource.data.email == request.auth.token.email && incoming().diff(existing()).affectedKeys().hasOnly(['status']) && incoming().status == 'accepted') ||
+        isManager()
+      );
+      allow create, delete: if isManager();
     }
 
     // -------------------------------------------------------------------------
@@ -256,12 +279,13 @@ service cloud.firestore {
     // 7. Presence
     // -------------------------------------------------------------------------
     match /userPresence/{userId} {
-      allow read: if isSignedIn() && 
-                   exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                   exists(/databases/$(database)/documents/users/$(userId)) &&
-                   getUserData(request.auth.uid).companyId == getUserData(userId).companyId;
+      allow read: if isSignedIn() && (
+        request.auth.uid == userId || 
+        resource.data.companyId == getUserData(request.auth.uid).companyId
+      );
       
-      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn() && request.auth.uid == userId && 
+                    incoming().companyId == getUserData(request.auth.uid).companyId;
     }
 
     // -------------------------------------------------------------------------

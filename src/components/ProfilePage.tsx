@@ -5,7 +5,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { UserProfile } from '../types';
 import { useNotifications } from '../contexts/NotificationContext';
 import { toast } from 'sonner';
-import { Camera, Lock, User as UserIcon, Shield, ChevronRight, Mail, Key, Copy, Sun, Moon, Layout, CheckSquare } from 'lucide-react';
+import { Camera, Lock, User as UserIcon, Shield, ChevronRight, Mail, Key, Copy, Sun, Moon, Layout, CheckSquare, ShieldCheck } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -103,97 +103,102 @@ export default function ProfilePage({ user }: ProfilePageProps) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-20">
-      <div>
-        <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Personal Settings</h2>
-        <p className="text-slate-500 dark:text-dark-text-muted font-medium">Manage your account identity and security</p>
+    <div className="max-w-6xl mx-auto space-y-12 pb-20 animate-in fade-in duration-700">
+      <div className="space-y-4">
+        <h2 className="text-4xl md:text-6xl font-black font-display italic text-slate-900 dark:text-white tracking-tighter leading-none transition-colors">
+          Personal Settings
+        </h2>
+        <p className="text-slate-500 dark:text-dark-text-muted font-medium ml-1 max-w-2xl">
+          Supervise and adjust your professional identity parameters. NEX-directive requires accurate personnel data for optimal synchronization.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Profile Card */}
-        <div className="lg:col-span-2 space-y-8">
-          <section className="bg-white dark:bg-dark-surface p-8 rounded-3xl border border-slate-100 dark:border-dark-border shadow-sm space-y-8 relative overflow-hidden transition-colors">
-            <div className="flex items-center space-x-4 mb-2">
-              <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
-                <UserIcon size={20} />
+        <div className="lg:col-span-8 space-y-8">
+          <section className="bg-white dark:bg-dark-surface p-6 sm:p-10 rounded-[40px] border border-slate-200 dark:border-dark-border shadow-sm space-y-10 relative overflow-hidden transition-colors">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl text-indigo-600">
+                <UserIcon size={24} />
               </div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Account Identity</h3>
+              <h3 className="text-2xl font-black font-display italic text-slate-900 dark:text-white uppercase tracking-tight">Account Identity</h3>
             </div>
 
-            <form onSubmit={handleUpdateProfile} className="space-y-6">
-              <div className="flex flex-col md:flex-row items-center gap-8 py-4">
-                <div className="relative group">
-                  <div className="w-24 h-24 rounded-3xl bg-slate-100 dark:bg-dark-bg flex items-center justify-center overflow-hidden border-4 border-white dark:border-dark-surface shadow-xl">
+            <form onSubmit={handleUpdateProfile} className="space-y-8">
+              <div className="flex flex-col md:flex-row items-start gap-10">
+                <div className="relative group mx-auto md:mx-0">
+                  <div className="w-32 h-32 rounded-[32px] bg-slate-900 dark:bg-dark-bg flex items-center justify-center overflow-hidden border-4 border-white dark:border-dark-surface shadow-2xl transition-transform hover:scale-105">
                     {photoUrl ? (
                       <img src={photoUrl} alt={name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
-                      <span className="text-3xl font-black text-slate-400 dark:text-dark-text-muted">{name[0]}</span>
+                      <span className="text-5xl font-black text-white">{name[0]}</span>
                     )}
                   </div>
-                  <div className="absolute -bottom-2 -right-2 p-2 bg-blue-600 text-white rounded-xl shadow-lg border-2 border-white dark:border-dark-surface">
-                    <Camera size={14} />
+                  <div className="absolute -bottom-2 -right-2 p-3 bg-blue-600 text-white rounded-2xl shadow-xl border-2 border-white dark:border-dark-surface transform transition-transform group-hover:scale-110">
+                    <Camera size={16} />
                   </div>
                 </div>
                 
-                <div className="flex-1 w-full space-y-4">
+                <div className="flex-1 w-full space-y-6">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-[0.2em] mb-2">Member ID</label>
-                    <div className="flex items-center space-x-2">
-                       <code className="bg-slate-100 dark:bg-dark-bg px-4 py-2 rounded-xl text-blue-600 dark:text-indigo-400 font-bold text-sm border border-slate-200 dark:border-dark-border transition-colors">
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-[0.2em] mb-3 ml-2">Member ID</label>
+                    <div className="flex items-center space-x-3">
+                       <code className="bg-slate-950 px-6 py-3 rounded-2xl text-indigo-400 font-bold text-sm tracking-tight border border-slate-800 transition-colors shadow-inner flex-1 md:flex-none md:w-64">
                          {user.memberId}
                        </code>
                        <button 
+                         type="button"
                          onClick={() => {
                            navigator.clipboard.writeText(user.memberId);
                            toast.success('Member ID copied');
                          }}
-                         className="p-2 text-slate-400 dark:text-dark-text-muted hover:text-blue-600 dark:hover:text-indigo-400 transition-colors"
+                         className="p-3 bg-slate-100 dark:bg-dark-bg text-slate-400 dark:text-dark-text-muted hover:text-indigo-600 dark:hover:text-indigo-400 rounded-2xl transition-all hover:bg-white dark:hover:bg-dark-surface border border-transparent hover:border-slate-200 dark:hover:border-dark-border"
                        >
-                         <Copy size={16} />
+                         <Copy size={18} />
                        </button>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-[0.2em] mb-2">Profile Picture URL</label>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-[0.2em] mb-3 ml-2">Profile Picture URL</label>
                     <input
                       type="url"
                       value={photoUrl}
                       onChange={(e) => setPhotoUrl(e.target.value)}
-                      className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium text-slate-900 dark:text-white"
+                      className="w-full p-5 bg-white dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-[24px] focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-300"
                       placeholder="https://images.unsplash.com/..."
                     />
-                    <p className="text-[10px] text-slate-400 dark:text-dark-text-muted mt-2 italic font-medium">Use a direct image link from Unsplash or Google.</p>
+                    <p className="text-[10px] text-slate-400 dark:text-dark-text-muted mt-3 italic font-medium ml-2">Use a direct image link from Unsplash or Google.</p>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-[0.2em] mb-2">Full Name</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-[0.2em] ml-2">Full Name</label>
                   <input
                     type="text"
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium text-slate-900 dark:text-white"
+                    className="w-full p-5 bg-white dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-[24px] focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all text-sm font-bold text-slate-900 dark:text-white"
                   />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-[0.2em] mb-2">Email Address</label>
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-[0.2em] ml-2">Email Address</label>
                   <input
                     type="email"
                     disabled
                     value={user.email}
-                    className="w-full p-4 bg-slate-100 dark:bg-dark-bg/50 border border-slate-200 dark:border-dark-border rounded-xl text-slate-400 dark:text-dark-text-muted outline-none cursor-not-allowed text-sm font-medium"
+                    className="w-full p-5 bg-slate-100/50 dark:bg-dark-bg/50 border border-slate-200 dark:border-dark-border rounded-[24px] text-slate-500 dark:text-dark-text-muted outline-none cursor-not-allowed text-sm font-bold shadow-inner"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end pt-4">
+              <div className="flex justify-end pt-6">
                 <button
                   type="submit"
                   disabled={isUpdatingProfile}
-                  className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-200 disabled:opacity-50"
+                  className="bg-indigo-600 text-white px-10 py-4 rounded-[20px] font-black text-xs uppercase tracking-[0.2em] hover:bg-slate-950 dark:hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-500/20 active:scale-95 disabled:opacity-50"
                 >
                   {isUpdatingProfile ? 'Saving...' : 'Update Profile'}
                 </button>
@@ -202,119 +207,148 @@ export default function ProfilePage({ user }: ProfilePageProps) {
           </section>
 
           {/* Security Section */}
-          <section className="bg-white dark:bg-dark-surface p-8 rounded-3xl border border-slate-100 dark:border-dark-border shadow-sm space-y-6 transition-colors">
-            <div className="flex items-center space-x-4 mb-2">
-              <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl text-emerald-600 dark:text-emerald-400">
-                <Shield size={20} />
+          <section className="bg-white dark:bg-dark-surface p-6 sm:p-10 rounded-[40px] border border-slate-200 dark:border-dark-border shadow-sm space-y-10 transition-colors">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl text-emerald-600">
+                <Shield size={24} />
               </div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Security & Privacy</h3>
+              <h3 className="text-2xl font-black font-display italic text-slate-900 dark:text-white uppercase tracking-tight">Security & Privacy</h3>
             </div>
 
-            <div className="divide-y divide-slate-100 dark:divide-dark-border">
-              <div className="py-4 flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="p-2 bg-slate-50 dark:bg-dark-bg rounded-lg text-slate-400 dark:text-dark-text-muted">
-                    <Key size={18} />
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-slate-100/30 dark:bg-dark-bg/50 border border-slate-200 dark:border-dark-border rounded-[32px] gap-4">
+                <div className="flex items-center space-x-5">
+                  <div className="p-4 bg-white dark:bg-dark-surface rounded-2xl text-slate-500 shadow-sm border border-slate-100 dark:border-dark-border">
+                    <Key size={22} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">Account Password</p>
-                    <p className="text-xs text-slate-400 dark:text-dark-text-muted">Regularly update your password to stay secure.</p>
+                    <h4 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">Account Password</h4>
+                    <p className="text-xs font-medium text-slate-500 dark:text-dark-text-muted mt-1">Regularly update your credentials to stay secure.</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowPasswordDialog(true)}
-                  className="flex items-center space-x-2 text-blue-600 dark:text-indigo-400 font-bold text-sm hover:translate-x-1 transition-transform"
+                  className="flex items-center justify-center space-x-2 bg-slate-900 dark:bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black dark:hover:bg-indigo-700 transition-all shadow-xl active:scale-95"
                 >
-                  <span>Change Password</span>
-                  <ChevronRight size={16} />
+                  <span>Update Password</span>
+                  <ChevronRight size={14} />
                 </button>
               </div>
-              <div className="py-4 flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="p-2 bg-slate-50 dark:bg-dark-bg rounded-lg text-slate-400 dark:text-dark-text-muted">
-                    <Mail size={18} />
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-slate-100/30 dark:bg-dark-bg/50 border border-slate-200 dark:border-dark-border rounded-[32px] gap-4">
+                <div className="flex items-center space-x-5">
+                  <div className="p-4 bg-white dark:bg-dark-surface rounded-2xl text-slate-500 shadow-sm border border-slate-100 dark:border-dark-border">
+                    <Mail size={22} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">Email Verification</p>
-                    <p className="text-xs text-slate-400 dark:text-dark-text-muted">Your email is verified and secured.</p>
+                    <h4 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">Email Verification</h4>
+                    <p className="text-xs font-medium text-slate-500 dark:text-dark-text-muted mt-1">Your primary access email is verified and secured.</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2 text-emerald-500 dark:text-emerald-400 font-bold text-xs uppercase tracking-widest">
-                  <span>Verified</span>
-                  <Shield size={12} />
+                <div className="flex items-center space-x-2 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 px-6 py-3 rounded-2xl border border-emerald-100 dark:border-emerald-500/20 font-black text-[10px] uppercase tracking-widest leading-none">
+                  <span>Verified Identity</span>
+                  <ShieldCheck size={14} />
                 </div>
               </div>
             </div>
           </section>
 
           {/* Theme Settings */}
-          <section className="bg-white dark:bg-dark-surface p-8 rounded-3xl border border-slate-100 dark:border-dark-border shadow-sm space-y-6 transition-colors">
-            <div className="flex items-center space-x-4 mb-2">
-              <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-indigo-600 dark:text-indigo-400">
-                <Layout size={20} />
+          <section className="bg-white dark:bg-dark-surface p-6 sm:p-10 rounded-[40px] border border-slate-200 dark:border-dark-border shadow-sm space-y-10 transition-colors">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-amber-50 dark:bg-amber-500/10 rounded-2xl text-amber-600">
+                <Layout size={24} />
               </div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Appearance Settings</h3>
+              <h3 className="text-2xl font-black font-display italic text-slate-900 dark:text-white uppercase tracking-tight">Visual Profile</h3>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <button
                 onClick={() => setTheme('light')}
-                className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
+                className={`group flex items-center justify-between p-6 rounded-[32px] border-2 transition-all ${
                   theme === 'light' 
-                    ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-500/50 ring-2 ring-indigo-500/10' 
-                    : 'bg-slate-50 dark:bg-dark-bg border-slate-100 dark:border-dark-border hover:bg-slate-100 dark:hover:bg-dark-bg/50'
+                    ? 'bg-slate-50 dark:bg-indigo-900/30 border-slate-900 shadow-xl' 
+                    : 'bg-white dark:bg-dark-bg border-slate-200 dark:border-dark-border hover:border-slate-300'
                 }`}
               >
-                <div className="flex items-center space-x-3">
-                  <div className={`p-2 rounded-lg ${theme === 'light' ? 'bg-white dark:bg-dark-surface text-indigo-600 dark:text-indigo-400 shadow-sm' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-dark-text-muted'}`}>
-                    <Sun size={18} />
+                <div className="flex items-center space-x-5">
+                  <div className={`p-4 rounded-2xl transition-colors ${theme === 'light' ? 'bg-slate-900 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-slate-200'}`}>
+                    <Sun size={24} />
                   </div>
-                  <span className={`text-sm font-bold ${theme === 'light' ? 'text-indigo-900 dark:text-indigo-300' : 'text-slate-600 dark:text-dark-text-muted'}`}>Light Mode</span>
+                  <div className="text-left">
+                    <h4 className={`text-base font-black uppercase tracking-tight leading-none ${theme === 'light' ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>Daylink</h4>
+                    <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Standard Interface</p>
+                  </div>
                 </div>
-                {theme === 'light' && <CheckSquare size={16} className="text-indigo-600 dark:text-indigo-400" />}
+                <div className={`w-6 h-6 rounded-full border-4 flex items-center justify-center transition-all ${theme === 'light' ? 'border-slate-900 bg-white' : 'border-slate-200 bg-transparent'}`}>
+                  {theme === 'light' && <div className="w-2.5 h-2.5 rounded-full bg-slate-900" />}
+                </div>
               </button>
 
               <button
                 onClick={() => setTheme('dark')}
-                className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
+                className={`group flex items-center justify-between p-6 rounded-[32px] border-2 transition-all ${
                   theme === 'dark' 
-                    ? 'bg-slate-900 border-slate-800 ring-2 ring-indigo-500/10' 
-                    : 'bg-slate-50 dark:bg-dark-bg border-slate-100 dark:border-dark-border hover:bg-slate-100 dark:hover:bg-dark-bg/50'
+                    ? 'bg-slate-950 border-indigo-500 shadow-xl' 
+                    : 'bg-white dark:bg-dark-bg border-slate-200 dark:border-dark-border hover:border-slate-300'
                 }`}
               >
-                <div className="flex items-center space-x-3">
-                  <div className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-slate-800 text-white shadow-sm' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-dark-text-muted'}`}>
-                    <Moon size={18} />
+                <div className="flex items-center space-x-5">
+                  <div className={`p-4 rounded-2xl transition-colors ${theme === 'dark' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-slate-200'}`}>
+                    <Moon size={24} />
                   </div>
-                  <span className={`text-sm font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-600 dark:text-dark-text-muted'}`}>Dark Mode</span>
+                  <div className="text-left">
+                    <h4 className={`text-base font-black uppercase tracking-tight leading-none ${theme === 'dark' ? 'text-white' : 'text-slate-400'}`}>Omnidark</h4>
+                    <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Advanced Interface</p>
+                  </div>
                 </div>
-                {theme === 'dark' && <CheckSquare size={16} className="text-indigo-400" />}
+                <div className={`w-6 h-6 rounded-full border-4 flex items-center justify-center transition-all ${theme === 'dark' ? 'border-indigo-600 bg-white' : 'border-slate-200 bg-transparent'}`}>
+                  {theme === 'dark' && <div className="w-2.5 h-2.5 rounded-full bg-indigo-600" />}
+                </div>
               </button>
             </div>
           </section>
         </div>
 
         {/* Sidebar Info */}
-        <div className="space-y-6">
-          <div className="bg-slate-900 p-8 rounded-3xl text-white shadow-xl shadow-slate-200 dark:shadow-none">
-            <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-4">Account Metadata</h4>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-400">Joined</span>
-                <span className="font-medium">{new Date(user.createdAt).toLocaleDateString()}</span>
+        <div className="lg:col-span-4 space-y-8">
+          <div className="bg-[#0f1117] dark:bg-dark-surface p-10 rounded-[40px] text-white shadow-2xl border border-slate-800">
+            <h4 className="text-[12px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-8 italic">Account Metadata</h4>
+            <div className="space-y-10">
+              <div className="flex justify-between items-end border-b border-white/5 pb-4">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Joined</span>
+                <span className="text-sm font-black font-display italic tracking-tight">{new Date(user.createdAt).toLocaleDateString()}</span>
               </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-400">Role</span>
-                <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded-md font-bold uppercase tracking-tighter">{user.role}</span>
+              <div className="flex justify-between items-end border-b border-white/5 pb-4">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Access Role</span>
+                <span className="px-5 py-2 bg-indigo-500/10 text-indigo-400 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-indigo-500/20">{user.role}</span>
               </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-400">Company ID</span>
-                <span className="font-mono text-[10px] bg-slate-800 px-2 py-1 rounded">{user.companyId}</span>
+              <div className="flex flex-col space-y-3">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Corporate Entity ID</span>
+                <div className="bg-[#0a0c10] dark:bg-dark-bg p-5 rounded-[24px] border border-white/5 flex items-start gap-3">
+                  <div className="w-2 h-2 mt-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
+                  <code className="font-mono text-[11px] text-indigo-300 break-all leading-relaxed">{user.companyId}</code>
+                </div>
               </div>
             </div>
           </div>
+
+          <div className="p-8 bg-indigo-600 rounded-[40px] text-white shadow-xl shadow-indigo-500/20 relative overflow-hidden group">
+            <div className="relative z-10 space-y-4">
+              <h4 className="text-lg font-black font-display italic uppercase tracking-tight">Nexvoura Intelligence</h4>
+              <p className="text-xs font-medium text-white/80 leading-relaxed">Your professional parameters are currently synchronized with the Nexvoura global directive protocols.</p>
+              <div className="pt-2">
+                <div className="inline-flex items-center space-x-2 bg-white/10 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                  <ShieldCheck size={14} />
+                  <span>Secure Connection Active</span>
+                </div>
+              </div>
+            </div>
+            <ShieldCheck size={120} className="absolute -bottom-10 -right-10 text-white/5 transform group-hover:scale-110 transition-transform duration-700" />
+          </div>
         </div>
       </div>
+
 
       {/* Password Modal */}
       {showPasswordDialog && (

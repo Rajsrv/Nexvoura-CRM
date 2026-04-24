@@ -136,21 +136,20 @@ export const chatService = {
 
   // --- Presence ---
 
-  updatePresence: async (userId: string, status: 'online' | 'offline', typingIn: string | null = null) => {
+  updatePresence: async (userId: string, companyId: string, status: 'online' | 'offline', typingIn: string | null = null) => {
     const presenceRef = doc(db, 'userPresence', userId);
-    await updateDoc(presenceRef, {
+    const presenceData = {
       status,
       lastSeen: serverTimestamp(),
-      typingIn
-    }).catch(async (err) => {
+      typingIn,
+      companyId
+    };
+
+    await updateDoc(presenceRef, presenceData).catch(async (err) => {
       // If doc doesn't exist, create it
       if (err.code === 'not-found') {
         const { setDoc } = await import('firebase/firestore');
-        await setDoc(presenceRef, {
-          status,
-          lastSeen: serverTimestamp(),
-          typingIn
-        });
+        await setDoc(presenceRef, presenceData);
       }
     });
   },

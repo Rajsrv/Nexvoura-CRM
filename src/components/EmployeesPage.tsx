@@ -163,7 +163,11 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
       const { name, email, role, department, phone, salary, joiningDate, shiftId, password } = manualEntry;
 
       // Check if email already exists in Firestore first
-      const emailCheck = query(collection(db, 'users'), where('email', '==', email));
+      const emailCheck = query(
+        collection(db, 'users'), 
+        where('email', '==', email),
+        where('companyId', '==', user.companyId)
+      );
       const emailSnap = await getDocs(emailCheck);
       if (!emailSnap.empty) {
         toast.error('Identity already exists in system');
@@ -626,50 +630,50 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
   }
 
   return (
-    <div className="space-y-8 md:space-y-12 transition-colors duration-300">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6">
+    <div className="space-y-6 md:space-y-12 transition-colors duration-300">
+      <div className="flex flex-col xl:flex-row xl:justify-between xl:items-end gap-6">
         <div className="space-y-1">
           <div className="inline-flex items-center space-x-2 text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 dark:bg-blue-500/10 px-3 py-1 rounded-full border border-blue-100 dark:border-blue-500/20 mb-2">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
             <span>Personnel Management</span>
           </div>
-          <h2 className="text-4xl md:text-5xl lg:text-6xl font-black font-display text-slate-950 dark:text-white tracking-tighter leading-tight italic">
+          <h2 className="text-3xl md:text-5xl lg:text-6xl font-black font-display text-slate-950 dark:text-white tracking-tighter leading-tight italic">
             Employees & Team
           </h2>
         </div>
-        <div className="flex flex-wrap gap-4 items-end">
-          <div className="flex bg-slate-100 dark:bg-dark-surface p-1 rounded-2xl border border-slate-200 dark:border-dark-border">
+        <div className="flex flex-wrap gap-3 sm:gap-4 items-center sm:items-end">
+          <div className="flex bg-slate-100 dark:bg-dark-surface p-1 rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm">
             <button 
               onClick={handleExportExcel}
-              className="p-3 hover:bg-white dark:hover:bg-dark-bg text-slate-400 dark:text-dark-text-muted hover:text-emerald-600 dark:hover:text-emerald-400 rounded-xl transition-all"
+              className="p-2 sm:p-3 hover:bg-white dark:hover:bg-dark-bg text-slate-400 dark:text-dark-text-muted hover:text-emerald-600 dark:hover:text-emerald-400 rounded-xl transition-all"
               title="Export to Excel"
             >
-              <FileSpreadsheet size={20} />
+              <FileSpreadsheet size={18} className="sm:w-5 sm:h-5" />
             </button>
             <button 
               onClick={handleExportPDF}
-              className="p-3 hover:bg-white dark:hover:bg-dark-bg text-slate-400 dark:text-dark-text-muted hover:text-rose-600 dark:hover:text-rose-400 rounded-xl transition-all"
+              className="p-2 sm:p-3 hover:bg-white dark:hover:bg-dark-bg text-slate-400 dark:text-dark-text-muted hover:text-rose-600 dark:hover:text-rose-400 rounded-xl transition-all"
               title="Export to PDF"
             >
-              <FileText size={20} />
+              <FileText size={18} className="sm:w-5 sm:h-5" />
             </button>
           </div>
           {canManage && (
-              <div className="flex gap-4">
+              <div className="flex gap-2 sm:gap-4 w-full sm:w-auto">
                 {isAdmin && (
                   <button
                     onClick={() => setShowBroadcastModal(true)}
-                    className="p-4 bg-slate-100 dark:bg-dark-surface hover:bg-slate-200 dark:hover:bg-dark-bg text-slate-600 dark:text-dark-text rounded-2xl font-black text-xs uppercase tracking-widest transition-all border border-slate-200 dark:border-dark-border"
+                    className="flex items-center justify-center w-11 h-11 md:w-14 md:h-14 bg-slate-100 dark:bg-dark-surface hover:bg-slate-200 dark:hover:bg-dark-bg text-slate-600 dark:text-dark-text rounded-2xl font-black transition-all border border-slate-200 dark:border-dark-border shadow-sm active:scale-95"
                     title="Broadcast Directive"
                   >
-                    <Bell size={20} />
+                    <Bell size={18} className="md:w-5 md:h-5" />
                   </button>
                 )}
                 <button
                   onClick={() => setShowInviteModal(true)}
-                  className="group flex items-center justify-center space-x-3 bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-950 dark:hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 dark:shadow-none active:scale-95"
+                  className="flex-1 sm:flex-none h-11 md:h-14 group flex items-center justify-center space-x-2 md:space-x-3 bg-indigo-600 text-white px-5 md:px-10 rounded-2xl font-black text-[11px] md:text-sm uppercase tracking-widest hover:bg-slate-950 dark:hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-500/10 dark:shadow-none active:scale-95 whitespace-nowrap"
                 >
-                  <Plus size={18} />
+                  <Plus size={16} className="md:w-5 md:h-5" />
                   <span>Add Employee</span>
                 </button>
               </div>
@@ -679,27 +683,27 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
 
       {isAdmin && requests.length > 0 && (
         <div className="space-y-6">
-          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center space-x-2 px-2">
-            <Shield size={14} className="text-blue-500" />
+          <h3 className="text-[10px] font-black text-slate-500 dark:text-dark-text-muted uppercase tracking-[0.2em] flex items-center space-x-2 px-2">
+            <Shield size={14} className="text-blue-600 dark:text-blue-400" />
             <span>Security Board Requests</span>
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {requests.map((req) => (
-              <div key={req.id} className="bg-white dark:bg-dark-surface border border-slate-100 dark:border-dark-border p-6 rounded-[32px] flex justify-between items-center shadow-lg shadow-slate-200/20 dark:shadow-none">
+              <div key={req.id} className="bg-white dark:bg-dark-surface border border-slate-200 dark:border-dark-border p-6 rounded-[32px] flex justify-between items-center shadow-lg shadow-slate-200/20 dark:shadow-none">
                 <div className="min-w-0">
-                  <div className="font-black text-slate-950 dark:text-white text-sm uppercase truncate">{req.userName}</div>
-                  <div className="text-[10px] text-slate-400 dark:text-dark-text-muted font-bold uppercase tracking-widest mt-1">Requests <span className="text-blue-500">{req.requestedRole}</span></div>
+                  <div className="font-black text-slate-950 dark:text-white text-sm uppercase truncate italic">{req.userName}</div>
+                  <div className="text-[10px] text-slate-500 dark:text-dark-text-muted font-bold uppercase tracking-widest mt-1">Requests <span className="text-blue-600 dark:text-blue-400">{(req.requestedRole || '').replace('_', ' ')}</span></div>
                 </div>
                 <div className="flex space-x-2 ml-4">
                   <button
                     onClick={() => handleRequest(req, true)}
-                    className="p-2.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl hover:bg-emerald-600 dark:hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100 dark:border-emerald-500/20"
+                    className="p-2.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl hover:bg-emerald-600 dark:hover:bg-emerald-600 hover:text-white transition-all border border-emerald-200 dark:border-emerald-500/20 shadow-sm"
                   >
                     <Check size={18} />
                   </button>
                   <button
                     onClick={() => handleRequest(req, false)}
-                    className="p-2.5 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl hover:bg-rose-600 dark:hover:bg-rose-600 hover:text-white transition-all border border-rose-100 dark:border-rose-500/20"
+                    className="p-2.5 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl hover:bg-rose-600 dark:hover:bg-rose-600 hover:text-white transition-all border border-rose-200 dark:border-rose-500/20 shadow-sm"
                   >
                     <X size={18} />
                   </button>
@@ -710,7 +714,7 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
         </div>
       )}
 
-      <div className="flex space-x-6 border-b border-slate-100 dark:border-dark-border">
+      <div className="flex space-x-6 border-b border-slate-200 dark:border-dark-border">
         {[
           { id: 'members', label: 'Pulse Members', count: activeMembers.length },
           { id: 'invites', label: 'Pending Access', count: invites.length + requests.length + pendingOnboarding.length + pendingHikes.length },
@@ -719,11 +723,11 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
             className={`pb-4 px-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative ${
-              activeTab === tab.id ? 'text-blue-600' : 'text-slate-400 dark:text-dark-text-muted hover:text-slate-600 dark:hover:text-dark-text'
+              activeTab === tab.id ? 'text-blue-600' : 'text-slate-500 dark:text-dark-text-muted hover:text-slate-950 dark:hover:text-white'
             }`}
           >
             <span>{tab.label}</span>
-            <span className="ml-2 text-[8px] bg-slate-100 dark:bg-dark-bg text-slate-500 dark:text-dark-text-muted px-1.5 py-0.5 rounded-md">{tab.count}</span>
+            <span className="ml-2 text-[10px] font-black italic bg-slate-100 dark:bg-dark-bg text-slate-600 dark:text-dark-text-muted px-2 py-0.5 rounded-lg border border-slate-200 dark:border-dark-border">{tab.count}</span>
             {activeTab === tab.id && (
               <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full" />
             )}
@@ -733,64 +737,64 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
 
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
         {activeTab === 'members' ? (
-          <div className="table-container">
+          <div className="table-container shadow-xl shadow-slate-200/50 dark:shadow-none">
             <table className="w-full text-left min-w-[800px]">
-              <thead className="bg-slate-50/50 dark:bg-dark-surface border-b border-slate-100 dark:border-dark-border">
+              <thead className="bg-slate-100 dark:bg-dark-surface border-b-2 border-slate-200 dark:border-dark-border">
                 <tr>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Name</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Role</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Department</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Joining Date</th>
-                  {isAdmin && <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Salary</th>}
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Status</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest text-right">Actions</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-800 dark:text-dark-text-muted uppercase tracking-[0.15em]">Operative Name</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-800 dark:text-dark-text-muted uppercase tracking-[0.15em]">Access Role</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-800 dark:text-dark-text-muted uppercase tracking-[0.15em]">Department</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-800 dark:text-dark-text-muted uppercase tracking-[0.15em]">Enlistment Date</th>
+                  {isAdmin && <th className="px-8 py-5 text-[10px] font-black text-slate-800 dark:text-dark-text-muted uppercase tracking-[0.15em]">Compensation</th>}
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-800 dark:text-dark-text-muted uppercase tracking-[0.15em]">Status</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-800 dark:text-dark-text-muted uppercase tracking-[0.15em] text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50 dark:divide-dark-border">
+              <tbody className="divide-y divide-slate-100 dark:divide-dark-border">
                 {activeMembers.map((member) => {
                   return (
                     <tr 
                       key={member.uid} 
-                      className="group hover:bg-indigo-50/30 dark:hover:bg-indigo-500/5 transition-all cursor-pointer"
+                      className="group hover:bg-slate-50 dark:hover:bg-dark-bg/30 transition-all cursor-pointer"
                       onClick={() => navigate(`/employees/${member.uid}`)}
                     >
                       <td className="px-8 py-5">
                          <div className="flex items-center space-x-4">
-                           <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-dark-bg flex items-center justify-center overflow-hidden shrink-0 border border-slate-200 dark:border-dark-border shadow-sm">
+                           <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-dark-bg flex items-center justify-center overflow-hidden shrink-0 border border-slate-300 dark:border-dark-border shadow-sm">
                              {member.photoURL ? (
                                <img src={member.photoURL} alt={member.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                              ) : (
-                               <span className="text-sm font-black text-slate-400 dark:text-dark-text-muted">{member.name[0]}</span>
+                               <span className="text-sm font-black text-slate-600 dark:text-dark-text-muted">{member.name[0]}</span>
                              )}
                            </div>
                            <div className="min-w-0">
-                             <div className="font-bold text-slate-950 dark:text-white text-sm">{member.name}</div>
-                             <div className="text-[10px] text-slate-400 dark:text-dark-text-muted font-medium truncate">{member.email}</div>
+                             <div className="font-black text-slate-900 dark:text-white text-sm italic">{member.name}</div>
+                             <div className="text-[10px] text-slate-500 dark:text-dark-text-muted font-bold uppercase tracking-widest truncate">{member.email}</div>
                            </div>
                          </div>
                       </td>
                       <td className="px-8 py-5">
-                         <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
-                           member.role === 'admin' ? 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400' :
-                           member.role === 'manager' ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400' :
-                           'bg-slate-100 dark:bg-dark-surface text-slate-600 dark:text-dark-text-muted'
+                         <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                           member.role === 'admin' ? 'bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/30 shadow-sm' :
+                           member.role === 'manager' ? 'bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/30 shadow-sm' :
+                           'bg-white dark:bg-dark-surface text-slate-600 dark:text-dark-text-muted border-slate-200 dark:border-dark-border shadow-sm group-hover:bg-slate-50'
                          }`}>
                            {member.role.replace('_', ' ')}
                          </span>
                       </td>
                       <td className="px-8 py-5">
                          <div className="flex items-center space-x-2">
-                           <span className="text-xs font-semibold text-slate-600 dark:text-dark-text-muted">{member.department || '—'}</span>
+                           <span className="text-[10px] font-black text-slate-500 dark:text-dark-text-muted uppercase tracking-[0.1em]">{member.department || '—'}</span>
                          </div>
                       </td>
                       <td className="px-8 py-5">
-                         <div className="text-xs font-semibold text-slate-500 dark:text-dark-text-muted">
+                         <div className="text-xs font-bold text-slate-600 dark:text-dark-text-muted italic">
                            {member.joiningDate ? new Date(member.joiningDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                          </div>
                       </td>
                       {isAdmin && (
                         <td className="px-8 py-5">
-                           <div className="text-xs font-bold text-slate-950 dark:text-white">
+                           <div className="text-[11px] font-black text-slate-900 dark:text-white italic tracking-tighter">
                              {member.salary ? `${company?.currency || '$'}${member.salary.toLocaleString()}` : '—'}
                            </div>
                         </td>
@@ -846,20 +850,20 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
             {/* New Onboarding Approval */}
             {pendingOnboarding.length > 0 && (
               <div className="space-y-6">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex items-center space-x-2">
+                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] px-2 flex items-center space-x-2">
                   <Plus size={14} className="text-blue-500" />
                   <span>Personnel Onboarding Requests</span>
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {pendingOnboarding.map((emp) => (
-                    <div key={emp.uid} className="bg-white dark:bg-dark-surface border border-slate-100 dark:border-dark-border p-6 rounded-[32px] flex justify-between items-center shadow-lg shadow-slate-200/20 dark:shadow-none group">
+                    <div key={emp.uid} className="bg-white dark:bg-dark-surface border border-slate-200 dark:border-dark-border p-6 rounded-[32px] flex justify-between items-center shadow-lg shadow-slate-200/20 dark:shadow-none group">
                       <div className="flex items-center space-x-4 min-w-0">
-                        <div className="w-12 h-12 rounded-2xl bg-slate-950 dark:bg-dark-bg flex items-center justify-center text-white shrink-0">
+                        <div className="w-12 h-12 rounded-2xl bg-slate-900 dark:bg-dark-bg flex items-center justify-center text-white shrink-0">
                           <UserIcon size={20} />
                         </div>
                         <div className="min-w-0">
-                          <div className="font-black text-slate-950 dark:text-white text-sm uppercase truncate">{emp.name}</div>
-                          <div className="text-[10px] text-slate-400 dark:text-dark-text-muted font-bold uppercase tracking-widest mt-1">
+                          <div className="font-black text-slate-900 dark:text-white text-sm uppercase truncate">{emp.name}</div>
+                          <div className="text-[10px] text-slate-500 dark:text-dark-text-muted font-bold uppercase tracking-widest mt-1 italic">
                             {emp.role} • {emp.department}
                           </div>
                         </div>
@@ -889,20 +893,20 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
             {/* Role Change Approval */}
             {requests.length > 0 && (
               <div className="space-y-6">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex items-center space-x-2">
+                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] px-2 flex items-center space-x-2">
                   <Shield size={14} className="text-indigo-500" />
                   <span>Clearance Level Requests</span>
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {requests.map((req) => (
-                    <div key={req.id} className="bg-white dark:bg-dark-surface border border-slate-100 dark:border-dark-border p-6 rounded-[32px] flex justify-between items-center shadow-lg shadow-slate-200/20 dark:shadow-none">
+                    <div key={req.id} className="bg-white dark:bg-dark-surface border border-slate-200 dark:border-dark-border p-6 rounded-[32px] flex justify-between items-center shadow-lg shadow-slate-200/20 dark:shadow-none">
                       <div className="flex items-center space-x-4 min-w-0">
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shrink-0">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-indigo-500/20">
                           <Shield size={20} />
                         </div>
                         <div className="min-w-0">
-                          <div className="font-black text-slate-950 dark:text-white text-sm uppercase truncate">{req.userName}</div>
-                          <div className="text-[10px] text-slate-400 dark:text-dark-text-muted font-bold uppercase tracking-widest mt-1">
+                          <div className="font-black text-slate-900 dark:text-white text-sm uppercase truncate">{req.userName}</div>
+                          <div className="text-[10px] text-slate-500 dark:text-dark-text-muted font-bold uppercase tracking-widest mt-1 italic">
                             Grant <span className="text-indigo-600 dark:text-indigo-400 font-black">{req.requestedRole}</span> access
                           </div>
                         </div>
@@ -930,23 +934,23 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
             {/* Salary Hike Approval */}
             {pendingHikes.length > 0 && (
               <div className="space-y-6">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex items-center space-x-2">
+                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] px-2 flex items-center space-x-2">
                   <TrendingUp size={14} className="text-emerald-500" />
                   <span>Compensation Increment Proposals</span>
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {pendingHikes.map((hike) => (
-                    <div key={hike.id} className="bg-white dark:bg-dark-surface border border-slate-100 dark:border-dark-border p-6 rounded-[32px] flex justify-between items-center shadow-lg shadow-slate-200/20 dark:shadow-none">
+                    <div key={hike.id} className="bg-white dark:bg-dark-surface border border-slate-200 dark:border-dark-border p-6 rounded-[32px] flex justify-between items-center shadow-lg shadow-slate-200/20 dark:shadow-none">
                       <div className="flex items-center space-x-4 min-w-0">
-                        <div className="w-12 h-12 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shrink-0">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-emerald-500/20">
                           <TrendingUp size={20} />
                         </div>
                         <div className="min-w-0">
-                          <div className="font-black text-slate-950 dark:text-white text-sm uppercase truncate">{hike.employeeName}</div>
-                          <div className="text-[10px] text-slate-400 dark:text-dark-text-muted font-bold uppercase tracking-widest mt-1">
+                          <div className="font-black text-slate-900 dark:text-white text-sm uppercase truncate">{hike.employeeName}</div>
+                          <div className="text-[10px] text-slate-500 dark:text-dark-text-muted font-bold uppercase tracking-widest mt-1">
                             Increment: <span className="text-emerald-600 dark:text-emerald-400 font-black">+{company?.currency || '$'}{hike.amount.toLocaleString()}</span>
                           </div>
-                          <div className="text-[8px] text-slate-400 dark:text-dark-text-muted italic truncate mt-0.5">"{hike.reason}"</div>
+                          <div className="text-[8px] text-slate-500 dark:text-dark-text-muted italic truncate mt-0.5 opacity-80">"{hike.reason}"</div>
                         </div>
                       </div>
                       <div className="flex space-x-2 ml-4">
@@ -971,17 +975,17 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
 
             {/* Invitations */}
             <div className="space-y-6">
-              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex items-center space-x-2">
+              <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] px-2 flex items-center space-x-2">
                 <Mail size={14} className="text-amber-500" />
                 <span>External Access Invitations</span>
               </h3>
               <div className="grid-auto-fit">
                 {invites.length > 0 ? (
                   invites.map((invite) => (
-                <div key={invite.id} className="bg-white dark:bg-dark-surface p-8 rounded-[40px] border border-slate-100 dark:border-dark-border shadow-lg shadow-slate-200/10 dark:shadow-none space-y-6 hover:border-blue-100 dark:hover:border-indigo-500/30 hover:shadow-2xl transition-all duration-500 relative overflow-hidden group">
+                <div key={invite.id} className="bg-white dark:bg-dark-surface p-8 rounded-[40px] border border-slate-200 dark:border-dark-border shadow-lg shadow-slate-200/10 dark:shadow-none space-y-6 hover:border-blue-100 dark:hover:border-indigo-500/30 hover:shadow-2xl transition-all duration-500 relative overflow-hidden group">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50/50 dark:bg-indigo-500/10 rounded-bl-[60px] -z-10 group-hover:scale-110 transition-transform" />
                   <div className="flex justify-between items-start">
-                    <div className="w-14 h-14 bg-slate-950 dark:bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-slate-200 dark:shadow-none">
+                    <div className="w-14 h-14 bg-slate-900 dark:bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-slate-200 dark:shadow-none">
                       <Mail size={24} />
                     </div>
                     <button
@@ -992,20 +996,20 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                     </button>
                   </div>
                   <div>
-                    <div className="font-black text-slate-950 dark:text-white uppercase tracking-tight text-lg truncate">{invite.email}</div>
+                    <div className="font-black text-slate-900 dark:text-white uppercase tracking-tight text-lg truncate">{invite.email}</div>
                     <div className="inline-flex mt-2 px-3 py-1 bg-blue-50 dark:bg-indigo-500/10 text-blue-600 dark:text-indigo-400 rounded-full text-[9px] font-black uppercase tracking-widest border border-blue-100 dark:border-indigo-500/20">
                       Access Requested: {invite.role}
                     </div>
                   </div>
                   <div className="space-y-3 pt-2">
-                    <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-dark-bg rounded-2xl border border-slate-100 dark:border-dark-border">
-                      <code className="text-[10px] font-mono font-bold text-slate-500 dark:text-dark-text-muted truncate mr-4">{invite.token}</code>
+                    <div className="flex items-center justify-between p-4 bg-slate-100 dark:bg-dark-bg rounded-2xl border border-slate-200 dark:border-dark-border">
+                      <code className="text-[10px] font-mono font-bold text-slate-600 dark:text-dark-text-muted truncate mr-4">{invite.token}</code>
                       <button 
                          onClick={() => {
                            navigator.clipboard.writeText(invite.token);
                            toast.success('Passkey copied to neural link');
                          }}
-                         className="p-2 hover:bg-white dark:hover:bg-dark-surface rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-dark-border text-slate-400 hover:text-blue-600 transition-all"
+                         className="p-2 hover:bg-white dark:hover:bg-dark-surface rounded-lg border border-transparent hover:border-slate-300 dark:hover:border-dark-border text-slate-500 hover:text-blue-600 transition-all"
                       >
                          <Copy size={16} />
                       </button>
@@ -1049,23 +1053,23 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
               <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/50 dark:bg-indigo-500/10 rounded-bl-[80px] -z-10" />
               <button 
                 onClick={() => setShowInviteModal(false)}
-                className="absolute top-6 right-6 p-2 text-slate-300 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white transition-colors"
+                className="absolute top-6 right-6 p-2 text-slate-400 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white transition-colors"
               >
                 <X size={24} />
               </button>
 
-              <h3 className="text-3xl font-black text-slate-950 dark:text-white mb-4 font-display italic leading-none">Add Employee</h3>
+              <h3 className="text-3xl font-black text-slate-950 dark:text-white mb-4 font-display italic leading-none uppercase tracking-tight">Add Personnel</h3>
               
-              <div className="flex space-x-4 mb-8 p-1 bg-slate-100 dark:bg-dark-bg rounded-2xl w-fit">
+              <div className="flex space-x-4 mb-8 p-1 bg-slate-100 dark:bg-dark-bg rounded-2xl w-fit border border-slate-200 dark:border-dark-border">
                 <button
                    onClick={() => setAddMethod('invite')}
-                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${addMethod === 'invite' ? 'bg-white dark:bg-dark-surface text-indigo-600 shadow-sm' : 'text-slate-400 dark:text-dark-text-muted hover:text-slate-600 dark:hover:text-dark-text'}`}
+                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${addMethod === 'invite' ? 'bg-white dark:bg-dark-surface text-indigo-700 dark:text-indigo-400 shadow-md ring-1 ring-slate-200 dark:ring-dark-border' : 'text-slate-500 dark:text-dark-text-muted hover:text-slate-950 dark:hover:text-white'}`}
                 >
                    Secure Invitation
                 </button>
                 <button
                    onClick={() => setAddMethod('manual')}
-                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${addMethod === 'manual' ? 'bg-white dark:bg-dark-surface text-indigo-600 shadow-sm' : 'text-slate-400 dark:text-dark-text-muted hover:text-slate-600 dark:hover:text-dark-text'}`}
+                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${addMethod === 'manual' ? 'bg-white dark:bg-dark-surface text-indigo-700 dark:text-indigo-400 shadow-md ring-1 ring-slate-200 dark:ring-dark-border' : 'text-slate-500 dark:text-dark-text-muted hover:text-slate-950 dark:hover:text-white'}`}
                 >
                    Direct Entry
                 </button>
@@ -1074,21 +1078,21 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
               {addMethod === 'invite' ? (
                 <form onSubmit={handleInvite} className="space-y-8">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-[0.2em] mb-3 px-1">Network Identity (Email)</label>
+                    <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-[0.2em] mb-3 px-1 italic">Network Identity (Email)</label>
                     <input
                       type="email"
                       required
-                      className="w-full p-5 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-3xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg focus:border-indigo-200 transition-all text-sm font-bold uppercase tracking-tight placeholder:text-slate-300 dark:placeholder:text-slate-600 text-slate-900 dark:text-white"
+                      className="w-full p-5 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-3xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg focus:border-indigo-400 transition-all text-sm font-bold uppercase tracking-tight placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-950 dark:text-white shadow-sm"
                       value={inviteEmail}
                       onChange={(e) => setInviteEmail(e.target.value)}
                       placeholder="alias@nexvoura.sh"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-[0.2em] mb-3 px-1">System Clearance (Role)</label>
+                    <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-[0.2em] mb-3 px-1 italic">System Clearance (Role)</label>
                     <div className="relative">
                       <select
-                        className="w-full p-5 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-3xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg focus:border-indigo-200 transition-all text-sm font-black uppercase tracking-widest appearance-none text-slate-900 dark:text-white"
+                        className="w-full p-5 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-3xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg focus:border-indigo-400 transition-all text-sm font-black uppercase tracking-widest appearance-none text-slate-950 dark:text-white shadow-sm cursor-pointer"
                         value={inviteRole}
                         onChange={(e) => setInviteRole(e.target.value as any)}
                       >
@@ -1104,7 +1108,7 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                   </div>
                   <button
                     disabled={loading}
-                    className="w-full bg-slate-950 text-white p-5 rounded-[24px] font-black text-xs uppercase tracking-[0.3em] hover:bg-indigo-600 transition-all disabled:opacity-50 shadow-2xl shadow-slate-950/20 active:scale-95"
+                    className="w-full bg-slate-950 dark:bg-indigo-600 text-white p-5 rounded-[24px] font-black text-xs uppercase tracking-[0.3em] hover:bg-blue-600 dark:hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-2xl shadow-indigo-500/20 active:scale-95 border border-transparent"
                   >
                     {loading ? 'Initializing...' : 'Authorize Invite'}
                   </button>
@@ -1113,34 +1117,33 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                 <form onSubmit={handleAddManual} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1">Full Name</label>
+                      <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1 italic">Full Name</label>
                       <input 
                         value={manualEntry.name}
                         onChange={(e) => setManualEntry({ ...manualEntry, name: e.target.value })}
                         type="text" 
                         required 
                         placeholder="John Doe" 
-                        className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-surface text-sm font-bold uppercase tracking-tight text-slate-900 dark:text-white" 
+                        className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-bold uppercase tracking-tight text-slate-950 dark:text-white placeholder:text-slate-400 shadow-sm" 
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1">Email Address</label>
+                      <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1 italic">Email Address</label>
                       <input 
                         value={manualEntry.email}
                         onChange={(e) => setManualEntry({ ...manualEntry, email: e.target.value })}
                         type="email" 
                         required 
                         placeholder="john@company.com" 
-                        className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-surface text-sm font-bold text-slate-900 dark:text-white" 
+                        className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-bold text-slate-950 dark:text-white placeholder:text-slate-400 shadow-sm" 
                       />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1">Clearance Level</label>
+                                       <div>
+                      <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1 italic">Clearance Level</label>
                       <select 
                         value={manualEntry.role}
                         onChange={(e) => setManualEntry({ ...manualEntry, role: e.target.value as UserRole })}
                         required 
-                        className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-surface text-sm font-black uppercase tracking-widest appearance-none text-slate-900 dark:text-white"
+                        className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-black uppercase tracking-widest appearance-none text-slate-950 dark:text-white shadow-sm cursor-pointer"
                       >
                         <option value="sales" className="dark:bg-dark-surface">Sales</option>
                         <option value="team_lead" className="dark:bg-dark-surface">Team Lead</option>
@@ -1149,12 +1152,12 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1">Department</label>
+                      <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1 italic">Department</label>
                       <select 
                         value={manualEntry.department}
                         onChange={(e) => setManualEntry({ ...manualEntry, department: e.target.value as Department })}
                         required 
-                        className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-surface text-sm font-black uppercase tracking-widest appearance-none text-slate-900 dark:text-white"
+                        className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-black uppercase tracking-widest appearance-none text-slate-950 dark:text-white shadow-sm cursor-pointer"
                       >
                         <option value="Sales" className="dark:bg-dark-surface">Sales</option>
                         <option value="Dev" className="dark:bg-dark-surface">Development</option>
@@ -1162,60 +1165,61 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1">Phone Number</label>
+                      <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1 italic">Phone Number</label>
                       <input 
                         value={manualEntry.phone}
                         onChange={(e) => setManualEntry({ ...manualEntry, phone: e.target.value })}
                         type="tel" 
                         placeholder="+1 555-0123" 
-                        className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-surface text-sm font-bold text-slate-900 dark:text-white" 
+                        className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-bold text-slate-950 dark:text-white placeholder:text-slate-400 shadow-sm" 
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1">Joining Date</label>
+                      <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1 italic">Joining Date</label>
                       <input 
                         value={manualEntry.joiningDate}
                         onChange={(e) => setManualEntry({ ...manualEntry, joiningDate: e.target.value })}
                         type="date" 
                         required 
-                        className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-surface text-sm font-bold text-slate-900 dark:text-white" 
+                        className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-bold text-slate-950 dark:text-white shadow-sm cursor-pointer" 
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1">Work Shift</label>
+                      <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1 italic">Work Shift</label>
                       <select 
                         value={manualEntry.shiftId}
                         onChange={(e) => setManualEntry({ ...manualEntry, shiftId: e.target.value })}
-                        className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-surface text-sm font-black uppercase tracking-widest appearance-none text-slate-900 dark:text-white"
+                        className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-black uppercase tracking-widest appearance-none text-slate-950 dark:text-white placeholder:text-slate-400 shadow-sm cursor-pointer"
                       >
                         <option value="" className="dark:bg-dark-surface">No Shift</option>
                         {shifts.map(s => <option key={s.id} value={s.id} className="dark:bg-dark-surface">{s.name}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-2 px-1">Annual Salary ($)</label>
+                      <label className="block text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-2 px-1 italic">Annual Salary ($)</label>
                       <input 
                         value={manualEntry.salary}
                         onChange={(e) => setManualEntry({ ...manualEntry, salary: Number(e.target.value) })}
                         type="number" 
-                        className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-indigo-100 dark:border-indigo-500/20 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-surface text-sm font-black text-slate-900 dark:text-white transition-all" 
+                        className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-indigo-200 dark:border-indigo-500/30 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-black text-slate-950 dark:text-white transition-all shadow-sm" 
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-rose-500 uppercase tracking-widest mb-2 px-1">Login Password (Required for Account)</label>
+                      <label className="block text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest mb-2 px-1 italic">Account Password (Crucial)</label>
                       <div className="relative">
                         <input 
                           value={manualEntry.password}
                           onChange={(e) => setManualEntry({ ...manualEntry, password: e.target.value })}
                           type="password" 
                           placeholder="••••••••" 
-                          className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-rose-100 dark:border-rose-500/20 rounded-2xl outline-none focus:ring-4 focus:ring-rose-500/10 focus:bg-white dark:focus:bg-dark-surface text-sm font-bold text-slate-900 dark:text-white transition-all" 
+                          className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-rose-200 dark:border-rose-500/30 rounded-2xl outline-none focus:ring-4 focus:ring-rose-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-bold text-slate-950 dark:text-white transition-all shadow-sm" 
                         />
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-rose-300">
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-rose-400">
                           <Lock size={16} />
                         </div>
                       </div>
                     </div>
+                 </div>
                   </div>
                   <button
                     disabled={loading}
@@ -1239,7 +1243,7 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
               <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/50 dark:bg-indigo-500/10 rounded-bl-[80px] -z-10" />
               <button 
                 onClick={() => setEditingMember(null)}
-                className="absolute top-6 right-6 p-2 text-slate-300 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white transition-colors"
+                className="absolute top-6 right-6 p-2 text-slate-400 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white transition-colors"
               >
                 <X size={24} />
               </button>
@@ -1249,24 +1253,24 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
               <form onSubmit={updateMemberDetails}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1">Full Identity Name</label>
+                    <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1 italic">Full Identity Name</label>
                     <input
                       name="name"
                       type="text"
                       required
                       value={editedValues.name}
                       onChange={(e) => setEditedValues({ ...editedValues, name: e.target.value })}
-                      className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-bold uppercase tracking-tight text-slate-900 dark:text-white"
+                      className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-bold uppercase tracking-tight text-slate-950 dark:text-white shadow-sm transition-all focus:border-indigo-400"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1">Clearance Level</label>
+                    <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1 italic">Clearance Level</label>
                     <select
                       name="role"
                       value={editedValues.role}
                       onChange={(e) => setEditedValues({ ...editedValues, role: e.target.value as UserRole })}
-                      className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-black uppercase tracking-widest appearance-none text-slate-900 dark:text-white"
+                      className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-black uppercase tracking-widest appearance-none text-slate-950 dark:text-white shadow-sm cursor-pointer transition-all focus:border-indigo-400"
                     >
                       <option value="sales" className="dark:bg-dark-surface">Sales</option>
                       <option value="team_lead" className="dark:bg-dark-surface">Team Lead</option>
@@ -1276,12 +1280,12 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1">Department</label>
+                    <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1 italic">Department</label>
                     <select
                       name="department"
                       value={editedValues.department}
                       onChange={(e) => setEditedValues({ ...editedValues, department: e.target.value as Department })}
-                      className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-black uppercase tracking-widest appearance-none text-slate-900 dark:text-white"
+                      className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-black uppercase tracking-widest appearance-none text-slate-950 dark:text-white shadow-sm cursor-pointer transition-all focus:border-indigo-400"
                     >
                       <option value="Sales" className="dark:bg-dark-surface">Sales (Outreach)</option>
                       <option value="Dev" className="dark:bg-dark-surface">Development (Build)</option>
@@ -1290,24 +1294,24 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1">Communication Line</label>
+                    <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1 italic">Communication Line</label>
                     <input
                       name="phone"
                       type="tel"
                       value={editedValues.phone}
                       onChange={(e) => setEditedValues({ ...editedValues, phone: e.target.value })}
                       placeholder="+1 (555) 000-0000"
-                      className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-bold text-slate-900 dark:text-white"
+                      className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-bold text-slate-950 dark:text-white shadow-sm transition-all focus:border-indigo-400"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1">Current Status</label>
+                    <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1 italic">Current Status</label>
                     <select
                       name="status"
                       value={editedValues.status}
                       onChange={(e) => setEditedValues({ ...editedValues, status: e.target.value as EmployeeStatus })}
-                      className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-black uppercase tracking-widest appearance-none text-slate-900 dark:text-white"
+                      className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-black uppercase tracking-widest appearance-none text-slate-950 dark:text-white shadow-sm cursor-pointer transition-all focus:border-indigo-400"
                     >
                       <option value="Active" className="dark:bg-dark-surface">Active Duty</option>
                       <option value="On Leave" className="dark:bg-dark-surface">Authorized Leave</option>
@@ -1316,23 +1320,23 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1">Joining Date</label>
+                    <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1 italic">Joining Date</label>
                     <input
                       name="joiningDate"
                       type="date"
                       value={editedValues.joiningDate}
                       onChange={(e) => setEditedValues({ ...editedValues, joiningDate: e.target.value })}
-                      className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-bold text-slate-900 dark:text-white"
+                      className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-bold text-slate-950 dark:text-white shadow-sm cursor-pointer transition-all focus:border-indigo-400"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1">Work Shift</label>
+                    <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1 italic">Work Shift</label>
                     <select
                       name="shiftId"
                       value={editedValues.shiftId}
                       onChange={(e) => setEditedValues({ ...editedValues, shiftId: e.target.value })}
-                      className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-black uppercase tracking-widest appearance-none text-slate-900 dark:text-white"
+                      className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-black uppercase tracking-widest appearance-none text-slate-950 dark:text-white shadow-sm cursor-pointer transition-all focus:border-indigo-400"
                     >
                       <option value="" className="dark:bg-dark-surface">No Specific Shift</option>
                       {shifts.map(s => (
@@ -1343,33 +1347,33 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
 
                   {isAdmin && (
                     <div className="md:col-span-2">
-                      <label className="block text-[10px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest mb-2 px-1">Compensation (Salary / Year)</label>
+                      <label className="block text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-2 px-1 italic">Compensation (Salary / Year)</label>
                       <div className="relative">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600 font-bold">$</div>
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-600 font-black">$</div>
                         <input
                           name="salary"
                           type="number"
                           value={editedValues.salary}
                           onChange={(e) => setEditedValues({ ...editedValues, salary: Number(e.target.value) })}
-                          className="w-full p-4 pl-8 bg-slate-50 dark:bg-dark-bg border border-indigo-100 dark:border-indigo-500/30 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-black text-slate-900 dark:text-white"
+                          className="w-full p-4 pl-8 bg-slate-50 dark:bg-dark-bg border border-indigo-200 dark:border-indigo-500/30 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-black text-slate-950 dark:text-white shadow-sm transition-all focus:border-indigo-400"
                         />
                       </div>
                     </div>
                   )}
                 </div>
 
-                <div className="flex space-x-4 mt-10">
+                <div className="flex space-x-6 mt-10">
                   <button
                     type="button"
                     onClick={() => setEditingMember(null)}
-                    className="flex-1 p-5 rounded-3xl font-black text-[10px] uppercase tracking-widest text-slate-400 dark:text-dark-text-muted hover:bg-slate-50 dark:hover:bg-dark-surface transition-all border border-transparent hover:border-slate-100 dark:hover:border-dark-border"
+                    className="flex-1 p-5 rounded-[24px] font-black text-[10px] uppercase tracking-widest text-slate-500 dark:text-dark-text-muted hover:bg-slate-50 dark:hover:bg-dark-surface transition-all border border-slate-200 dark:border-dark-border"
                   >
                     Discard Changes
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex-1 bg-indigo-600 dark:bg-indigo-600 text-white p-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-indigo-700 dark:hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-2xl shadow-indigo-950/20 dark:shadow-none"
+                    className="flex-1 bg-indigo-600 dark:bg-indigo-600 text-white p-5 rounded-[24px] font-black text-[10px] uppercase tracking-[0.2em] hover:bg-indigo-700 dark:hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-2xl shadow-indigo-500/20 active:scale-[0.98]"
                   >
                     {loading ? 'Processing...' : 'Apply Overrides'}
                   </button>
@@ -1399,22 +1403,22 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
             >
               <div className="p-8 border-b border-slate-100 dark:border-dark-border bg-slate-50 dark:bg-dark-bg flex justify-between items-center">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-slate-950 dark:bg-indigo-600 text-white rounded-xl flex items-center justify-center">
+                  <div className="w-10 h-10 bg-slate-950 dark:bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
                     <Bell size={20} />
                   </div>
                   <div>
-                    <h3 className="font-black text-slate-900 dark:text-white text-lg uppercase tracking-tight">System Broadcast</h3>
-                    <p className="text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Global Directive Protocol</p>
+                    <h3 className="font-black text-slate-950 dark:text-white text-lg uppercase tracking-tight italic">System Broadcast</h3>
+                    <p className="text-[10px] font-black text-slate-500 dark:text-dark-text-muted uppercase tracking-[0.2em] italic">Global Directive Protocol</p>
                   </div>
                 </div>
-                <button onClick={() => setShowBroadcastModal(false)} className="text-slate-400 dark:text-slate-600 hover:text-slate-900 dark:hover:text-white transition-colors">
+                <button onClick={() => setShowBroadcastModal(false)} className="text-slate-400 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white transition-colors p-2 hover:bg-slate-100 dark:hover:bg-dark-surface rounded-xl">
                   <X size={20} />
                 </button>
               </div>
               
               <form onSubmit={handleBroadcast} className="p-8 space-y-6">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-3 px-1">Alert Category</label>
+                  <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-widest mb-3 px-1 italic">Alert Category</label>
                   <div className="grid grid-cols-2 gap-3">
                     {(['admin_alert', 'role_request'] as NotificationType[]).map(type => (
                       <button
@@ -1423,8 +1427,8 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                         onClick={() => setBroadcastType(type)}
                         className={`p-4 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all ${
                           broadcastType === type 
-                            ? 'bg-slate-900 dark:bg-indigo-600 border-slate-900 dark:border-indigo-600 text-white shadow-xl' 
-                            : 'bg-white dark:bg-dark-surface border-slate-100 dark:border-dark-border text-slate-400 dark:text-dark-text-muted hover:border-slate-200 dark:hover:border-slate-700'
+                            ? 'bg-slate-950 dark:bg-indigo-600 border-slate-950 dark:border-indigo-600 text-white shadow-xl ring-2 ring-slate-950/10 dark:ring-indigo-500/20' 
+                            : 'bg-white dark:bg-dark-surface border-slate-200 dark:border-dark-border text-slate-500 dark:text-dark-text-muted hover:border-slate-300 dark:hover:border-slate-700 hover:text-slate-950 shadow-sm'
                         }`}
                       >
                         {type.replace('_', ' ')}
@@ -1434,27 +1438,27 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-3 px-1">Message Content</label>
+                  <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-widest mb-3 px-1 italic">Message Content</label>
                   <textarea
                     required
                     value={broadcastMessage}
                     onChange={(e) => setBroadcastMessage(e.target.value)}
                     placeholder="Enter system broadcast message..."
-                    className="w-full p-5 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-3xl outline-none focus:ring-4 focus:ring-slate-900/5 dark:focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-surface text-slate-900 dark:text-white text-sm font-bold resize-none h-40 placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                    className="w-full p-5 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-3xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-surface text-slate-950 dark:text-white text-sm font-bold resize-none h-40 placeholder:text-slate-400 dark:placeholder:text-slate-600 shadow-sm focus:border-indigo-400 transition-all"
                   />
                 </div>
 
-                <div className="flex space-x-4">
+                <div className="flex space-x-6">
                   <button
                     type="button"
                     onClick={() => setShowBroadcastModal(false)}
-                    className="flex-1 p-5 rounded-3xl font-black text-[10px] uppercase tracking-widest text-slate-400 dark:text-dark-text-muted hover:bg-slate-50 dark:hover:bg-dark-surface transition-all"
+                    className="flex-1 p-5 rounded-[24px] font-black text-[10px] uppercase tracking-widest text-slate-500 dark:text-dark-text-muted hover:bg-slate-50 dark:hover:bg-dark-surface transition-all border border-slate-200 dark:border-dark-border"
                   >
                     Abort
                   </button>
                   <button
                     disabled={loading || !broadcastMessage.trim()}
-                    className="flex-1 bg-slate-900 dark:bg-indigo-600 text-white p-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-black dark:hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-2xl shadow-slate-950/20 dark:shadow-none"
+                    className="flex-1 bg-slate-950 dark:bg-indigo-600 text-white p-5 rounded-[24px] font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-600 dark:hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-2xl shadow-indigo-500/20 active:scale-[0.98]"
                   >
                     {loading ? 'Transmitting...' : 'Initiate Broadcast'}
                   </button>

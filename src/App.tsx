@@ -75,6 +75,7 @@ import ActivityLogsPage from './components/ActivityLogsPage';
 import EmployeeProfilePage from './components/EmployeeProfilePage';
 import ChatPage from './components/ChatPage';
 import IntelligencePage from './components/IntelligencePage';
+import SelfServicePage from './components/SelfServicePage';
 import { logActivity } from './services/activityService';
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext';
 import { useTheme } from './contexts/ThemeContext';
@@ -110,6 +111,7 @@ const Sidebar = ({ user, company, isOpen, setIsOpen }: { user: UserProfile; comp
     { name: 'Leads', path: '/leads', icon: Globe, permission: 'leads:view' },
     { name: 'Tasks', path: '/tasks', icon: CheckSquare, permission: 'tasks:view' },
     { name: 'Profile', path: '/profile', icon: UserIcon },
+    { name: 'Portal', path: '/self-service', icon: ShieldCheck },
     { name: 'Settings', path: '/settings', icon: Settings, permission: 'settings:company' },
   ];
 
@@ -138,7 +140,7 @@ const Sidebar = ({ user, company, isOpen, setIsOpen }: { user: UserProfile; comp
         )}
       </AnimatePresence>
 
-      <aside className={`fixed inset-y-0 left-0 z-50 w-72 lg:w-80 bg-white dark:bg-dark-surface border-r border-slate-200/60 dark:border-dark-border transition-transform duration-300 ease-in-out lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-50 w-72 lg:w-80 glass-card border-r border-slate-200/60 dark:border-dark-border/50 transition-transform duration-300 ease-in-out lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex flex-col h-full">
           <div className="p-6 flex items-center justify-between">
             <h1 className="text-2xl font-black font-display tracking-tight flex items-center space-x-2">
@@ -381,7 +383,7 @@ const NotificationCenter = ({ user }: { user: UserProfile }) => {
 };
 
 const Header = ({ user, company, onToggleSidebar }: { user: UserProfile; company: Company | null; onToggleSidebar: () => void }) => (
-  <header className="h-20 flex items-center justify-between px-6 md:px-10 lg:px-12 bg-white/80 dark:bg-dark-surface/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-dark-border sticky top-0 z-40 transition-all">
+  <header className="h-20 md:h-24 flex items-center justify-between px-4 sm:px-6 md:px-10 lg:px-12 glass-header sticky top-0 z-40 transition-all">
     <div className="flex items-center space-x-6">
       <button 
         onClick={onToggleSidebar}
@@ -596,20 +598,24 @@ const Dashboard = ({ user, company }: { user: UserProfile, company: Company | nu
           { label: 'Pending Approvals', value: pendingApprovals, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', icon: Shield, sub: 'Requires action', privileged: true },
           { label: 'Leads Pipeline', value: stats.total, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10', icon: MessageSquare, sub: 'All stages', privileged: false },
         ].filter(s => !s.privileged || (user.role === 'admin' || user.role === 'manager')).map((stat) => (
-          <div key={stat.label} className="saas-card saas-card-hover p-6 flex flex-col justify-between min-h-[160px]">
+          <div className="saas-card p-6 flex flex-col justify-between min-h-[180px] hover:shadow-xl hover:shadow-slate-200/50 transition-all">
             <div className="flex items-center justify-between mb-4">
-              <div className={`w-10 h-10 rounded-xl ${stat.bg} ${stat.color} flex items-center justify-center`}>
-                <stat.icon size={20} />
+              <div className={`w-12 h-12 rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center shadow-sm`}>
+                <stat.icon size={24} />
               </div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Insights</span>
+              <span className="text-[10px] font-black text-slate-500 dark:text-slate-500 uppercase tracking-widest leading-none">Intelligence</span>
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{stat.label}</p>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">{stat.value}</h3>
-              <p className="text-[10px] font-semibold text-slate-400 mt-2 flex items-center">
-                <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600 mr-1.5" />
-                {stat.sub}
-              </p>
+              <p className="text-[10px] font-black text-slate-500 dark:text-slate-500 uppercase tracking-[0.2em]">{stat.label}</p>
+              <h3 className="text-3xl font-black text-slate-900 dark:text-white mt-1 tracking-tight">{stat.value}</h3>
+              <div className="flex items-center mt-3 space-x-2">
+                <div className="flex -space-x-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse" />
+                </div>
+                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  {stat.sub}
+                </p>
+              </div>
             </div>
           </div>
         ))}
@@ -620,7 +626,7 @@ const Dashboard = ({ user, company }: { user: UserProfile, company: Company | nu
           <div className="saas-card p-6">
             <div className="flex justify-between items-center mb-8">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Leads by Service</h3>
-              <div className="p-2 bg-slate-50 dark:bg-dark-bg/50 rounded-lg text-slate-400">
+              <div className="p-2 bg-slate-100 dark:bg-dark-bg/50 rounded-lg text-slate-500 border border-slate-200 dark:border-transparent">
                 <BarChartIcon size={18} />
               </div>
             </div>
@@ -648,7 +654,7 @@ const Dashboard = ({ user, company }: { user: UserProfile, company: Company | nu
           <div className="saas-card p-6">
             <div className="flex justify-between items-center mb-8">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Pipeline Status</h3>
-              <div className="p-2 bg-slate-50 dark:bg-dark-bg/50 rounded-lg text-slate-400">
+              <div className="p-2 bg-slate-100 dark:bg-dark-bg/50 rounded-lg text-slate-500 border border-slate-200 dark:border-transparent">
                 <RefreshCcw size={18} />
               </div>
             </div>
@@ -700,7 +706,7 @@ const Dashboard = ({ user, company }: { user: UserProfile, company: Company | nu
               {reminders.map((task) => {
                 const isOverdue = isPast(parseISO(task.dueDate)) && !isToday(parseISO(task.dueDate));
                 return (
-                  <div key={task.id} className="group flex items-center justify-between p-4 bg-slate-50/50 dark:bg-dark-bg/20 hover:bg-white dark:hover:bg-dark-surface rounded-2xl border border-transparent hover:border-slate-200 dark:hover:border-dark-border hover:shadow-soft transition-all duration-300">
+                  <div key={task.id} className="group flex items-center justify-between p-4 bg-slate-100/30 dark:bg-dark-bg/20 hover:bg-white dark:hover:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border hover:shadow-soft transition-all duration-300">
                     <div className="flex items-center space-x-4">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isOverdue ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400' : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'}`}>
                         {isOverdue ? <AlertCircle size={18} /> : <Clock size={18} />}
@@ -891,8 +897,8 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
         </div>
       </div>
 
-      <div className="table-container shadow-xl shadow-slate-200/50 dark:shadow-none">
-        <div className="p-4 border-b border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-bg/50 flex flex-wrap items-center gap-4">
+      <div className="table-container shadow-xl shadow-slate-200/40 dark:shadow-none">
+        <div className="p-4 border-b border-slate-200 dark:border-dark-border bg-slate-100/30 dark:bg-dark-bg/50 flex flex-wrap items-center gap-4">
           <div className="flex items-center space-x-2">
             <span className="text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Status</span>
             <select 
@@ -933,7 +939,7 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
-              <tr className="border-b border-slate-100 dark:border-dark-border">
+              <tr className="border-b border-slate-200 dark:border-dark-border">
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Contact</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Service</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Status</th>
@@ -941,7 +947,7 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50 dark:divide-dark-border">
+            <tbody className="divide-y divide-slate-100 dark:divide-dark-border">
               {filteredLeads.map((lead) => (
                 <tr key={lead.id} className="hover:bg-slate-50/50 dark:hover:bg-dark-bg/30 transition-colors group">
                   <td className="px-6 py-4">
@@ -1666,13 +1672,20 @@ const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
   return (
     <AuthContext.Provider value={{ user, company }}>
       <PresenceProvider user={user} companyMembers={companyMembers}>
-        <div className={`min-h-screen font-sans transition-colors duration-300 ${theme === 'dark' ? 'dark bg-dark-bg' : 'bg-[#fbfbfb]'}`}>
+        <div className={`min-h-screen font-sans transition-colors duration-500 selection:bg-brand-primary/20 ${theme === 'dark' ? 'dark bg-dark-bg' : 'bg-[#f8f9fc]'}`}>
+          {/* Atmosphere Layer */}
+          <div className="atmosphere">
+            <div className="atmosphere-blob w-[500px] h-[500px] bg-indigo-500/30 -top-48 -left-48 animate-[pulse_8s_infinite]" />
+            <div className="atmosphere-blob w-[400px] h-[400px] bg-rose-500/20 bottom-0 right-0 translate-x-1/4 translate-y-1/4 animate-[pulse_12s_infinite]" />
+            <div className="atmosphere-blob w-[300px] h-[300px] bg-emerald-500/20 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-10 animate-pulse" />
+          </div>
+
           <Sidebar user={user} company={company} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
           
-          <div className="lg:pl-80 flex flex-col min-h-screen">
+          <div className="lg:pl-80 flex flex-col min-h-screen relative z-10">
             <Header user={user} company={company} onToggleSidebar={() => setIsSidebarOpen(true)} />
             
-            <main className="flex-1 p-4 md:p-8 lg:p-10 xl:p-12 transition-all">
+            <main className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12 transition-all relative">
               <Routes>
                 <Route path="/" element={<Dashboard user={user} company={company} />} />
                 <Route path="/chat" element={<ChatPage />} />
@@ -1686,13 +1699,11 @@ const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
                 <Route path="/permissions" element={(user.role === 'admin' || user.role === 'manager') ? <PermissionsPage user={user} /> : <Navigate to="/" />} />
                 <Route path="/activity" element={(user.role === 'admin' || user.role === 'manager') ? <ActivityLogsPage user={user} /> : <Navigate to="/" />} />
                 <Route path="/intelligence" element={<IntelligencePage user={user} company={company} />} />
+                <Route path="/self-service" element={<SelfServicePage />} />
                 <Route path="/settings" element={<SettingsPage user={user} />} />
               </Routes>
             </main>
           </div>
-
-          {/* Dynamic Decorative Graphic */}
-          <div className="fixed bottom-0 right-0 w-[60vh] h-[60vh] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none -z-0 translate-x-1/3 translate-y-1/3" />
         </div>
       </PresenceProvider>
     </AuthContext.Provider>

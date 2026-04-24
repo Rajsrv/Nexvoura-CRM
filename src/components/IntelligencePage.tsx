@@ -142,38 +142,40 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
   return (
     <div className="max-w-7xl mx-auto space-y-10 pb-20 animate-in fade-in duration-700">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-2">
-          <div className="flex items-center space-x-2">
-            <div className="p-2 bg-indigo-600 rounded-lg text-white shadow-lg shadow-indigo-200 dark:shadow-none">
-              <Sparkles size={20} />
+      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-8">
+        <div className="space-y-3">
+          <div className="flex items-center space-x-3">
+            <div className="flex-shrink-0 p-3 bg-indigo-600 rounded-2xl text-white shadow-xl shadow-indigo-500/20 dark:shadow-none">
+              <Sparkles size={24} className="animate-pulse" />
             </div>
-            <h1 className="text-4xl font-black font-display italic tracking-tighter text-slate-950 dark:text-white">Intelligence Hub</h1>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black font-display italic tracking-tighter text-slate-950 dark:text-white leading-none">
+              Intelligence Hub
+            </h1>
           </div>
-          <p className="text-slate-500 dark:text-dark-text-muted font-medium flex items-center space-x-2">
-            <Globe size={14} className="text-brand-primary" />
+          <p className="text-slate-500 dark:text-dark-text-muted font-medium flex items-center space-x-2 text-sm sm:text-base">
+            <Globe size={16} className="text-brand-primary" />
             <span>Market-shifting signals and internal directives.</span>
           </p>
         </div>
 
-        <div className="flex items-center space-x-3 w-full md:w-auto">
-          <form onSubmit={handleSearch} className="relative flex-1 md:w-64">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:flex items-center gap-4 w-full xl:w-auto">
+          <form onSubmit={handleSearch} className="relative w-full xl:w-80 sm:col-span-2 xl:col-span-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search global intelligence..."
-              className="w-full pl-12 pr-4 py-3 bg-white dark:bg-dark-surface border border-slate-200 dark:border-dark-border text-slate-900 dark:text-white rounded-2xl font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+              className="w-full pl-12 pr-4 py-4 bg-white dark:bg-dark-surface border border-slate-200 dark:border-dark-border text-slate-900 dark:text-white rounded-[24px] font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all shadow-sm"
             />
             {isSearching && (
-              <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-600 animate-spin" size={16} />
+              <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-600 animate-spin" size={18} />
             )}
           </form>
 
           <button 
             onClick={() => setShowInterestModal(true)}
-            className="px-6 py-3 bg-white dark:bg-dark-surface border border-slate-200 dark:border-dark-border text-slate-900 dark:text-white rounded-2xl font-bold flex items-center space-x-2 hover:shadow-xl hover:shadow-slate-200 transition-all active:scale-95"
+            className="w-full xl:w-auto px-6 py-4 bg-white dark:bg-dark-surface border border-slate-200 dark:border-dark-border text-slate-900 dark:text-white rounded-[24px] font-black text-xs uppercase tracking-widest flex items-center justify-center space-x-2 hover:shadow-xl hover:shadow-slate-200 transition-all active:scale-95 shadow-sm"
           >
             <Filter size={18} className="text-brand-primary" />
             <span>Personalize Feed</span>
@@ -182,7 +184,7 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
           {isAdmin && (
             <button 
               onClick={() => setShowAddModal(true)}
-              className="px-6 py-3 bg-slate-950 dark:bg-indigo-600 text-white rounded-2xl font-black flex items-center space-x-2 hover:bg-slate-900 dark:hover:bg-indigo-700 transition-all shadow-xl shadow-slate-200 dark:shadow-none active:scale-95"
+              className="w-full xl:w-auto px-6 py-4 bg-slate-950 dark:bg-indigo-600 text-white rounded-[24px] font-black text-xs uppercase tracking-widest flex items-center justify-center space-x-2 hover:bg-slate-900 dark:hover:bg-indigo-700 transition-all shadow-xl shadow-slate-200 dark:shadow-none active:scale-95"
             >
               <Plus size={18} />
               <span>Broadcast News</span>
@@ -192,11 +194,11 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center p-1.5 bg-slate-100/50 dark:bg-dark-bg/50 rounded-[24px] border border-slate-200/50 dark:border-dark-border w-fit">
+      <div className="flex items-center p-1.5 bg-slate-100/50 dark:bg-dark-bg/50 rounded-[28px] border border-slate-200/50 dark:border-dark-border w-full sm:w-fit overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab('internal')}
-          className={`px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center space-x-2 transition-all ${
-            activeTab === 'internal' ? 'bg-white dark:bg-dark-surface text-brand-primary shadow-lg shadow-slate-200/50' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+          className={`flex-1 sm:flex-none px-6 sm:px-10 py-4 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest flex items-center justify-center space-x-2 transition-all whitespace-nowrap ${
+            activeTab === 'internal' ? 'bg-white dark:bg-dark-surface text-brand-primary shadow-xl shadow-indigo-500/10 dark:shadow-none' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
           }`}
         >
           <Rss size={16} />
@@ -204,8 +206,8 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
         </button>
         <button
           onClick={() => setActiveTab('global')}
-          className={`px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center space-x-2 transition-all ${
-            activeTab === 'global' ? 'bg-white dark:bg-dark-surface text-brand-primary shadow-lg shadow-slate-200/50' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+          className={`flex-1 sm:flex-none px-6 sm:px-10 py-4 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest flex items-center justify-center space-x-2 transition-all whitespace-nowrap ${
+            activeTab === 'global' ? 'bg-white dark:bg-dark-surface text-brand-primary shadow-xl shadow-indigo-500/10 dark:shadow-none' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
           }`}
         >
           <Globe size={16} />
@@ -417,50 +419,50 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative bg-white dark:bg-dark-surface w-full max-w-2xl rounded-[48px] shadow-2xl border border-slate-100 dark:border-dark-border overflow-hidden"
+              className="relative bg-white dark:bg-dark-surface w-full max-w-2xl rounded-[40px] sm:rounded-[48px] shadow-2xl border border-slate-100 dark:border-dark-border overflow-hidden"
             >
-              <div className="p-10 text-center space-y-8">
-                 <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-500/10 rounded-[32px] flex items-center justify-center mx-auto text-indigo-600">
-                    <Target size={40} />
+              <div className="p-6 sm:p-10 text-center space-y-6 sm:space-y-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
+                 <div className="w-16 h-16 sm:w-20 sm:h-20 bg-indigo-50 dark:bg-indigo-500/10 rounded-[24px] sm:rounded-[32px] flex items-center justify-center mx-auto text-indigo-600">
+                    <Target size={32} className="sm:w-10 sm:h-10" />
                  </div>
                  
                  <div className="space-y-2">
-                    <h2 className="text-3xl font-black font-display italic tracking-tight text-slate-950 dark:text-white">Curate your Feed</h2>
-                    <p className="text-slate-400 font-medium">Select common market patterns to prioritize in your global signal stream.</p>
+                    <h2 className="text-2xl sm:text-3xl font-black font-display italic tracking-tight text-slate-950 dark:text-white leading-tight">Curate your Feed</h2>
+                    <p className="text-slate-400 font-medium text-sm">Select common market patterns to prioritize in your global signal stream.</p>
                  </div>
 
-                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                     {TOPICS.map(topic => {
                       const isSelected = selectedInterests.includes(topic);
                       return (
                         <button
                           key={topic}
                           onClick={() => toggleInterest(topic)}
-                          className={`p-4 rounded-3xl border-2 transition-all flex flex-col items-center space-y-2 ${
+                          className={`p-3 sm:p-4 rounded-2xl sm:rounded-3xl border-2 transition-all flex flex-col items-center space-y-2 ${
                             isSelected 
                               ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-200 dark:shadow-none' 
                               : 'bg-slate-50 dark:bg-dark-bg border-transparent text-slate-400 hover:border-slate-200 dark:hover:border-dark-border'
                           }`}
                         >
-                          <Check size={16} className={isSelected ? 'opacity-100' : 'opacity-0'} />
-                          <span className="text-[10px] font-black uppercase tracking-widest">{topic}</span>
+                          <Check size={14} className={isSelected ? 'opacity-100' : 'opacity-0'} />
+                          <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest">{topic}</span>
                         </button>
                       );
                     })}
                  </div>
 
-                 <div className="flex items-center space-x-4 pt-4">
+                 <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 pt-4">
                     <button 
                       onClick={() => setShowInterestModal(false)}
-                      className="flex-1 py-5 rounded-3xl font-black text-slate-400 uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-dark-bg transition-colors"
+                      className="w-full sm:flex-1 py-4 sm:py-5 rounded-2xl sm:rounded-3xl font-black text-slate-400 uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-dark-bg transition-colors text-xs"
                     >
                       Dismiss
                     </button>
                     <button 
                       onClick={handleUpdateInterests}
-                      className="flex-2 py-5 bg-slate-950 dark:bg-indigo-600 text-white rounded-3xl font-black uppercase tracking-widest hover:bg-slate-900 dark:hover:bg-indigo-700 shadow-xl shadow-slate-200 dark:shadow-none transition-all"
+                      className="w-full sm:flex-2 py-4 sm:py-5 bg-slate-950 dark:bg-indigo-600 text-white rounded-2xl sm:rounded-3xl font-black uppercase tracking-widest hover:bg-slate-900 dark:hover:bg-indigo-700 shadow-xl shadow-slate-200 dark:shadow-none transition-all text-xs"
                     >
-                      Update Hub Configuration
+                      Update Configuration
                     </button>
                  </div>
               </div>
@@ -486,32 +488,32 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
                exit={{ opacity: 0, y: 50, scale: 0.95 }}
                className="relative bg-white dark:bg-dark-surface w-full max-w-xl rounded-[40px] shadow-2xl overflow-hidden"
              >
-                <form onSubmit={handlePostNews} className="p-10 space-y-8">
+                <form onSubmit={handlePostNews} className="p-6 sm:p-10 space-y-6 sm:space-y-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
                    <div className="flex justify-between items-center">
                       <div className="flex items-center space-x-3">
-                         <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600">
-                           <Rss size={20} />
+                         <div className="p-2 sm:p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl text-indigo-600">
+                           <Rss size={20} className="sm:w-6 sm:h-6" />
                          </div>
-                         <h2 className="text-2xl font-black font-display italic text-slate-900 dark:text-white uppercase tracking-tight">Internal Broadcast</h2>
+                         <h2 className="text-xl sm:text-2xl font-black font-display italic text-slate-900 dark:text-white uppercase tracking-tight">Internal Broadcast</h2>
                       </div>
                       <button type="button" onClick={() => setShowAddModal(false)} className="p-2 hover:bg-slate-50 dark:hover:bg-dark-bg rounded-xl text-slate-400">
                         <X size={20} />
                       </button>
                    </div>
 
-                   <div className="space-y-6">
+                   <div className="space-y-4 sm:space-y-6">
                       <div className="space-y-2">
                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-2">Directive Headline</label>
                          <input 
                            value={newPost.title}
                            onChange={(e) => setNewPost({...newPost, title: e.target.value})}
                            required
-                           className="w-full p-5 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-3xl outline-none focus:ring-4 focus:ring-brand-primary/10 text-sm font-bold italic"
+                           className="w-full p-4 sm:p-5 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-[24px] outline-none focus:ring-4 focus:ring-brand-primary/10 text-sm font-bold italic"
                            placeholder="Enter compelling headline..."
                          />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-2">Primary Topic</label>
                           <select 
@@ -539,8 +541,8 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
                            value={newPost.content}
                            onChange={(e) => setNewPost({...newPost, content: e.target.value})}
                            required
-                           rows={5}
-                           className="w-full p-5 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-3xl outline-none focus:ring-4 focus:ring-brand-primary/10 text-xs font-medium leading-relaxed"
+                           rows={4}
+                           className="w-full p-4 sm:p-5 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-[24px] outline-none focus:ring-4 focus:ring-brand-primary/10 text-xs font-medium leading-relaxed"
                            placeholder="Synthesizing directives..."
                          />
                       </div>
@@ -548,7 +550,7 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
 
                    <button 
                      type="submit"
-                     className="w-full bg-slate-950 dark:bg-indigo-600 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] hover:bg-brand-primary dark:hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 dark:shadow-none"
+                     className="w-full bg-slate-950 dark:bg-indigo-600 text-white py-5 sm:py-6 rounded-[24px] font-black text-xs uppercase tracking-[0.3em] hover:bg-brand-primary dark:hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 dark:shadow-none active:scale-95"
                    >
                      Initialize Broadcast
                    </button>

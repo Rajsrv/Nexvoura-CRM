@@ -20,25 +20,25 @@ export function PresenceProvider({ children, user, companyMembers }: {
     if (!user) return;
 
     // 1. Mark self as online
-    chatService.updatePresence(user.uid, 'online');
+    chatService.updatePresence(user.uid, user.companyId, 'online');
 
     // 2. Cleanup on disconnect/unmount
     const handleVisibilityChange = () => {
       const status = document.visibilityState === 'visible' ? 'online' : 'offline';
-      chatService.updatePresence(user.uid, status);
+      chatService.updatePresence(user.uid, user.companyId, status);
     };
 
     window.addEventListener('visibilitychange', handleVisibilityChange);
     
     // Periodically heartbeat
     const interval = setInterval(() => {
-      chatService.updatePresence(user.uid, 'online');
+      chatService.updatePresence(user.uid, user.companyId, 'online');
     }, 60000); // Every 1 minute
 
     return () => {
       window.removeEventListener('visibilitychange', handleVisibilityChange);
       clearInterval(interval);
-      chatService.updatePresence(user.uid, 'offline');
+      chatService.updatePresence(user.uid, user.companyId, 'offline');
     };
   }, [user]);
 
@@ -56,7 +56,7 @@ export function PresenceProvider({ children, user, companyMembers }: {
 
   const setTyping = (conversationId: string | null) => {
     if (!user) return;
-    chatService.updatePresence(user.uid, 'online', conversationId);
+    chatService.updatePresence(user.uid, user.companyId, 'online', conversationId);
   };
 
   return (

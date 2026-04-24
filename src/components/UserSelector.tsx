@@ -55,9 +55,9 @@ export function UserSelector({
               initial={{ opacity: 0, y: -10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
-              className="absolute z-50 mt-2 w-full bg-white dark:bg-dark-surface rounded-2xl shadow-xl border border-slate-100 dark:border-dark-border py-2 max-h-72 flex flex-col overflow-hidden transition-colors"
+              className="absolute z-50 mt-2 w-full bg-white dark:bg-dark-surface rounded-2xl shadow-xl border border-slate-200 dark:border-dark-border py-2 max-h-72 flex flex-col overflow-hidden transition-colors"
             >
-              <div className="px-3 pb-2 border-b border-slate-50 dark:border-dark-border">
+              <div className="px-3 pb-2 border-b border-slate-100 dark:border-dark-border">
                 <div className="relative">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dark-text-muted" />
                   <input
@@ -66,7 +66,7 @@ export function UserSelector({
                     placeholder="Search team..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-lg text-xs outline-none focus:ring-2 focus:ring-brand-primary/20 dark:focus:ring-indigo-500/20 transition-all text-slate-900 dark:text-white"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-lg text-xs outline-none focus:ring-2 focus:ring-brand-primary/20 dark:focus:ring-indigo-500/20 transition-all text-slate-900 dark:text-white"
                     onClick={(e) => e.stopPropagation()}
                   />
                 </div>
@@ -75,7 +75,7 @@ export function UserSelector({
                 <button
                   type="button"
                   onClick={() => { onChange(''); setIsOpen(false); setSearchTerm(''); }}
-                  className="w-full px-4 py-3 text-left text-xs text-slate-500 dark:text-dark-text-muted hover:bg-slate-50 dark:hover:bg-dark-bg font-bold uppercase tracking-widest border-b border-slate-50 dark:border-dark-border"
+                  className="w-full px-4 py-3 text-left text-xs text-slate-500 dark:text-dark-text-muted hover:bg-slate-50 dark:hover:bg-dark-bg font-bold uppercase tracking-widest border-b border-slate-100 dark:border-dark-border"
                 >
                   Unassigned
                 </button>

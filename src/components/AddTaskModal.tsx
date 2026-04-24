@@ -109,7 +109,7 @@ export function AddTaskModal({
         className="relative w-full max-w-4xl bg-white dark:bg-dark-surface rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-colors"
       >
         {/* Modern Header */}
-        <div className="p-8 border-b border-slate-100 dark:border-dark-border flex justify-between items-center bg-[#fcfcfc] dark:bg-dark-bg/50">
+        <div className="p-8 border-b border-slate-200 dark:border-dark-border flex justify-between items-center bg-white dark:bg-dark-bg/50">
           <div className="flex items-center space-x-4">
             <div className="w-12 h-12 bg-brand-primary rounded-2xl flex items-center justify-center text-white shadow-lg shadow-brand-primary/20">
               <Plus size={24} />
@@ -131,7 +131,7 @@ export function AddTaskModal({
         <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
           {/* Templates Section */}
           {templates.length > 0 && (
-            <div className="bg-slate-50 dark:bg-dark-bg/50 p-6 rounded-3xl border border-slate-100 dark:border-dark-border">
+            <div className="bg-slate-100/30 dark:bg-dark-bg/50 p-6 rounded-3xl border border-slate-200 dark:border-dark-border shadow-sm">
                <div className="flex items-center space-x-2 mb-4">
                   <Star size={14} className="text-brand-primary fill-brand-primary" />
                   <label className="text-[10px] font-bold text-slate-500 dark:text-dark-text-muted uppercase tracking-widest">Rapid Templates</label>
@@ -337,7 +337,7 @@ export function AddTaskModal({
         </div>
 
         {/* Action Footer */}
-        <div className="p-8 bg-[#fcfcfc] dark:bg-dark-bg/50 border-t border-slate-100 dark:border-dark-border flex flex-col sm:flex-row gap-4">
+        <div className="p-8 bg-white dark:bg-dark-bg/50 border-t border-slate-200 dark:border-dark-border flex flex-col sm:flex-row gap-4">
           <button
             type="button"
             onClick={() => onSaveTemplate(newTask)}
