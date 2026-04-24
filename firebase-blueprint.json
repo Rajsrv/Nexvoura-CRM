@@ -73,10 +73,30 @@
           }
         },
         "permissions": { "type": "array", "items": { "type": "string" } },
+        "interests": { "type": "array", "items": { "type": "string" }, "description": "User specific interests for personalized intelligence." },
         "reportsTo": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "email", "companyId", "role", "createdAt"]
+    },
+    "IntelligencePost": {
+      "title": "IntelligencePost",
+      "description": "Internal company updates or curated global intelligence signals.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string", "description": "The company this post is relevant to. For global signals, this might be a generic platform ID or null." },
+        "type": { "type": "string", "enum": ["Internal", "Global"] },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "topic": { "type": "string" },
+        "source": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "link": { "type": "string" },
+        "relevance": { "type": "number", "description": "Score from 0-100 indicating importance." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "authorId": { "type": "string" }
+      },
+      "required": ["type", "title", "content", "topic", "createdAt"]
     },
     "PermissionRequest": {
       "title": "PermissionRequest",
@@ -468,6 +488,10 @@
     "/performanceReviews/{reviewId}": {
       "schema": "PerformanceReview",
       "description": "Employee performance records."
+    },
+    "/intelligence/{postId}": {
+      "schema": "IntelligencePost",
+      "description": "Company news and global intelligence data."
     },
     "/activityLogs/{logId}": {
       "schema": "ActivityLog",

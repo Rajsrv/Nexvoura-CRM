@@ -101,6 +101,22 @@ export interface UserProfile {
   // RBAC
   permissions?: Permission[]; // Overrides based on role
   reportsTo?: string; // UID of manager
+  interests?: string[];
+}
+
+export interface IntelligencePost {
+  id: string;
+  companyId?: string;
+  type: 'Internal' | 'Global';
+  title: string;
+  content: string;
+  topic: string;
+  source: string;
+  imageUrl?: string;
+  link?: string;
+  relevance?: number;
+  createdAt: string;
+  authorId?: string;
 }
 
 export interface PermissionRequest {

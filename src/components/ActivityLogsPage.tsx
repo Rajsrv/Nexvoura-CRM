@@ -12,6 +12,17 @@ export default function ActivityLogsPage({ user }: { user: UserProfile }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
 
+  const parseDate = (val: any) => {
+    if (!val) return new Date();
+    if (typeof val.toDate === 'function') return val.toDate();
+    if (typeof val === 'string') {
+      const d = parseISO(val);
+      return isNaN(d.getTime()) ? new Date() : d;
+    }
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? new Date() : d;
+  };
+
   useEffect(() => {
     const q = query(
       collection(db, 'activityLogs'),
@@ -125,7 +136,7 @@ export default function ActivityLogsPage({ user }: { user: UserProfile }) {
                    <div className="flex items-center space-x-2 text-slate-400 dark:text-dark-text-muted group-hover:text-slate-600 dark:group-hover:text-white transition-colors">
                       <Calendar size={12} />
                       <span className="text-[10px] font-bold uppercase tracking-tighter">
-                        {format(parseISO(log.createdAt), 'MMM dd, HH:mm:ss')}
+                        {format(parseDate(log.createdAt), 'MMM dd, HH:mm:ss')}
                       </span>
                    </div>
                 </td>

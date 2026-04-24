@@ -155,6 +155,12 @@ service cloud.firestore {
       allow write: if isCompanyMember(incoming().companyId) && isManager();
     }
 
+    match /intelligence/{postId} {
+      allow read: if isSignedIn() && (resource.data.type == 'Global' || isCompanyMember(resource.data.companyId));
+      allow create, update: if (incoming().type == 'Internal' && isAdmin() && isCompanyMember(incoming().companyId)) || (incoming().type == 'Global' && isAdmin());
+      allow delete: if isAdmin();
+    }
+
     match /permissionRequests/{requestId} {
       allow get: if isCompanyMember(resource.data.companyId);
       allow list: if isCompanyMember(resource.data.companyId);

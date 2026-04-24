@@ -41,7 +41,10 @@ import {
   Briefcase,
   Check,
   Loader2,
-  History as HistoryIcon
+  History as HistoryIcon,
+  Sparkles,
+  TrendingUp,
+  Rss
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
@@ -71,6 +74,7 @@ import { PermissionsPage } from './components/PermissionsPage';
 import ActivityLogsPage from './components/ActivityLogsPage';
 import EmployeeProfilePage from './components/EmployeeProfilePage';
 import ChatPage from './components/ChatPage';
+import IntelligencePage from './components/IntelligencePage';
 import { logActivity } from './services/activityService';
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext';
 import { useTheme } from './contexts/ThemeContext';
@@ -101,6 +105,7 @@ import { hasPermission } from './lib/permissions';
 const Sidebar = ({ user, company, isOpen, setIsOpen }: { user: UserProfile; company: Company | null; isOpen: boolean; setIsOpen: (val: boolean) => void }) => {
   const navItems = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+    { name: 'Intelligence', path: '/intelligence', icon: Sparkles },
     { name: 'Directives', path: '/chat', icon: MessageSquare },
     { name: 'Leads', path: '/leads', icon: Globe, permission: 'leads:view' },
     { name: 'Tasks', path: '/tasks', icon: CheckSquare, permission: 'tasks:view' },
@@ -1680,6 +1685,7 @@ const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
                 <Route path="/payroll" element={(user.role === 'admin' || user.role === 'manager') ? <PayrollPage user={user} company={company} /> : <Navigate to="/" />} />
                 <Route path="/permissions" element={(user.role === 'admin' || user.role === 'manager') ? <PermissionsPage user={user} /> : <Navigate to="/" />} />
                 <Route path="/activity" element={(user.role === 'admin' || user.role === 'manager') ? <ActivityLogsPage user={user} /> : <Navigate to="/" />} />
+                <Route path="/intelligence" element={<IntelligencePage user={user} company={company} />} />
                 <Route path="/settings" element={<SettingsPage user={user} />} />
               </Routes>
             </main>

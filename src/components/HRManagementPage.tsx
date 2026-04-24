@@ -294,6 +294,17 @@ function AttendanceTab({ attendance, user, companyId, isAdmin, team }: { attenda
   const today = format(new Date(), 'yyyy-MM-dd');
   const todayRecord = attendance.find(a => a.employeeId === user.uid && a.date === today);
 
+  const parseDate = (val: any) => {
+    if (!val) return new Date();
+    if (typeof val.toDate === 'function') return val.toDate();
+    if (typeof val === 'string') {
+      const d = parseISO(val);
+      return isNaN(d.getTime()) ? new Date() : d;
+    }
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? new Date() : d;
+  };
+
   const getCurrentLocation = (): Promise<{ lat: number, lng: number } | null> => {
     return new Promise((resolve) => {
       if (!navigator.geolocation) return resolve(null);
@@ -387,7 +398,7 @@ function AttendanceTab({ attendance, user, companyId, isAdmin, team }: { attenda
                   {todayRecord?.checkIn && (
                     <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
                       <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">Check-in</span>
-                      <span className="text-sm font-bold italic text-blue-400 dark:text-indigo-400">{format(parseISO(todayRecord.checkIn), 'HH:mm:ss')}</span>
+                      <span className="text-sm font-bold italic text-blue-400 dark:text-indigo-400">{format(parseDate(todayRecord.checkIn), 'HH:mm:ss')}</span>
                     </div>
                   )}
                   {todayRecord?.location && (
@@ -423,7 +434,7 @@ function AttendanceTab({ attendance, user, companyId, isAdmin, team }: { attenda
           </div>
 
           <div className="bg-white dark:bg-dark-surface p-8 rounded-[40px] border border-slate-100 dark:border-dark-border shadow-sm transition-colors">
-             <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6">Daily Snapshot ({format(parseISO(selectedDate), 'MMM dd')})</h4>
+             <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6">Daily Snapshot ({format(parseDate(selectedDate), 'MMM dd')})</h4>
              <div className="grid grid-cols-3 gap-4">
                 <div className="bg-emerald-50 dark:bg-emerald-500/10 p-4 rounded-2xl text-center">
                    <p className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase mb-1">Present</p>
@@ -488,11 +499,11 @@ function AttendanceTab({ attendance, user, companyId, isAdmin, team }: { attenda
                             {record?.checkIn ? (
                               <div className="space-y-1">
                                 <div className="flex items-center space-x-2">
-                                  <span className="text-blue-600 dark:text-indigo-400">IN: {format(parseISO(record.checkIn), 'HH:mm')}</span>
+                                  <span className="text-blue-600 dark:text-indigo-400">IN: {format(parseDate(record.checkIn), 'HH:mm')}</span>
                                   {record.location && <MapPin size={10} className="text-slate-300 dark:text-slate-600" />}
                                 </div>
                                 <span className={record.checkOut ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-700'}>
-                                  OUT: {record.checkOut ? format(parseISO(record.checkOut), 'HH:mm') : '--:--'}
+                                  OUT: {record.checkOut ? format(parseDate(record.checkOut), 'HH:mm') : '--:--'}
                                 </span>
                               </div>
                             ) : (
@@ -549,6 +560,17 @@ function LeaveTab({ requests, user, companyId, isAdmin, team }: { requests: any[
     endDate: format(new Date(), 'yyyy-MM-dd'),
     reason: ''
   });
+
+  const parseDate = (val: any) => {
+    if (!val) return new Date();
+    if (typeof val.toDate === 'function') return val.toDate();
+    if (typeof val === 'string') {
+      const d = parseISO(val);
+      return isNaN(d.getTime()) ? new Date() : d;
+    }
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? new Date() : d;
+  };
 
   const handleApply = async () => {
     if (!newRequest.reason) return toast.error('Reason is required');
@@ -618,12 +640,12 @@ function LeaveTab({ requests, user, companyId, isAdmin, team }: { requests: any[
                <div className="bg-slate-50 dark:bg-dark-bg p-6 rounded-3xl border border-slate-100 dark:border-dark-border mb-6 flex justify-between items-center transition-colors">
                   <div className="text-center flex-1">
                      <p className="text-[8px] font-black uppercase text-slate-400 mb-1">Depart</p>
-                     <p className="font-black italic text-slate-950 dark:text-white text-sm uppercase">{format(parseISO(req.startDate), 'MMM dd')}</p>
+                     <p className="font-black italic text-slate-950 dark:text-white text-sm uppercase">{format(parseDate(req.startDate), 'MMM dd')}</p>
                   </div>
                   <div className="h-8 w-px bg-slate-200" />
                   <div className="text-center flex-1">
                      <p className="text-[8px] font-black uppercase text-slate-400 mb-1">Return</p>
-                     <p className="font-black italic text-slate-950 dark:text-white text-sm uppercase">{format(parseISO(req.endDate), 'MMM dd')}</p>
+                     <p className="font-black italic text-slate-950 dark:text-white text-sm uppercase">{format(parseDate(req.endDate), 'MMM dd')}</p>
                   </div>
                </div>
 
@@ -1030,6 +1052,17 @@ function HolidayTab({ holidays, companyId, isAdmin }: { holidays: Holiday[], com
     type: 'Public' as Holiday['type']
   });
 
+  const parseDate = (val: any) => {
+    if (!val) return new Date();
+    if (typeof val.toDate === 'function') return val.toDate();
+    if (typeof val === 'string') {
+      const d = parseISO(val);
+      return isNaN(d.getTime()) ? new Date() : d;
+    }
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? new Date() : d;
+  };
+
   const handleAdd = async () => {
     if (!newHoliday.name) return toast.error('Name is required');
     try {
@@ -1081,10 +1114,10 @@ function HolidayTab({ holidays, companyId, isAdmin }: { holidays: Holiday[], com
                       <td className="px-8 py-6">
                         <div className="flex items-center space-x-3">
                            <div className="w-10 h-10 bg-slate-100 dark:bg-dark-bg rounded-xl flex flex-col items-center justify-center text-slate-500 dark:text-dark-text-muted border dark:border-dark-border">
-                              <span className="text-[8px] font-black uppercase">{format(parseISO(h.date), 'MMM')}</span>
-                              <span className="text-xs font-black">{format(parseISO(h.date), 'dd')}</span>
+                              <span className="text-[8px] font-black uppercase">{format(parseDate(h.date), 'MMM')}</span>
+                              <span className="text-xs font-black">{format(parseDate(h.date), 'dd')}</span>
                            </div>
-                           <span className="text-xs font-black text-slate-950 dark:text-white uppercase">{format(parseISO(h.date), 'EEEE')}</span>
+                           <span className="text-xs font-black text-slate-950 dark:text-white uppercase">{format(parseDate(h.date), 'EEEE')}</span>
                         </div>
                       </td>
                       <td className="px-8 py-6">
@@ -1125,7 +1158,7 @@ function HolidayTab({ holidays, companyId, isAdmin }: { holidays: Holiday[], com
              <div key={h.id} className="bg-white/5 p-5 rounded-2xl border border-white/5 flex items-center justify-between group hover:bg-white/10 transition-all cursor-default">
                 <div className="flex items-center space-x-4">
                    <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black italic">
-                      {format(parseISO(h.date), 'dd')}
+                      {format(parseDate(h.date), 'dd')}
                    </div>
                    <div>
                       <p className="text-sm font-bold uppercase tracking-tight">{h.name}</p>
@@ -1349,6 +1382,17 @@ function ExitTab({ exits, team, companyId, isAdmin }: { exits: ExitRecord[], tea
     ]
   });
 
+  const parseDate = (val: any) => {
+    if (!val) return new Date();
+    if (typeof val.toDate === 'function') return val.toDate();
+    if (typeof val === 'string') {
+      const d = parseISO(val);
+      return isNaN(d.getTime()) ? new Date() : d;
+    }
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? new Date() : d;
+  };
+
   const handleAdd = async () => {
     if (!newExit.employeeId || !newExit.reason) return toast.error('All fields are required');
     try {
@@ -1411,11 +1455,11 @@ function ExitTab({ exits, team, companyId, isAdmin }: { exits: ExitRecord[], tea
                    <div className="grid grid-cols-2 gap-4">
                       <div className="bg-slate-50 dark:bg-dark-bg p-4 rounded-2xl border border-slate-100 dark:border-dark-border">
                          <p className="text-[8px] font-black uppercase text-slate-400 dark:text-dark-text-muted mb-1">Resigned</p>
-                         <p className="text-[10px] font-black text-slate-950 dark:text-white uppercase">{format(parseISO(record.resignationDate), 'MMM dd, yyyy')}</p>
+                         <p className="text-[10px] font-black text-slate-950 dark:text-white uppercase">{format(parseDate(record.resignationDate), 'MMM dd, yyyy')}</p>
                       </div>
                       <div className="bg-slate-50 dark:bg-dark-bg p-4 rounded-2xl border border-slate-100 dark:border-dark-border">
                          <p className="text-[8px] font-black uppercase text-slate-400 dark:text-dark-text-muted mb-1">LWD</p>
-                         <p className="text-[10px] font-black text-blue-600 dark:text-indigo-400 uppercase">{format(parseISO(record.lastWorkingDay), 'MMM dd, yyyy')}</p>
+                         <p className="text-[10px] font-black text-blue-600 dark:text-indigo-400 uppercase">{format(parseDate(record.lastWorkingDay), 'MMM dd, yyyy')}</p>
                       </div>
                    </div>
                    <div className="bg-slate-50 dark:bg-dark-bg p-5 rounded-2xl border border-slate-100 dark:border-dark-border">
