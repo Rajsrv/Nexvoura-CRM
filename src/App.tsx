@@ -513,6 +513,8 @@ const Dashboard = ({ user, company }: { user: UserProfile, company: Company | nu
         new: leadsData.filter(l => l.status === 'New').length,
         converted: leadsData.filter(l => l.status === 'Converted').length
       });
+    }, (error) => {
+      console.error("Dashboard Leads snapshot error:", error);
     });
 
     const unsubTasks = onSnapshot(tasksQ, (snapshot) => {
@@ -523,6 +525,8 @@ const Dashboard = ({ user, company }: { user: UserProfile, company: Company | nu
         return isPast(due) || isBefore(due, addDays(new Date(), 1));
       }).sort((a, b) => parseISO(a.dueDate).getTime() - parseISO(b.dueDate).getTime());
       setReminders(filtered);
+    }, (error) => {
+      console.error("Dashboard Tasks snapshot error:", error);
     });
 
     const unsubUsers = onSnapshot(usersQ, (snapshot) => {
@@ -559,10 +563,10 @@ const Dashboard = ({ user, company }: { user: UserProfile, company: Company | nu
     let unsubL = () => {}, unsubP = () => {}, unsubA = () => {}, unsubE = () => {};
 
     if (isManagerOrAdmin) {
-      unsubL = onSnapshot(leaveQ, s => { lCount = s.size; setPendingApprovals(lCount + pCount + aCount + eCount); });
-      unsubP = onSnapshot(permQ, s => { pCount = s.size; setPendingApprovals(lCount + pCount + aCount + eCount); });
-      unsubA = onSnapshot(accessQ, s => { aCount = s.size; setPendingApprovals(lCount + pCount + aCount + eCount); });
-      unsubE = onSnapshot(exitQ, s => { eCount = s.size; setPendingApprovals(lCount + pCount + aCount + eCount); });
+      unsubL = onSnapshot(leaveQ, (s) => { lCount = s.size; setPendingApprovals(lCount + pCount + aCount + eCount); }, (err) => console.error("Dashboard Leaves error:", err));
+      unsubP = onSnapshot(permQ, (s) => { pCount = s.size; setPendingApprovals(lCount + pCount + aCount + eCount); }, (err) => console.error("Dashboard Permissions error:", err));
+      unsubA = onSnapshot(accessQ, (s) => { aCount = s.size; setPendingApprovals(lCount + pCount + aCount + eCount); }, (err) => console.error("Dashboard Access error:", err));
+      unsubE = onSnapshot(exitQ, (s) => { eCount = s.size; setPendingApprovals(lCount + pCount + aCount + eCount); }, (err) => console.error("Dashboard Exit error:", err));
     }
 
     return () => {
@@ -812,10 +816,15 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
     const unsubLeads = onSnapshot(leadsQ, (snapshot) => {
       setLeads(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Lead)));
       setLoading(false);
+    }, (error) => {
+      console.error("LeadsPage snapshot error:", error);
+      setLoading(false);
     });
 
     const unsubTeam = onSnapshot(teamQ, (snapshot) => {
       setTeam(snapshot.docs.map(doc => doc.data() as UserProfile));
+    }, (error) => {
+      console.error("LeadsPage team snapshot error:", error);
     });
 
     const unsubForms = formService.getCompanyForms(user.companyId, setForms);
@@ -1702,7 +1711,7 @@ const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
       if (snap.exists()) {
         setCompany({ id: snap.id, ...snap.data() } as Company);
       }
-    });
+    }, (err) => console.error("Company profile snapshot error:", err));
 
     const q = query(
       collection(db, 'users'),
@@ -1710,7 +1719,7 @@ const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
     );
     const unsubMembers = onSnapshot(q, (snap) => {
       setCompanyMembers(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile)));
-    });
+    }, (err) => console.error("Company members snapshot error:", err));
 
     return () => {
       unsub();

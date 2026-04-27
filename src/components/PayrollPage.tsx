@@ -247,7 +247,7 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
                   {viewMode === 'monthly' ? 'Total Monthly Budget' : `Annual Spend (${selectedYear})`}
                 </p>
                 <h3 className="text-4xl font-black font-display italic tracking-tighter text-blue-400">
-                  ${totalBudget.toLocaleString()}
+                  {company?.currency || '$'}{totalBudget.toLocaleString()}
                 </h3>
               </div>
 
@@ -282,6 +282,14 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
                   <p className="text-sm font-black italic uppercase tracking-tighter">{viewMode === 'monthly' ? selectedMonth : selectedYear}</p>
                 </div>
               </div>
+              
+              <button 
+                onClick={() => navigate('/settings')}
+                className="w-full mt-6 flex items-center justify-center space-x-2 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-white/10"
+              >
+                <DollarSign size={12} />
+                <span>Change Currency: {company?.currency || '$'}</span>
+              </button>
             </div>
           </div>
           <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-blue-600/20 rounded-full blur-3xl" />

@@ -37,9 +37,10 @@ service cloud.firestore {
     }
 
     function hasRole(roles) {
+      let userData = getUserData(request.auth.uid);
       return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             getUserData(request.auth.uid).role in roles;
+             userData != null &&
+             userData.role in roles;
     }
 
     function isAdmin() {
@@ -281,11 +282,11 @@ service cloud.firestore {
     match /userPresence/{userId} {
       allow read: if isSignedIn() && (
         request.auth.uid == userId || 
-        resource.data.companyId == getUserData(request.auth.uid).companyId
+        (getUserData(request.auth.uid) != null && resource.data.companyId == getUserData(request.auth.uid).companyId)
       );
       
       allow write: if isSignedIn() && request.auth.uid == userId && 
-                    incoming().companyId == getUserData(request.auth.uid).companyId;
+                    (getUserData(request.auth.uid) != null && incoming().companyId == getUserData(request.auth.uid).companyId);
     }
 
     // -------------------------------------------------------------------------

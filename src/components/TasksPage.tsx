@@ -272,24 +272,35 @@ export default function TasksPage({ user }: { user: UserProfile }) {
     const unsubTasks = onSnapshot(tasksQ, (snap) => {
       setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() } as Task)));
       setLoading(false);
+    }, (error) => {
+      console.error("TasksPage tasks snapshot error:", error);
+      setLoading(false);
     });
 
     const unsubLeads = onSnapshot(leadsQ, (snap) => {
       setLeads(snap.docs.map(d => ({ id: d.id, ...d.data() } as Lead)));
+    }, (error) => {
+      console.error("TasksPage leads snapshot error:", error);
     });
 
     const unsubTeam = onSnapshot(teamQ, (snap) => {
       setTeam(snap.docs.map(d => d.data() as UserProfile));
+    }, (error) => {
+      console.error("TasksPage team snapshot error:", error);
     });
 
     const unsubTemplates = onSnapshot(templatesQ, (snap) => {
       setTemplates(snap.docs.map(d => ({ id: d.id, ...d.data() } as TaskTemplate)));
+    }, (error) => {
+      console.error("TasksPage templates snapshot error:", error);
     });
 
     const unsubCompany = onSnapshot(companyRef, (snap) => {
       if (snap.exists()) {
         setCompany({ id: snap.id, ...snap.data() } as Company);
       }
+    }, (error) => {
+      console.error("TasksPage company snapshot error:", error);
     });
 
     return () => {

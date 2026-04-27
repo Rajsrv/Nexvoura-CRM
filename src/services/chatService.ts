@@ -32,6 +32,8 @@ export const chatService = {
     return onSnapshot(q, (snap) => {
       const conversations = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Conversation));
       callback(conversations);
+    }, (error) => {
+      console.error("ChatService conversations snapshot error:", error);
     });
   },
 
@@ -88,6 +90,8 @@ export const chatService = {
     return onSnapshot(q, (snap) => {
       const messages = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatMessage));
       callback(messages);
+    }, (error) => {
+      console.error("ChatService messages snapshot error:", error);
     });
   },
 
@@ -168,13 +172,27 @@ export const chatService = {
       const presence: Record<string, UserPresence> = {};
       snap.docs.forEach(doc => {
         const data = doc.data();
+        let lastSeenIso = new Date().toISOString();
+        try {
+          if (data.lastSeen && typeof data.lastSeen.toDate === 'function') {
+            lastSeenIso = data.lastSeen.toDate().toISOString();
+          } else if (data.lastSeen) {
+            // Could be already a string or numeric timestamp from some edge case
+            lastSeenIso = new Date(data.lastSeen).toISOString();
+          }
+        } catch (e) {
+          console.warn("Presence lastSeen conversion failed:", e);
+        }
+
         presence[doc.id] = { 
           uid: doc.id, 
           ...data,
-          lastSeen: data.lastSeen?.toDate()?.toISOString() || new Date().toISOString()
+          lastSeen: lastSeenIso
         } as UserPresence;
       });
       callback(presence);
+    }, (error) => {
+      console.error("ChatService presence snapshot error:", error);
     });
   }
 };

@@ -375,14 +375,36 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
                 placeholder="Briefly describe your agency..."
               />
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-dark-text-muted uppercase tracking-wider mb-2">Currency Symbol</label>
-              <input
-                name="currency"
-                defaultValue={company?.currency || '$'}
-                className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium text-slate-900 dark:text-white"
-                placeholder="$"
-              />
+            <div className="md:col-span-2 space-y-4 pt-4 border-t border-slate-100 dark:border-dark-border">
+              <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest px-1">Fiscal Configuration</label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-dark-text-muted uppercase tracking-wider mb-2">Currency Symbol</label>
+                  <select
+                    name="currency"
+                    defaultValue={company?.currency || '$'}
+                    className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium text-slate-900 dark:text-white"
+                  >
+                    <option value="$">$ (USD/CAD/AUD)</option>
+                    <option value="€">€ (EUR)</option>
+                    <option value="£">£ (GBP)</option>
+                    <option value="₹">₹ (INR)</option>
+                    <option value="¥">¥ (JPY/CNY)</option>
+                    <option value="AED">AED (UAE Dirham)</option>
+                    <option value="SAR">SAR (Saudi Riyal)</option>
+                    <option value="Rs">Rs (PKR/LKR)</option>
+                    <option value="฿">฿ (THB)</option>
+                    <option value="₩">₩ (KRW)</option>
+                    <option value="Custom">Custom Symbol</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-slate-500 dark:text-dark-text-muted uppercase tracking-wider mb-2">Currency Description</label>
+                  <p className="text-xs text-slate-400 dark:text-dark-text-muted italic mt-2">
+                    This symbol will be used across all financial interfaces including payroll, slips, and audits.
+                  </p>
+                </div>
+              </div>
             </div>
             <div className="md:col-span-2 flex justify-end">
               <button

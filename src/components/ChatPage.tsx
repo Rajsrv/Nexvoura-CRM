@@ -42,6 +42,8 @@ export default function ChatPage() {
     const unsub = onSnapshot(q, (snap) => {
       const members = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
       setTeamMembers(members.filter(m => m.uid !== user.uid));
+    }, (error) => {
+      console.error("ChatPage team snapshot error:", error);
     });
     return () => unsub();
   }, [user]);
