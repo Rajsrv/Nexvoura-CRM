@@ -17,16 +17,18 @@ export const hasPermission = (user: UserProfile, company: Company | null, permis
       'leads:view', 'leads:edit', 'leads:assign',
       'tasks:view', 'tasks:edit', 'tasks:assign',
       'team:view', 'team:manage', 'team:invite',
-      'finance:view', 'settings:company'
+      'finance:view', 'settings:company',
+      'blog:view', 'blog:manage', 'media:manage'
     ],
     team_lead: [
       'leads:view', 'leads:edit',
       'tasks:view', 'tasks:edit', 'tasks:assign',
-      'team:view'
+      'team:view', 'blog:view', 'blog:manage', 'media:manage'
     ],
     sales: [
       'leads:view', 'leads:edit',
-      'tasks:view', 'tasks:edit'
+      'tasks:view', 'tasks:edit',
+      'blog:view'
     ]
   };
 

@@ -39,6 +39,8 @@ export type Permission =
   | 'tasks:view' | 'tasks:edit' | 'tasks:delete' | 'tasks:assign'
   | 'team:view' | 'team:manage' | 'team:invite'
   | 'finance:view' | 'finance:manage'
+  | 'blog:view' | 'blog:manage'
+  | 'media:manage'
   | 'settings:company' | 'settings:security';
 
 export interface BankDetails {
@@ -223,6 +225,7 @@ export interface Lead {
   message: string;
   status: 'New' | 'Contacted' | 'Converted';
   assignedTo?: string;
+  formId?: string;
   createdAt: string;
 }
 

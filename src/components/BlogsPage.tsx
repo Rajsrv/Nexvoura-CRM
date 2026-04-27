@@ -15,7 +15,8 @@ import {
   Palette,
   Type,
   Code,
-  BarChart3
+  BarChart3,
+  Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { blogService, Blog, BlogStyling } from '../services/blogService';
@@ -23,6 +24,7 @@ import { useAuth } from '../App';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useNavigate, Link } from 'react-router-dom';
+import { hasPermission } from '../lib/permissions';
 
 const DEFAULT_STYLING: BlogStyling = {
   primaryColor: '#6366f1',
@@ -34,7 +36,7 @@ const DEFAULT_STYLING: BlogStyling = {
 };
 
 export const BlogsPage = () => {
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const navigate = useNavigate();
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +47,8 @@ export const BlogsPage = () => {
     description: '',
     styling: DEFAULT_STYLING
   });
+
+  const canManage = user && hasPermission(user, company, 'blog:manage');
 
   useEffect(() => {
     if (user?.companyId) {
@@ -65,6 +69,10 @@ export const BlogsPage = () => {
 
   const handleCreateBlog = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManage) {
+      toast.error('Insufficient clearance for content engine initialization');
+      return;
+    }
     if (!newBlog.name || !newBlog.slug) {
       toast.error('Name and slug are required');
       return;
@@ -90,7 +98,11 @@ export const BlogsPage = () => {
   };
 
   const handleDeleteBlog = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this blog? All posts will remain but will be orphaned.')) return;
+    if (!canManage) {
+      toast.error('Insufficient clearance for terminal publication deletion');
+      return;
+    }
+    if (!window.confirm('Are you sure you want to delete this blog? All posts will remain but will be orphaned. ')) return;
     try {
       await blogService.deleteBlog(id);
       toast.success('Blog deleted successfully');
@@ -100,6 +112,16 @@ export const BlogsPage = () => {
     }
   };
 
+  if (user && !hasPermission(user, company, 'blog:view')) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <Shield size={64} className="text-rose-500 mb-6 opacity-20" />
+        <h2 className="text-2xl font-black uppercase italic tracking-tighter text-white mb-2">Access Denied</h2>
+        <p className="text-slate-400 font-medium">Your current clearance level does not allow access to the Content Network.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-8 max-w-7xl mx-auto min-h-screen pb-24">
       {/* Header */}
@@ -108,13 +130,15 @@ export const BlogsPage = () => {
           <h1 className="text-4xl font-black italic uppercase tracking-tight text-white mb-2">Blog Systems</h1>
           <p className="text-slate-400 font-medium tracking-wide">Manage company publications and content delivery.</p>
         </div>
-        <button 
-          onClick={() => setShowCreateModal(true)}
-          className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-xs transition-all shadow-xl shadow-indigo-500/20 flex items-center space-x-3 rounded-2xl group"
-        >
-          <Plus size={18} className="group-hover:rotate-90 transition-transform" />
-          <span>Initialize Publication</span>
-        </button>
+        {canManage && (
+          <button 
+            onClick={() => setShowCreateModal(true)}
+            className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-xs transition-all shadow-xl shadow-indigo-500/20 flex items-center space-x-3 rounded-2xl group"
+          >
+            <Plus size={18} className="group-hover:rotate-90 transition-transform" />
+            <span>Initialize Publication</span>
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -130,13 +154,15 @@ export const BlogsPage = () => {
           </div>
           <h2 className="text-2xl font-black italic text-white uppercase mb-4 tracking-tight">No Publications Found</h2>
           <p className="text-slate-500 max-w-md mx-auto mb-10 font-medium">Your company hasn't initialized any blog publications yet.</p>
-          <button 
-            onClick={() => setShowCreateModal(true)}
-            className="text-indigo-400 font-black uppercase tracking-widest text-[10px] hover:text-indigo-300 transition-colors flex items-center justify-center mx-auto space-x-2"
-          >
-            <span>Start Your First Blog</span>
-            <ChevronRight size={14} />
-          </button>
+          {canManage && (
+            <button 
+              onClick={() => setShowCreateModal(true)}
+              className="text-indigo-400 font-black uppercase tracking-widest text-[10px] hover:text-indigo-300 transition-colors flex items-center justify-center mx-auto space-x-2"
+            >
+              <span>Start Your First Blog</span>
+              <ChevronRight size={14} />
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -160,24 +186,28 @@ export const BlogsPage = () => {
                     <FileText size={24} />
                   </div>
                   <div className="flex items-center space-x-2">
-                    <button 
-                      onClick={() => navigate(`/blogs/${blog.id}/settings`)}
-                      className="p-3 bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-all"
-                    >
-                      <Settings size={18} />
-                    </button>
-                    <button 
-                      onClick={() => navigate(`/blogs/${blog.id}/analytics`)}
-                      className="p-3 bg-slate-800/50 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-400 rounded-xl transition-all"
-                    >
-                      <BarChart3 size={18} />
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteBlog(blog.id)}
-                      className="p-3 bg-slate-800/50 hover:bg-rose-500/20 text-slate-400 hover:text-rose-500 rounded-xl transition-all"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                    {canManage && (
+                      <>
+                        <button 
+                          onClick={() => navigate(`/blogs/${blog.id}/settings`)}
+                          className="p-3 bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-all"
+                        >
+                          <Settings size={18} />
+                        </button>
+                        <button 
+                          onClick={() => navigate(`/blogs/${blog.id}/analytics`)}
+                          className="p-3 bg-slate-800/50 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-400 rounded-xl transition-all"
+                        >
+                          <BarChart3 size={18} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteBlog(blog.id)}
+                          className="p-3 bg-slate-800/50 hover:bg-rose-500/20 text-slate-400 hover:text-rose-500 rounded-xl transition-all"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 

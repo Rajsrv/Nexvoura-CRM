@@ -22,13 +22,16 @@ const AVAILABLE_PERMISSIONS: { id: Permission; label: string; description: strin
   { id: 'finance:manage', label: 'Manage Finance', description: 'Process payments and modify budgets', category: 'Admin' },
   { id: 'settings:company', label: 'Company Settings', description: 'Modify branding and global configs', category: 'Admin' },
   { id: 'settings:security', label: 'Security Config', description: 'Manage system-wide RBAC and auth', category: 'Admin' },
+  { id: 'blog:view', label: 'Read Content', description: 'Access to blog signals and archives', category: 'Content' },
+  { id: 'blog:manage', label: 'Broadcast Control', description: 'Create and edit blog transmissions', category: 'Content' },
+  { id: 'media:manage', label: 'Media Vault', description: 'Access and manage central asset repository', category: 'Content' },
 ];
 
 const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   admin: AVAILABLE_PERMISSIONS.map(p => p.id),
-  manager: ['leads:view', 'leads:edit', 'leads:assign', 'tasks:view', 'tasks:edit', 'tasks:assign', 'team:view', 'team:invite'],
-  team_lead: ['leads:view', 'leads:edit', 'tasks:view', 'tasks:edit', 'tasks:assign', 'team:view'],
-  sales: ['leads:view', 'leads:edit', 'tasks:view', 'tasks:edit'],
+  manager: ['leads:view', 'leads:edit', 'leads:assign', 'tasks:view', 'tasks:edit', 'tasks:assign', 'team:view', 'team:invite', 'blog:view', 'blog:manage', 'media:manage'],
+  team_lead: ['leads:view', 'leads:edit', 'tasks:view', 'tasks:edit', 'tasks:assign', 'team:view', 'blog:view', 'blog:manage', 'media:manage'],
+  sales: ['leads:view', 'leads:edit', 'tasks:view', 'tasks:edit', 'blog:view'],
 };
 
 export function PermissionsPage({ user }: { user: UserProfile }) {

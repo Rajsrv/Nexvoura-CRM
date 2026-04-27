@@ -27,11 +27,13 @@ import { useAuth } from '../App';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
+import { hasPermission } from '../lib/permissions';
+import { Shield } from 'lucide-react';
 
 export const BlogPostEditor = () => {
   const { blogId, postId } = useParams<{ blogId: string; postId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
@@ -40,6 +42,8 @@ export const BlogPostEditor = () => {
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
   const [tagInput, setTagInput] = useState('');
+
+  const canManage = user && hasPermission(user, company, 'blog:manage');
   
   const [post, setPost] = useState<Partial<BlogPost>>({
     title: '',
@@ -112,6 +116,10 @@ export const BlogPostEditor = () => {
   };
 
   const handleSave = async (statusOverride?: 'draft' | 'published') => {
+    if (!canManage) {
+      toast.error('Insufficient clearance for content synchronization');
+      return;
+    }
     if (!post.title || !post.content || !post.slug) {
       toast.error('Title, content, and slug are required');
       return;
@@ -156,6 +164,22 @@ export const BlogPostEditor = () => {
   };
 
   if (loading) return null;
+
+  if (user && !hasPermission(user, company, 'blog:manage')) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center min-h-screen text-center bg-slate-950">
+        <Shield size={64} className="text-rose-500 mb-6 opacity-20" />
+        <h2 className="text-2xl font-black uppercase italic tracking-tighter text-white mb-2">Access Denied</h2>
+        <p className="text-slate-400 font-medium">Your current clearance level does not allow modification of the Content Network.</p>
+        <button 
+          onClick={() => navigate(`/blogs/${blogId}/posts`)}
+          className="mt-8 px-6 py-3 bg-slate-800 text-white font-black uppercase tracking-widest text-[10px] rounded-xl"
+        >
+          Return to Archive
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen bg-slate-950 flex flex-col">

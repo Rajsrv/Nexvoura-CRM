@@ -14,7 +14,10 @@ import {
 import { motion } from 'motion/react';
 import { blogService, Blog, BlogAnalyticsEvent } from '../services/blogService';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../App';
 import { toast } from 'sonner';
+import { hasPermission } from '../lib/permissions';
+import { Shield } from 'lucide-react';
 import { format, subDays, isWithinInterval, startOfDay } from 'date-fns';
 import { 
   BarChart, 
@@ -33,20 +36,21 @@ import {
 export const BlogAnalyticsPage = () => {
   const { blogId } = useParams<{ blogId: string }>();
   const navigate = useNavigate();
+  const { user, company } = useAuth();
   const [loading, setLoading] = useState(true);
   const [blog, setBlog] = useState<Blog | null>(null);
   const [events, setEvents] = useState<BlogAnalyticsEvent[]>([]);
   const [timeRange, setTimeRange] = useState(7);
 
   useEffect(() => {
-    if (blogId) {
+    if (blogId && user?.companyId) {
       loadData();
     }
-  }, [blogId]);
+  }, [blogId, user?.companyId]);
 
   const loadData = async () => {
     try {
-      const blogs = await blogService.getBlogs((window as any).userData?.companyId || '');
+      const blogs = await blogService.getBlogs(user!.companyId);
       const currentBlog = blogs.find(b => b.id === blogId);
       if (currentBlog) {
         setBlog(currentBlog);
@@ -64,6 +68,22 @@ export const BlogAnalyticsPage = () => {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-950">
         <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (user && !hasPermission(user, company, 'blog:manage')) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center min-h-screen text-center bg-slate-950">
+        <Shield size={64} className="text-rose-500 mb-6 opacity-20" />
+        <h2 className="text-2xl font-black uppercase italic tracking-tighter text-white mb-2">Access Denied</h2>
+        <p className="text-slate-400 font-medium">Your current clearance level does not allow access to engagement analytics.</p>
+        <button 
+          onClick={() => navigate('/blogs')}
+          className="mt-8 px-6 py-3 bg-slate-800 text-white font-black uppercase tracking-widest text-[10px] rounded-xl"
+        >
+          Return to Grid
+        </button>
       </div>
     );
   }

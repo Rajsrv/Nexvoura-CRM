@@ -44,7 +44,8 @@ import {
   History as HistoryIcon,
   Sparkles,
   TrendingUp,
-  Rss
+  Rss,
+  Image as ImageIcon
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
@@ -83,9 +84,11 @@ import { BlogPostsPage } from './components/BlogPostsPage';
 import { BlogPostEditor } from './components/BlogPostEditor';
 import { BlogSettingsPage } from './components/BlogSettingsPage';
 import { BlogAnalyticsPage } from './components/BlogAnalyticsPage';
+import { MediaLibraryPage } from './components/MediaLibraryPage';
 import { PublicBlogPage } from './components/PublicBlogPage';
 import { PublicPostPage } from './components/PublicPostPage';
 import { logActivity } from './services/activityService';
+import { formService, DynamicForm } from './services/formService';
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext';
 import { useTheme } from './contexts/ThemeContext';
 import { PresenceProvider } from './contexts/PresenceContext';
@@ -117,7 +120,8 @@ const Sidebar = ({ user, company, isOpen, setIsOpen }: { user: UserProfile; comp
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Intelligence', path: '/intelligence', icon: Sparkles },
     { name: 'Directives', path: '/chat', icon: MessageSquare },
-    { name: 'Blogs', path: '/blogs', icon: Rss, permission: 'leads:manage' },
+    { name: 'Blogs', path: '/blogs', icon: Rss, permission: 'blog:view' },
+    { name: 'Media', path: '/media-library', icon: ImageIcon, permission: 'media:manage' },
     { name: 'Leads', path: '/leads', icon: Globe, permission: 'leads:view' },
     { name: 'Forms', path: '/forms', icon: LayoutDashboard, permission: 'leads:manage' },
     { name: 'Tasks', path: '/tasks', icon: CheckSquare, permission: 'tasks:view' },
@@ -783,6 +787,8 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [serviceFilter, setServiceFilter] = useState('All');
+  const [formFilter, setFormFilter] = useState('All');
+  const [forms, setForms] = useState<DynamicForm[]>([]);
   const [newLead, setNewLead] = useState({ 
     name: '', 
     email: '', 
@@ -812,9 +818,12 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
       setTeam(snapshot.docs.map(doc => doc.data() as UserProfile));
     });
 
+    const unsubForms = formService.getCompanyForms(user.companyId, setForms);
+
     return () => {
       unsubLeads();
       unsubTeam();
+      unsubForms();
     };
   }, [user.companyId, user.role, user.uid]);
 
@@ -877,7 +886,8 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
       lead.email.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'All' || lead.status === statusFilter;
     const matchesService = serviceFilter === 'All' || lead.service === serviceFilter;
-    return matchesSearch && matchesStatus && matchesService;
+    const matchesForm = formFilter === 'All' || (formFilter === 'Manual' ? !lead.formId : lead.formId === formFilter);
+    return matchesSearch && matchesStatus && matchesService && matchesForm;
   });
 
   return (
@@ -936,6 +946,20 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
               <option value="Custom Development">Custom Forge</option>
             </select>
           </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Source</span>
+            <select 
+              value={formFilter}
+              onChange={(e) => setFormFilter(e.target.value)}
+              className="text-xs font-bold bg-white dark:bg-dark-surface border border-slate-200 dark:border-dark-border rounded-lg px-3 py-1.5 outline-none text-slate-700 dark:text-dark-text transition-all focus:ring-2 focus:ring-brand-primary"
+            >
+              <option value="All">All Sources</option>
+              <option value="Manual">Direct Entry</option>
+              {forms.map(form => (
+                <option key={form.id} value={form.id}>Form: {form.name}</option>
+              ))}
+            </select>
+          </div>
           {(user.role === 'admin' || user.role === 'manager') && (
             <button 
               onClick={exportLeadsToCSV}
@@ -952,6 +976,7 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
             <thead>
               <tr className="border-b border-slate-200 dark:border-dark-border">
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Contact</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Source</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Service</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Status</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Assignee</th>
@@ -971,6 +996,19 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
                         <p className="text-xs text-slate-500 dark:text-dark-text-muted">{lead.email}</p>
                       </div>
                     </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    {lead.formId ? (
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest leading-none">Form</span>
+                        <span className="text-xs font-bold text-slate-600 dark:text-slate-400 mt-1">{forms.find(f => f.id === lead.formId)?.name || 'Unknown Form'}</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Direct</span>
+                        <span className="text-xs font-bold text-slate-400 dark:text-dark-text-muted mt-1 italic">Manual Entry</span>
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-sm font-medium text-slate-600 dark:text-dark-text-muted px-2 py-1 bg-slate-100 dark:bg-dark-bg rounded-lg">{lead.service}</span>
@@ -1707,6 +1745,7 @@ const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
                 <Route path="/blogs/:blogId/posts/:postId" element={<BlogPostEditor />} />
                 <Route path="/blogs/:blogId/settings" element={<BlogSettingsPage />} />
                 <Route path="/blogs/:blogId/analytics" element={<BlogAnalyticsPage />} />
+                <Route path="/media-library" element={<MediaLibraryPage />} />
                 <Route path="/profile" element={<ProfilePage user={user} />} />
                 <Route path="/employees" element={<EmployeesPage user={user} company={company} />} />
                 <Route path="/employees/:employeeId" element={<EmployeeProfilePage />} />

@@ -19,14 +19,18 @@ import { blogService, Blog, BlogStyling } from '../services/blogService';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import { toast } from 'sonner';
+import { hasPermission } from '../lib/permissions';
+import { Shield } from 'lucide-react';
 
 export const BlogSettingsPage = () => {
   const { blogId } = useParams<{ blogId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [blog, setBlog] = useState<Blog | null>(null);
+
+  const canManage = user && hasPermission(user, company, 'blog:manage');
 
   useEffect(() => {
     if (blogId && user?.companyId) {
@@ -50,6 +54,10 @@ export const BlogSettingsPage = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManage) {
+      toast.error('Insufficient clearance for configuration synchronization');
+      return;
+    }
     if (!blog) return;
 
     setSaving(true);
@@ -79,6 +87,10 @@ export const BlogSettingsPage = () => {
   const [newCategory, setNewCategory] = useState('');
 
   const addCategory = () => {
+    if (!canManage) {
+      toast.error('Insufficient clearance for taxonomy modification');
+      return;
+    }
     if (!newCategory.trim() || !blog) return;
     if (blog.categories?.includes(newCategory.trim())) {
       toast.error('Category already exists');
@@ -90,11 +102,32 @@ export const BlogSettingsPage = () => {
   };
 
   const removeCategory = (cat: string) => {
+    if (!canManage) {
+      toast.error('Insufficient clearance for taxonomy node removal');
+      return;
+    }
     if (!blog) return;
     setBlog({ ...blog, categories: blog.categories.filter(c => c !== cat) });
   };
 
   if (loading) return null;
+
+  if (user && !hasPermission(user, company, 'blog:manage')) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center min-h-screen text-center bg-slate-950">
+        <Shield size={64} className="text-rose-500 mb-6 opacity-20" />
+        <h2 className="text-2xl font-black uppercase italic tracking-tighter text-white mb-2">Access Denied</h2>
+        <p className="text-slate-400 font-medium">Your current clearance level does not allow modification of publication parameters.</p>
+        <button 
+          onClick={() => navigate('/blogs')}
+          className="mt-8 px-6 py-3 bg-slate-800 text-white font-black uppercase tracking-widest text-[10px] rounded-xl"
+        >
+          Return to Grid
+        </button>
+      </div>
+    );
+  }
+
   if (!blog) return <div>Blog not found</div>;
 
   return (

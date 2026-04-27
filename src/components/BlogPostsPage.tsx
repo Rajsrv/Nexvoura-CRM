@@ -20,16 +20,20 @@ import { useAuth } from '../App';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { hasPermission } from '../lib/permissions';
+import { Shield } from 'lucide-react';
 
 export const BlogPostsPage = () => {
   const { blogId } = useParams<{ blogId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const [blog, setBlog] = useState<Blog | null>(null);
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'draft'>('all');
+
+  const canManage = user && hasPermission(user, company, 'blog:manage');
 
   useEffect(() => {
     if (blogId && user?.companyId) {
@@ -54,6 +58,10 @@ export const BlogPostsPage = () => {
   };
 
   const handleDeletePost = async (id: string) => {
+    if (!canManage) {
+      toast.error('Insufficient clearance for entry deletion');
+      return;
+    }
     if (!window.confirm('Are you sure you want to delete this post?')) return;
     try {
       await blogService.deletePost(id);
@@ -74,6 +82,16 @@ export const BlogPostsPage = () => {
     return (
       <div className="p-8 max-w-7xl mx-auto flex items-center justify-center min-h-[60vh]">
         <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (user && !hasPermission(user, company, 'blog:view')) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <Shield size={64} className="text-rose-500 mb-6 opacity-20" />
+        <h2 className="text-2xl font-black uppercase italic tracking-tighter text-white mb-2">Access Denied</h2>
+        <p className="text-slate-400 font-medium">Your current clearance level does not allow access to the Content Network.</p>
       </div>
     );
   }
@@ -100,13 +118,15 @@ export const BlogPostsPage = () => {
           </div>
           <p className="text-slate-400 font-medium tracking-wide">Managing publication content for <span className="text-indigo-400">/blog/{blog.slug}</span></p>
         </div>
-        <button 
-          onClick={() => navigate(`/blogs/${blogId}/posts/new`)}
-          className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-xs transition-all shadow-xl shadow-indigo-500/20 flex items-center space-x-3 rounded-2xl group"
-        >
-          <Plus size={18} />
-          <span>New Entry</span>
-        </button>
+        {canManage && (
+          <button 
+            onClick={() => navigate(`/blogs/${blogId}/posts/new`)}
+            className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-xs transition-all shadow-xl shadow-indigo-500/20 flex items-center space-x-3 rounded-2xl group"
+          >
+            <Plus size={18} />
+            <span>New Entry</span>
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -182,13 +202,15 @@ export const BlogPostsPage = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => navigate(`/blogs/${blogId}/posts/${post.id}`)}
-                  className="p-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl transition-all"
-                  title="Edit Entry"
-                >
-                  <Edit2 size={18} />
-                </button>
+                {canManage && (
+                  <button 
+                    onClick={() => navigate(`/blogs/${blogId}/posts/${post.id}`)}
+                    className="p-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl transition-all"
+                    title="Edit Entry"
+                  >
+                    <Edit2 size={18} />
+                  </button>
+                )}
                 <a 
                   href={`/blog/${blog.slug}/${post.slug}`}
                   target="_blank"
@@ -198,13 +220,15 @@ export const BlogPostsPage = () => {
                 >
                   <Eye size={18} />
                 </a>
-                <button 
-                  onClick={() => handleDeletePost(post.id)}
-                  className="p-4 bg-slate-800 hover:bg-rose-500 text-white rounded-2xl transition-all"
-                  title="Delete Entry"
-                >
-                  <Trash2 size={18} />
-                </button>
+                {canManage && (
+                  <button 
+                    onClick={() => handleDeletePost(post.id)}
+                    className="p-4 bg-slate-800 hover:bg-rose-500 text-white rounded-2xl transition-all"
+                    title="Delete Entry"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
               </div>
             </motion.div>
           ))
