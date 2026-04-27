@@ -185,7 +185,7 @@ export default function EmployeeProfilePage() {
         
         // Notify admins about the proposal
         await sendNotification({
-          userId: company?.ownerId || '', // Notify owner/admin
+          userId: company?.id || '', // Notify company node (admin notification logic)
           type: 'admin_alert',
           title: 'Hike Authorization Required',
           message: `A salary adjustment of ${company?.currency || '$'}${amount.toLocaleString()} has been proposed for ${employee.name}.`,

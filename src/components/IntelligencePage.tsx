@@ -69,7 +69,7 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
     const fetchGlobal = async () => {
       if (activeTab === 'global') {
         setLoading(true);
-        const signals = await fetchGlobalIntelligence(selectedInterests);
+        const signals = await fetchGlobalIntelligence(selectedInterests) as IntelligencePost[];
         setGlobalSignals(signals);
         setLoading(false);
       }

@@ -414,9 +414,177 @@
         "typingIn": { "type": "string", "description": "ID of conversation user is typing in." }
       },
       "required": ["status", "lastSeen"]
+    },
+    "Form": {
+      "title": "Form",
+      "description": "A dynamic lead form structure.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "type": { "type": "string", "enum": ["text", "textarea", "number", "email", "tel", "select"] },
+              "required": { "type": "boolean" },
+              "options": { "type": "array", "items": { "type": "string" } },
+              "placeholder": { "type": "string" }
+            }
+          }
+        },
+        "isActive": { "type": "boolean" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "name", "fields", "isActive", "createdAt"]
+    },
+    "FormSubmission": {
+      "title": "FormSubmission",
+      "description": "A submission for a specific dynamic form.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "formId": { "type": "string" },
+        "formName": { "type": "string" },
+        "data": { "type": "object" },
+        "submittedAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["New", "Read", "Converted"] }
+      },
+      "required": ["companyId", "formId", "data", "submittedAt"]
+    },
+    "Blog": {
+      "title": "Blog",
+      "description": "A blog instance within a company.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "slug": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "footerText": { "type": "string" },
+        "styling": {
+          "type": "object",
+          "properties": {
+            "primaryColor": { "type": "string" },
+            "backgroundColor": { "type": "string" },
+            "cardColor": { "type": "string" },
+            "textColor": { "type": "string" },
+            "fontFamily": { "type": "string" },
+            "layout": { "type": "string", "enum": ["grid", "list"] }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "categories": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["companyId", "name", "slug", "createdAt"]
+    },
+    "BlogPost": {
+      "title": "BlogPost",
+      "description": "A single post in a blog.",
+      "type": "object",
+      "properties": {
+        "blogId": { "type": "string" },
+        "companyId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string", "description": "Markdown content." },
+        "excerpt": { "type": "string" },
+        "slug": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "coverImage": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "published"] },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "category": { "type": "string" },
+        "publishedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["blogId", "companyId", "title", "content", "slug", "status", "createdAt"]
+    },
+    "BlogComment": {
+      "title": "BlogComment",
+      "description": "A comment on a blog post.",
+      "type": "object",
+      "properties": {
+        "blogId": { "type": "string" },
+        "postId": { "type": "string" },
+        "companyId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorEmail": { "type": "string" },
+        "content": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "spam"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["blogId", "postId", "companyId", "authorName", "content", "status", "createdAt"]
+    },
+    "MediaAsset": {
+      "title": "MediaAsset",
+      "description": "A stored media file for the company.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "name": { "type": "string" },
+        "url": { "type": "string" },
+        "type": { "type": "string", "enum": ["image", "video", "document"] },
+        "size": { "type": "number" },
+        "dimensions": {
+          "type": "object",
+          "properties": {
+            "width": { "type": "number" },
+            "height": { "type": "number" }
+          }
+        },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "uploadedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "name", "url", "type", "createdAt"]
+    },
+    "BlogAnalyticsEvent": {
+      "title": "BlogAnalyticsEvent",
+      "description": "Anonymized tracking event for blog analytics.",
+      "type": "object",
+      "properties": {
+        "blogId": { "type": "string" },
+        "postId": { "type": "string", "description": "Optional: set if the event is for a specific post." },
+        "companyId": { "type": "string" },
+        "eventType": { "type": "string", "enum": ["view", "engagement", "read_time"] },
+        "source": { "type": "string", "description": "Traffic source (referrer)." },
+        "value": { "type": "number", "description": "For read_time (seconds) or other metrics." },
+        "userAgent": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["blogId", "companyId", "eventType", "createdAt"]
     }
   },
   "firestore": {
+    "/blogAnalyticsEvents/{eventId}": {
+      "schema": "BlogAnalyticsEvent",
+      "description": "Aggregated analytics events."
+    },
+    "/blogComments/{commentId}": {
+      "schema": "BlogComment",
+      "description": "Comments on blog posts."
+    },
+    "/mediaAssets/{assetId}": {
+      "schema": "MediaAsset",
+      "description": "Company media assets."
+    },
+    "/blogs/{blogId}": {
+      "schema": "Blog",
+      "description": "Company blogs."
+    },
+    "/blogPosts/{postId}": {
+      "schema": "BlogPost",
+      "description": "Blog posts, isolated by blogId and companyId."
+    },
     "/notifications/{notificationId}": {
       "schema": "Notification",
       "description": "User notifications."
@@ -496,6 +664,14 @@
     "/activityLogs/{logId}": {
       "schema": "ActivityLog",
       "description": "System activity audit logs."
+    },
+    "/forms/{formId}": {
+      "schema": "Form",
+      "description": "Dynamic lead forms."
+    },
+    "/formSubmissions/{submissionId}": {
+      "schema": "FormSubmission",
+      "description": "Dynamic form submissions."
     }
   }
 }

@@ -76,6 +76,15 @@ import EmployeeProfilePage from './components/EmployeeProfilePage';
 import ChatPage from './components/ChatPage';
 import IntelligencePage from './components/IntelligencePage';
 import SelfServicePage from './components/SelfServicePage';
+import FormsPage from './components/FormsPage';
+import PublicFormPage from './components/PublicFormPage';
+import { BlogsPage } from './components/BlogsPage';
+import { BlogPostsPage } from './components/BlogPostsPage';
+import { BlogPostEditor } from './components/BlogPostEditor';
+import { BlogSettingsPage } from './components/BlogSettingsPage';
+import { BlogAnalyticsPage } from './components/BlogAnalyticsPage';
+import { PublicBlogPage } from './components/PublicBlogPage';
+import { PublicPostPage } from './components/PublicPostPage';
 import { logActivity } from './services/activityService';
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext';
 import { useTheme } from './contexts/ThemeContext';
@@ -108,7 +117,9 @@ const Sidebar = ({ user, company, isOpen, setIsOpen }: { user: UserProfile; comp
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Intelligence', path: '/intelligence', icon: Sparkles },
     { name: 'Directives', path: '/chat', icon: MessageSquare },
+    { name: 'Blogs', path: '/blogs', icon: Rss, permission: 'leads:manage' },
     { name: 'Leads', path: '/leads', icon: Globe, permission: 'leads:view' },
+    { name: 'Forms', path: '/forms', icon: LayoutDashboard, permission: 'leads:manage' },
     { name: 'Tasks', path: '/tasks', icon: CheckSquare, permission: 'tasks:view' },
     { name: 'Profile', path: '/profile', icon: UserIcon },
     { name: 'Portal', path: '/self-service', icon: ShieldCheck },
@@ -598,7 +609,7 @@ const Dashboard = ({ user, company }: { user: UserProfile, company: Company | nu
           { label: 'Pending Approvals', value: pendingApprovals, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', icon: Shield, sub: 'Requires action', privileged: true },
           { label: 'Leads Pipeline', value: stats.total, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10', icon: MessageSquare, sub: 'All stages', privileged: false },
         ].filter(s => !s.privileged || (user.role === 'admin' || user.role === 'manager')).map((stat) => (
-          <div className="saas-card p-6 flex flex-col justify-between min-h-[180px] hover:shadow-xl hover:shadow-slate-200/50 transition-all">
+          <div key={stat.label} className="saas-card p-6 flex flex-col justify-between min-h-[180px] hover:shadow-xl hover:shadow-slate-200/50 transition-all">
             <div className="flex items-center justify-between mb-4">
               <div className={`w-12 h-12 rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center shadow-sm`}>
                 <stat.icon size={24} />
@@ -1682,7 +1693,7 @@ const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
 
           <Sidebar user={user} company={company} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
           
-          <div className="lg:pl-80 flex flex-col min-h-screen relative z-10">
+          <div className="lg:pl-80 flex flex-col min-h-screen relative">
             <Header user={user} company={company} onToggleSidebar={() => setIsSidebarOpen(true)} />
             
             <main className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12 transition-all relative">
@@ -1691,6 +1702,11 @@ const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/leads" element={<LeadsPage user={user} />} />
                 <Route path="/tasks" element={<TasksPage user={user} />} />
+                <Route path="/blogs" element={<BlogsPage />} />
+                <Route path="/blogs/:blogId/posts" element={<BlogPostsPage />} />
+                <Route path="/blogs/:blogId/posts/:postId" element={<BlogPostEditor />} />
+                <Route path="/blogs/:blogId/settings" element={<BlogSettingsPage />} />
+                <Route path="/blogs/:blogId/analytics" element={<BlogAnalyticsPage />} />
                 <Route path="/profile" element={<ProfilePage user={user} />} />
                 <Route path="/employees" element={<EmployeesPage user={user} company={company} />} />
                 <Route path="/employees/:employeeId" element={<EmployeeProfilePage />} />
@@ -1700,6 +1716,7 @@ const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
                 <Route path="/activity" element={(user.role === 'admin' || user.role === 'manager') ? <ActivityLogsPage user={user} /> : <Navigate to="/" />} />
                 <Route path="/intelligence" element={<IntelligencePage user={user} company={company} />} />
                 <Route path="/self-service" element={<SelfServicePage />} />
+                <Route path="/forms" element={<FormsPage />} />
                 <Route path="/settings" element={<SettingsPage user={user} />} />
               </Routes>
             </main>
@@ -1814,6 +1831,10 @@ function MainContent({ user, profile, loading }: { user: any, profile: UserProfi
           <LeadForm companyId={window.location.pathname.split('/').pop() || ''} />
         </div>
       } />
+      <Route path="/form/:formId" element={<PublicFormPage />} />
+      <Route path="/blog/:slug" element={<PublicBlogPage />} />
+      <Route path="/blog/:slug/widget" element={<PublicBlogPage isWidget={true} />} />
+      <Route path="/blog/:slug/:postSlug" element={<PublicPostPage />} />
       
       <Route
         path="/*"

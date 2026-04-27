@@ -133,8 +133,8 @@ const SelfServicePage = () => {
           <div className="flex flex-col items-center space-y-6">
             <div className="relative group">
               <div className="w-32 h-32 rounded-[40px] bg-slate-200 dark:bg-indigo-500/10 text-indigo-600 flex items-center justify-center border-4 border-white dark:border-dark-surface shadow-xl overflow-hidden">
-                {user?.pfp ? (
-                  <img src={user.pfp} alt={user.name} className="w-full h-full object-cover" />
+                {user?.photoURL ? (
+                  <img src={user.photoURL} alt={user.name} className="w-full h-full object-cover" />
                 ) : (
                   <User size={48} />
                 )}
