@@ -5,7 +5,7 @@ import {
   ExternalLink, PlayCircle, CheckCircle, Clock, Plus
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Task, Lead, UserProfile, Attachment } from '../types';
+import { Task, Lead, UserProfile, Attachment, TaskStatus } from '../types';
 import { UserSelector } from './UserSelector';
 
 interface TaskDetailModalProps {
@@ -273,7 +273,7 @@ export function TaskDetailModal({
                   <label className="text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest ml-1">Operation Status</label>
                   <select 
                     value={editedTask.status}
-                    onChange={e => setEditedTask({ ...editedTask, status: e.target.value })}
+                    onChange={e => setEditedTask({ ...editedTask, status: e.target.value as TaskStatus })}
                     className="saas-input text-xs font-bold appearance-none"
                   >
                     {taskStatuses.map(s => <option key={s} value={s} className="dark:bg-dark-surface">{s}</option>)}

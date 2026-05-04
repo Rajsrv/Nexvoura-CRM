@@ -16,7 +16,7 @@ import {
   writeBatch,
   arrayUnion
 } from 'firebase/firestore';
-import { Conversation, ChatMessage, UserPresence, UserProfile } from '../types';
+import { Conversation, ChatMessage, UserPresence, UserProfile, ContactGroup } from '../types';
 
 export const chatService = {
   // --- Conversations ---
@@ -30,7 +30,25 @@ export const chatService = {
     );
 
     return onSnapshot(q, (snap) => {
-      const conversations = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Conversation));
+      const conversations = snap.docs.map(doc => {
+        const data = doc.data();
+        // Convert Timestamps to ISO strings
+        const lastMessage = data.lastMessage ? {
+          ...data.lastMessage,
+          createdAt: data.lastMessage.createdAt && typeof data.lastMessage.createdAt.toDate === 'function'
+            ? data.lastMessage.createdAt.toDate().toISOString()
+            : data.lastMessage.createdAt
+        } : undefined;
+
+        return { 
+          id: doc.id, 
+          ...data,
+          lastMessage,
+          updatedAt: data.updatedAt && typeof data.updatedAt.toDate === 'function'
+            ? data.updatedAt.toDate().toISOString()
+            : data.updatedAt
+        } as Conversation;
+      });
       callback(conversations);
     }, (error) => {
       console.error("ChatService conversations snapshot error:", error);
@@ -88,7 +106,16 @@ export const chatService = {
     );
 
     return onSnapshot(q, (snap) => {
-      const messages = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatMessage));
+      const messages = snap.docs.map(doc => {
+        const data = doc.data();
+        return { 
+          id: doc.id, 
+          ...data,
+          createdAt: data.createdAt && typeof data.createdAt.toDate === 'function'
+            ? data.createdAt.toDate().toISOString()
+            : data.createdAt
+        } as ChatMessage;
+      });
       callback(messages);
     }, (error) => {
       console.error("ChatService messages snapshot error:", error);
@@ -139,15 +166,25 @@ export const chatService = {
   },
 
   // --- Presence ---
-
-  updatePresence: async (userId: string, companyId: string, status: 'online' | 'offline', typingIn: string | null = null) => {
+  updatePresence: async (userId: string, companyId: string, status: UserPresence['status'], typingIn: string | null = null, story?: UserPresence['story']) => {
     const presenceRef = doc(db, 'userPresence', userId);
-    const presenceData = {
+    const presenceData: any = {
       status,
       lastSeen: serverTimestamp(),
       typingIn,
       companyId
     };
+
+    if (story) {
+      const cleanStory: any = {
+        content: story.content,
+        createdAt: serverTimestamp(),
+        expiresAt: Timestamp.fromDate(new Date(story.expiresAt))
+      };
+      if (story.mediaUrl) cleanStory.mediaUrl = story.mediaUrl;
+      if (story.mediaType) cleanStory.mediaType = story.mediaType;
+      presenceData.story = cleanStory;
+    }
 
     await updateDoc(presenceRef, presenceData).catch(async (err) => {
       // If doc doesn't exist, create it
@@ -160,8 +197,10 @@ export const chatService = {
 
   getPresence: (userIds: string[], callback: (presence: Record<string, UserPresence>) => void) => {
     // Note: Firestore 'in' query supports up to 30 items
-    // For many users, this might need optimization
-    if (userIds.length === 0) return () => {};
+    if (userIds.length === 0) {
+      callback({});
+      return () => {};
+    }
 
     const q = query(
       collection(db, 'userPresence'),
@@ -176,23 +215,68 @@ export const chatService = {
         try {
           if (data.lastSeen && typeof data.lastSeen.toDate === 'function') {
             lastSeenIso = data.lastSeen.toDate().toISOString();
-          } else if (data.lastSeen) {
-            // Could be already a string or numeric timestamp from some edge case
-            lastSeenIso = new Date(data.lastSeen).toISOString();
           }
         } catch (e) {
           console.warn("Presence lastSeen conversion failed:", e);
         }
 
+        const story = data.story ? {
+          ...data.story,
+          createdAt: data.story.createdAt?.toDate?.()?.toISOString() || data.story.createdAt,
+          expiresAt: data.story.expiresAt?.toDate?.()?.toISOString() || data.story.expiresAt
+        } : undefined;
+
         presence[doc.id] = { 
           uid: doc.id, 
           ...data,
-          lastSeen: lastSeenIso
+          lastSeen: lastSeenIso,
+          story
         } as UserPresence;
       });
       callback(presence);
     }, (error) => {
       console.error("ChatService presence snapshot error:", error);
     });
+  },
+
+  // --- Contact Groups ---
+  getContactGroups: (companyId: string, userId: string, callback: (groups: ContactGroup[]) => void) => {
+    const q = query(
+      collection(db, 'contactGroups'),
+      where('companyId', '==', companyId),
+      where('createdBy', '==', userId)
+    );
+
+    return onSnapshot(q, (snap) => {
+      const groups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ContactGroup));
+      callback(groups);
+    }, (error) => {
+      console.error("ChatService contactGroups snapshot error:", error);
+    });
+  },
+
+  createContactGroup: async (companyId: string, userId: string, name: string, memberIds: string[]) => {
+    const docRef = await addDoc(collection(db, 'contactGroups'), {
+      companyId,
+      createdBy: userId,
+      name,
+      memberIds,
+      createdAt: serverTimestamp()
+    });
+    return docRef.id;
+  },
+
+  updateContactGroup: async (groupId: string, name: string, memberIds: string[]) => {
+    const docRef = doc(db, 'contactGroups', groupId);
+    await updateDoc(docRef, {
+      name,
+      memberIds,
+      updatedAt: serverTimestamp()
+    });
+  },
+
+  deleteContactGroup: async (groupId: string) => {
+    const { deleteDoc } = await import('firebase/firestore');
+    await deleteDoc(doc(db, 'contactGroups', groupId));
   }
 };

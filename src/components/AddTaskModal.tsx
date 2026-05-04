@@ -4,7 +4,7 @@ import {
   X, Plus, Trash2, Calendar, Flag, Bell, BellOff, Save, Link as LinkIcon, Star, CheckCircle2 
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { UserProfile, Lead, TaskTemplate } from '../types';
+import { UserProfile, Lead, TaskTemplate, TaskStatus } from '../types';
 import { UserSelector } from './UserSelector';
 
 interface AddTaskModalProps {
@@ -34,7 +34,7 @@ export function AddTaskModal({
     title: '',
     description: '',
     dueDate: '',
-    status: taskStatuses[0],
+    status: taskStatuses[0] as TaskStatus,
     priority: 'Medium' as 'Low' | 'Medium' | 'High',
     assignedTo: '',
     leadId: '',

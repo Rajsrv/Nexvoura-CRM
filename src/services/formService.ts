@@ -10,9 +10,12 @@ import {
   Timestamp, 
   getDoc,
   getDocs,
-  orderBy
+  orderBy,
+  limit
 } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth } from '../firebase';
+import firebaseConfig from '../../firebase-applet-config.json';
 
 enum OperationType {
   CREATE = 'create',
@@ -51,7 +54,10 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   throw new Error(JSON.stringify(errInfo));
 }
 
+const storage = getStorage(undefined, firebaseConfig.storageBucket);
+
 function cleanData(data: any): any {
+  if (data instanceof File) return data; // Keep files for upload logic
   if (Array.isArray(data)) {
     return data.map(v => cleanData(v));
   } else if (data !== null && typeof data === 'object' && !(data instanceof Timestamp)) {
@@ -70,43 +76,71 @@ function cleanData(data: any): any {
 export interface FormFieldValidation {
   min?: number;
   max?: number;
+  minLength?: number;
+  maxLength?: number;
   pattern?: string;
   customError?: string;
+}
+
+export interface FormFieldLogic {
+  showIfFieldId: string;
+  operator: 'equals' | 'not_equals' | 'contains' | 'not_empty';
+  value?: string;
 }
 
 export interface FormField {
   id: string;
   label: string;
-  type: 'text' | 'textarea' | 'number' | 'email' | 'tel' | 'select' | 'checkbox' | 'radio' | 'date' | 'switch' | 'range' | 'rating';
+  type: 'text' | 'textarea' | 'number' | 'email' | 'tel' | 'select' | 'checkbox' | 'radio' | 'date' | 'time' | 'switch' | 'range' | 'rating' | 'url' | 'file' | 'media' | 'signature';
   required: boolean;
   options?: string[];
   placeholder?: string;
   validation?: FormFieldValidation;
   width?: 'full' | 'half';
+  defaultValue?: any;
+  helpText?: string;
+  logic?: FormFieldLogic;
 }
 
 export interface FormStyling {
   primaryColor: string;
   backgroundColor: string;
+  backgroundGradient?: {
+    from: string;
+    to: string;
+    direction: string;
+  };
+  backgroundImageUrl?: string;
+  backgroundPattern?: string;
   cardColor: string;
+  cardOpacity?: number;
+  cardBlur?: boolean;
   textColor: string;
   labelColor?: string;
   buttonText: string;
+  ctaText?: string;
+  ctaIcon?: string;
   borderRadius: string;
   fontFamily: string;
-  buttonStyle: 'filled' | 'outline' | 'ghost';
+  buttonStyle: 'filled' | 'outline' | 'ghost' | 'glow';
   logoUrl?: string;
   bannerUrl?: string;
   footerText?: string;
-  formWidth: 'boxed' | 'full';
+  formWidth: 'boxed' | 'full' | 'narrow';
+  formHeight?: 'auto' | 'screen' | 'tall';
+  fieldLayout?: 'grid' | 'list';
   headerAlignment: 'left' | 'center' | 'right';
   fieldSpacing: 'compact' | 'comfortable' | 'loose';
+  inputStyle?: 'standard' | 'filled' | 'underlined';
+  shadowSize?: 'none' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  animationType?: 'none' | 'fade' | 'slide' | 'zoom' | 'stagger';
 }
 
 export interface FormRedirect {
   url: string;
   delay: number; // in seconds
   enabled: boolean;
+  message?: string;
 }
 
 export interface DynamicForm {
@@ -201,13 +235,24 @@ export const formService = {
 
   submitForm: async (companyId: string, formId: string, formName: string, data: Record<string, any>) => {
     try {
-      const sanitizedData = cleanData(data);
-      // 1. Store the raw submission
+      const sanitizedData = { ...data };
+      
+      // 1. Handle File Uploads first
+      const fileUploads = Object.entries(sanitizedData).filter(([_, val]) => val instanceof File);
+      for (const [key, file] of fileUploads) {
+        const fileRef = ref(storage, `forms/submissions/${formId}/${Date.now()}_${file.name}`);
+        const snapshot = await uploadBytes(fileRef, file);
+        sanitizedData[key] = await getDownloadURL(snapshot.ref);
+      }
+
+      const finalData = cleanData(sanitizedData);
+
+      // 2. Store the raw submission
       const subRef = await addDoc(collection(db, 'formSubmissions'), {
         companyId,
         formId,
         formName,
-        data: sanitizedData,
+        data: finalData,
         submittedAt: Timestamp.now(),
         status: 'New'
       });

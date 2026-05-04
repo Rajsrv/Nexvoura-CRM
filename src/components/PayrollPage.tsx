@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { UserProfile, PayrollRecord, Company } from '../types';
-import { Plus, Check, X, DollarSign, Calendar, Filter, Download, ArrowRight, Wallet, AlertCircle, Clock, Trash2, Shield, Eye, TrendingUp, BarChart3, ChevronRight, PieChart, Mail } from 'lucide-react';
+import { Plus, Check, X, DollarSign, Calendar, Filter, Download, ArrowRight, Wallet, AlertCircle, Clock, Trash2, Shield, Eye, TrendingUp, BarChart3, ChevronRight, PieChart, Mail, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
@@ -19,6 +20,7 @@ const calculateTax = (grossAmount: number) => {
 };
 
 export default function PayrollPage({ user, company }: { user: UserProfile, company: Company | null }) {
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState<UserProfile[]>([]);
   const [payroll, setPayroll] = useState<PayrollRecord[]>([]);
   const [loading, setLoading] = useState(false);
@@ -119,6 +121,18 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
       toast.success(`Marked as ${status}`);
     } catch (error) {
       toast.error('Failed to update status.');
+    }
+  };
+
+  const approveRecord = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'payroll', id), {
+        approvedBy: user.uid,
+        approvedAt: new Date().toISOString()
+      });
+      toast.success('Payslip approved for deployment');
+    } catch (error) {
+      toast.error('Approval sequence failed');
     }
   };
 
@@ -238,7 +252,7 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
           <div className="relative z-10">
             <div className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-8 flex items-center space-x-2">
                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-               <span>Financial Nexus</span>
+               <span>Financial Nexvoura</span>
             </div>
             
             <div className="space-y-6">
@@ -374,6 +388,12 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
                       <tr key={rec.id} className="group hover:bg-slate-50 dark:hover:bg-dark-bg/30 transition-colors">
                         <td className="px-8 py-6">
                           <div className="font-black text-slate-900 dark:text-white uppercase text-xs tracking-tight">{rec.employeeName}</div>
+                          {rec.approvedAt && (
+                            <div className="flex items-center space-x-1 mt-1">
+                              <ShieldCheck size={10} className="text-emerald-500" />
+                              <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Verified</span>
+                            </div>
+                          )}
                         </td>
                         <td className="px-8 py-6">
                           <div className="text-xs font-bold text-slate-600 dark:text-dark-text-muted">{company?.currency || '$'}{rec.baseSalary.toLocaleString()}</div>
@@ -401,6 +421,15 @@ export default function PayrollPage({ user, company }: { user: UserProfile, comp
                         </td>
                         <td className="px-8 py-6 text-right whitespace-nowrap">
                           <div className="flex justify-end items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                             {!rec.approvedAt && (
+                               <button
+                                 onClick={() => approveRecord(rec.id)}
+                                 className="p-2 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl hover:bg-emerald-600 hover:text-white transition-all border border-emerald-200 dark:border-emerald-500/20 shadow-sm"
+                                 title="Verify & Approve"
+                               >
+                                 <ShieldCheck size={16} />
+                               </button>
+                             )}
                              <button
                                 onClick={() => setViewingPayslip(rec)}
                                 className="p-2 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-600 hover:text-white transition-all border border-blue-200 dark:border-blue-500/20 shadow-sm"
@@ -603,7 +632,7 @@ function PayslipModal({ record, company, employees, onClose }: {
           <div ref={payslipRef} className="p-8 bg-white dark:bg-dark-surface text-slate-950 dark:text-white">
             <div className="flex justify-between items-start border-b-4 border-slate-950 dark:border-white pb-8 mb-8">
               <div>
-                <h1 className="text-2xl font-black italic uppercase tracking-tighter text-blue-600 dark:text-indigo-400">{company?.name || 'Nexus Agency'}</h1>
+                <h1 className="text-2xl font-black italic uppercase tracking-tighter text-blue-600 dark:text-indigo-400">{company?.name || 'Nexvoura Agency'}</h1>
                 <p className="text-[10px] font-black text-slate-500 dark:text-dark-text-muted mt-1 uppercase tracking-widest shrink-0 italic">Corporate Financial Document</p>
               </div>
               <div className="text-right">
@@ -868,9 +897,9 @@ function DetailAdjustmentModal({ record, company, onClose, onSave }: {
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="relative bg-white dark:bg-dark-surface w-full max-w-lg rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 dark:border-dark-border transition-colors"
+        className="relative bg-white dark:bg-dark-surface w-full max-w-lg rounded-[32px] sm:rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 dark:border-dark-border transition-colors"
       >
-        <div className="p-10">
+        <div className="p-6 sm:p-10">
           <div className="flex justify-between items-start mb-8">
             <div>
               <h2 className="text-3xl font-black font-display italic tracking-tight text-slate-900 dark:text-white">Adjust Payroll</h2>

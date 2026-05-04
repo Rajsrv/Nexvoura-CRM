@@ -7,6 +7,8 @@ import { format } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
 
+import NexvouraLoader from './NexvouraLoader';
+
 export const CommentSection = ({ blog, post }: { blog: Blog; post: BlogPost }) => {
   const [comments, setComments] = useState<BlogComment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +73,7 @@ export const CommentSection = ({ blog, post }: { blog: Blog; post: BlogPost }) =
       </div>
 
       {!submitted ? (
-        <form onSubmit={handleSubmit} className="bg-black/5 rounded-[48px] p-10 mb-16 space-y-8">
+        <form onSubmit={handleSubmit} className="bg-black/5 rounded-[32px] sm:rounded-[48px] p-6 sm:p-10 mb-16 space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-3">
               <label className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">Identity Tag</label>
@@ -124,7 +126,7 @@ export const CommentSection = ({ blog, post }: { blog: Blog; post: BlogPost }) =
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-emerald-50 border border-emerald-100 rounded-[48px] p-12 mb-16 text-center space-y-4"
+          className="bg-emerald-50 border border-emerald-100 rounded-[32px] sm:rounded-[48px] p-6 sm:p-12 mb-16 text-center space-y-4"
         >
           <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600">
             <CheckCircle2 size={40} />
@@ -229,7 +231,7 @@ export const PublicPostPage = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-950">
-        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <NexvouraLoader label="Decrypting Transmission" size="lg" />
       </div>
     );
   }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch, getDocs, getDoc } from 'firebase/firestore';
-import { UserProfile, Task, Lead, TaskTemplate, Company, Attachment, AppNotification } from '../types';
+import { UserProfile, Task, Lead, TaskTemplate, Company, Attachment, AppNotification, TaskStatus } from '../types';
 import { useNotifications } from '../contexts/NotificationContext';
 import { Plus, Trash2, CheckCircle2, Circle, Clock, Calendar, Filter, User as UserIcon, MessageSquare, Flag, CheckSquare, Square, UserPlus, X, RefreshCcw, ChevronDown, Download, Search, Info, Bell, BellOff, Edit2, PlayCircle, CheckCircle, Save, Copy, Paperclip, Link as LinkIcon, ExternalLink, File as FileIcon, AlertCircle, Star } from 'lucide-react';
 import { toast } from 'sonner';
@@ -101,15 +101,31 @@ function DraggableTaskCard({ user, task, leads, team, deleteTask, toggleStatus, 
             <h4 className="font-bold text-slate-900 dark:text-white leading-tight text-[15px] group-hover:text-brand-primary transition-colors truncate">
               {task.title}
             </h4>
-            <div className="flex items-center space-x-2 mt-1">
-               {task.reminderEnabled && <Bell size={10} className="text-brand-primary" />}
-               <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest ${
-                 task.priority === 'High' ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500' :
-                 task.priority === 'Medium' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-500' :
-                 'bg-blue-50 dark:bg-blue-500/10 text-blue-500'
+            <div className="flex flex-wrap items-center gap-2 mt-1.5">
+               <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border transition-all ${
+                 task.status === 'Done' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 border-emerald-200/50' :
+                 task.status === 'In Progress' ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 border-blue-200/50' :
+                 'bg-slate-50 dark:bg-dark-surface text-slate-500 border-slate-200/50'
+               }`}
+               onClick={(e) => { e.stopPropagation(); toggleStatus(task); }}
+               title="Click to cycle status"
+               >
+                 {task.status === 'Done' && <CheckCircle size={8} />}
+                 {task.status === 'In Progress' && <PlayCircle size={8} className="animate-pulse" />}
+                 {task.status === 'Todo' && <Circle size={8} />}
+                 {task.status}
+               </div>
+
+               <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border border-current transition-all ${
+                 task.priority === 'High' ? 'bg-rose-50/50 dark:bg-rose-500/10 text-rose-500 border-rose-500/20' :
+                 task.priority === 'Medium' ? 'bg-amber-50/50 dark:bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                 'bg-sky-50/50 dark:bg-sky-500/10 text-sky-500 border-sky-500/20'
                }`}>
-                 {task.priority || 'Normal'}
-               </span>
+                 <Flag size={8} className="fill-current" />
+                 {task.priority || 'Medium'}
+               </div>
+               
+               {task.reminderEnabled && <Bell size={10} className="text-brand-primary" />}
             </div>
           </div>
         </div>
@@ -347,7 +363,7 @@ export default function TasksPage({ user }: { user: UserProfile }) {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `nexus_tasks_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `nexvoura_tasks_${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -388,7 +404,7 @@ export default function TasksPage({ user }: { user: UserProfile }) {
     await handleAddTask({
       title: quickTaskTitle.trim(),
       description: '',
-      status: taskStatuses[0],
+      status: taskStatuses[0] as TaskStatus,
       priority: 'Medium',
       subtasks: [],
       assignedTo: '',
@@ -687,9 +703,23 @@ export default function TasksPage({ user }: { user: UserProfile }) {
               </select>
             </div>
 
+            <div className="flex items-center space-x-2 bg-white dark:bg-dark-bg px-4 py-2 rounded-2xl border border-slate-100 dark:border-dark-border shadow-sm flex-1 md:flex-none">
+              <RefreshCcw size={14} className="text-slate-400 dark:text-slate-600" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-transparent text-xs font-bold text-slate-600 dark:text-dark-text outline-none border-none focus:ring-0 cursor-pointer"
+              >
+                <option value="createdAt">Created Date</option>
+                <option value="dueDate">Due Date</option>
+                <option value="priority">Priority Level</option>
+              </select>
+            </div>
+
             <button 
               onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
               className="p-2.5 bg-white dark:bg-dark-bg text-slate-600 dark:text-dark-text rounded-2xl border border-slate-100 dark:border-dark-border shadow-sm hover:text-brand-primary transition-all"
+              title={sortOrder === 'asc' ? 'Sort Descending' : 'Sort Ascending'}
             >
               <RefreshCcw size={18} className={sortOrder === 'asc' ? 'rotate-180' : ''} />
             </button>
@@ -860,7 +890,7 @@ export default function TasksPage({ user }: { user: UserProfile }) {
 
             <div className="flex items-center justify-between w-full md:w-auto gap-2 sm:gap-4 overflow-x-auto no-scrollbar">
               <button
-                onClick={() => handleBulkStatusUpdate(lastStatus)}
+                onClick={() => handleBulkStatusUpdate(lastStatus as TaskStatus)}
                 className="flex items-center space-x-2 px-3 py-2 rounded-xl hover:bg-slate-800 transition-colors text-xs sm:text-sm font-bold text-emerald-400 whitespace-nowrap"
               >
                 <CheckCircle2 size={18} className="shrink-0" />

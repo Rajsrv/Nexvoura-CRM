@@ -5,6 +5,8 @@ import { motion } from 'motion/react';
 import { Calendar, User, ArrowRight, Share2, Search } from 'lucide-react';
 import { format } from 'date-fns';
 
+import NexvouraLoader from './NexvouraLoader';
+
 export const PublicBlogPage = ({ isWidget = false }: { isWidget?: boolean }) => {
   const { slug } = useParams<{ slug: string }>();
   const [blog, setBlog] = useState<Blog | null>(null);
@@ -45,7 +47,7 @@ export const PublicBlogPage = ({ isWidget = false }: { isWidget?: boolean }) => 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-950">
-        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <NexvouraLoader label="Initializing Publication Feed" size="lg" />
       </div>
     );
   }

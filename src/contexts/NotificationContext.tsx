@@ -62,7 +62,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user?.uid, user?.companyId]);
 
   const sendNotification = async (params: {
     userId: string;

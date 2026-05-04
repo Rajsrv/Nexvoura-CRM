@@ -1,34 +1,8 @@
 import cron from 'node-cron';
 import nodemailer from 'nodemailer';
-import admin from 'firebase-admin';
-import fs from 'fs';
-import path from 'path';
+import { db } from './firebaseAdmin.ts';
 import { format, parseISO } from 'date-fns';
 import type { PayrollRecord } from '../src/types.ts';
-
-// Load Firebase config
-const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-let db: admin.firestore.Firestore | null = null;
-
-try {
-  if (fs.existsSync(configPath)) {
-    const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    
-    // Initialize Admin SDK
-    if (!admin.apps.length) {
-      admin.initializeApp({
-        projectId: firebaseConfig.projectId,
-      });
-    }
-    
-    // Use the specific firestoreDatabaseId from the config
-    db = admin.firestore(firebaseConfig.firestoreDatabaseId);
-  } else {
-    console.warn('⚠️ firebase-applet-config.json not found at:', configPath);
-  }
-} catch (error) {
-  console.error('❌ Error initializing Firebase in notifications:', error);
-}
 
 // Email Transporter
 const transporter = nodemailer.createTransport({
@@ -50,14 +24,28 @@ export function startNotificationCron() {
   
   // Run every minute for more precision
   cron.schedule('* * * * *', async () => {
-    if (!db) return;
-    console.log('⏰ Checking for tasks due soon...');
+    if (!db) {
+      console.warn('⚠️ Cron skipped: db is not defined');
+      return;
+    }
     
     try {
-      const now = new Date();
+      console.log('⏰ Checking for tasks due soon...');
       
-      // Get all companies to know their default threshold
-      const companiesSnap = await db.collection('companies').get();
+      // Wait a bit if we're in the middle of a fallback? 
+      // Actually let's just try to get companies and catch specific NOT_FOUND
+      let companiesSnap;
+      try {
+        companiesSnap = await db.collection('companies').get();
+      } catch (e: any) {
+        if (e.code === 5 || e.message?.includes('NOT_FOUND')) {
+          console.warn('⚠️ Database not found in cron job, it might still be initializing or using wrong ID. Skipping this run.');
+          return;
+        }
+        throw e;
+      }
+      
+      const now = new Date();
       const companyThresholds: Record<string, number> = {};
       const companyUnits: Record<string, 'hours' | 'minutes'> = {};
       const companyEnabled: Record<string, boolean> = {};
@@ -71,15 +59,17 @@ export function startNotificationCron() {
         companyNames[doc.id] = data.name;
       });
 
-      // Query tasks that are not done, have reminders enabled, and email hasn't been sent
+      // Query tasks that have reminders enabled.
+      // Note: We filter status and reminderEmailSent in memory to avoid needing complex composite indexes
+      // and to minimize potential gRPC permission/precondition errors.
       const querySnapshot = await db.collection('tasks')
-        .where('status', '!=', 'Done')
         .where('reminderEnabled', '==', true)
-        .where('reminderEmailSent', '!=', true)
         .get();
       
       for (const taskDoc of querySnapshot.docs) {
         const task = taskDoc.data();
+        if (task.status === 'Done') continue;
+        if (task.reminderEmailSent === true) continue;
         if (!task.dueDate) continue;
 
         const companyId = task.companyId;

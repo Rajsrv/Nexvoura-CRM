@@ -17,9 +17,9 @@ import {
   Tag,
   MessageSquare,
   Shield,
-  Loader2,
   X
 } from 'lucide-react';
+import NexvouraLoader from './NexvouraLoader';
 import { UserProfile, Company, IntelligencePost } from '../types';
 import { getIntelligencePosts, postIntelligence, fetchGlobalIntelligence } from '../services/intelligenceService';
 import { conductIntelligenceSearch } from '../services/aiIntelligenceService';
@@ -140,42 +140,44 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-10 pb-20 animate-in fade-in duration-700">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-10 pb-20 animate-in fade-in duration-700">
       {/* Header Section */}
-      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-8">
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 sm:gap-8">
         <div className="space-y-3">
           <div className="flex items-center space-x-3">
-            <div className="flex-shrink-0 p-3 bg-indigo-600 rounded-2xl text-white shadow-xl shadow-indigo-500/20 dark:shadow-none">
-              <Sparkles size={24} className="animate-pulse" />
+             <div className="flex-shrink-0 p-2 sm:p-3 bg-indigo-600 rounded-2xl text-white shadow-xl shadow-indigo-500/20 dark:shadow-none">
+              <Sparkles size={20} className="sm:w-6 sm:h-6 animate-pulse" />
             </div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black font-display italic tracking-tighter text-slate-950 dark:text-white leading-none">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-6xl font-black font-display italic tracking-tighter text-slate-950 dark:text-white leading-none">
               Intelligence Hub
             </h1>
           </div>
-          <p className="text-slate-500 dark:text-dark-text-muted font-medium flex items-center space-x-2 text-sm sm:text-base">
-            <Globe size={16} className="text-brand-primary" />
+          <p className="text-slate-500 dark:text-dark-text-muted font-medium flex items-center space-x-2 text-xs sm:text-sm md:text-base">
+            <Globe size={16} className="text-brand-primary flex-shrink-0" />
             <span>Market-shifting signals and internal directives.</span>
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:flex items-center gap-4 w-full xl:w-auto">
-          <form onSubmit={handleSearch} className="relative w-full xl:w-80 sm:col-span-2 xl:col-span-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex items-center gap-3 sm:gap-4 w-full lg:w-auto">
+          <form onSubmit={handleSearch} className="relative w-full lg:w-80 sm:col-span-2 lg:col-span-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search global intelligence..."
-              className="w-full pl-12 pr-4 py-4 bg-white dark:bg-dark-surface border border-slate-200 dark:border-dark-border text-slate-900 dark:text-white rounded-[24px] font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all shadow-sm"
+              className="w-full pl-12 pr-4 py-3.5 sm:py-4 bg-white dark:bg-dark-surface border border-slate-200 dark:border-dark-border text-slate-900 dark:text-white rounded-[20px] sm:rounded-[24px] font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all shadow-sm text-sm"
             />
             {isSearching && (
-              <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-600 animate-spin" size={18} />
+              <div className="absolute right-6 top-1/2 -translate-y-1/2">
+                <div className="w-5 h-5 border-2 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
+              </div>
             )}
           </form>
 
           <button 
             onClick={() => setShowInterestModal(true)}
-            className="w-full xl:w-auto px-6 py-4 bg-white dark:bg-dark-surface border border-slate-200 dark:border-dark-border text-slate-900 dark:text-white rounded-[24px] font-black text-xs uppercase tracking-widest flex items-center justify-center space-x-2 hover:shadow-xl hover:shadow-slate-200 transition-all active:scale-95 shadow-sm"
+            className="w-full lg:w-auto px-6 py-3.5 sm:py-4 bg-white dark:bg-dark-surface border border-slate-200 dark:border-dark-border text-slate-900 dark:text-white rounded-[20px] sm:rounded-[24px] font-black text-[10px] sm:text-xs uppercase tracking-widest flex items-center justify-center space-x-2 hover:shadow-xl hover:shadow-slate-200 transition-all active:scale-95 shadow-sm"
           >
             <Filter size={18} className="text-brand-primary" />
             <span>Personalize Feed</span>
@@ -184,7 +186,7 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
           {isAdmin && (
             <button 
               onClick={() => setShowAddModal(true)}
-              className="w-full xl:w-auto px-6 py-4 bg-slate-950 dark:bg-indigo-600 text-white rounded-[24px] font-black text-xs uppercase tracking-widest flex items-center justify-center space-x-2 hover:bg-slate-900 dark:hover:bg-indigo-700 transition-all shadow-xl shadow-slate-200 dark:shadow-none active:scale-95"
+              className="w-full lg:w-auto px-6 py-3.5 sm:py-4 bg-slate-950 dark:bg-indigo-600 text-white rounded-[20px] sm:rounded-[24px] font-black text-[10px] sm:text-xs uppercase tracking-widest flex items-center justify-center space-x-2 hover:bg-slate-900 dark:hover:bg-indigo-700 transition-all shadow-xl shadow-slate-200 dark:shadow-none active:scale-95"
             >
               <Plus size={18} />
               <span>Broadcast News</span>
@@ -216,15 +218,14 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
       </div>
 
       {/* Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-        <div className="lg:col-span-8 space-y-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-10">
+        <div className="lg:col-span-8 space-y-6 sm:space-y-8">
           {loading ? (
-            <div className="py-40 flex flex-col items-center justify-center space-y-4">
-              <Loader2 size={48} className="animate-spin text-brand-primary opacity-20" />
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">{isSearching ? 'Scouring Global Networks...' : 'Synthesizing Signals...'}</p>
+            <div className="py-20 lg:py-40 flex flex-col items-center justify-center">
+              <NexvouraLoader label={isSearching ? 'Scouring Global Signal Grid...' : 'Synthesizing Neural Directives...'} />
             </div>
           ) : (activeTab === 'internal' ? internalPosts : (searchResults.length > 0 && activeTab === 'global' ? searchResults : globalSignals)).length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-1 gap-8">
+            <div className="grid grid-cols-1 gap-6 sm:gap-8">
               {searchResults.length > 0 && activeTab === 'global' && (
                 <div className="flex items-center justify-between px-8 py-4 bg-indigo-50 dark:bg-indigo-500/5 rounded-3xl border border-indigo-100 dark:border-indigo-500/20">
                   <div className="flex items-center space-x-3">
@@ -248,48 +249,50 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.1 }}
                   key={post.id}
-                  className="group bg-white dark:bg-dark-surface rounded-[40px] border border-slate-100 dark:border-dark-border overflow-hidden hover:shadow-2xl hover:shadow-indigo-500/5 transition-all duration-500 flex flex-col md:flex-row h-full md:max-h-[300px]"
+                  className="group bg-white dark:bg-dark-surface rounded-[32px] sm:rounded-[40px] border border-slate-100 dark:border-dark-border overflow-hidden hover:shadow-2xl hover:shadow-indigo-500/5 transition-all duration-500 flex flex-col md:flex-row h-full"
                 >
                   {post.imageUrl && (
-                    <div className="md:w-1/3 overflow-hidden relative">
+                    <div className="md:w-1/3 min-h-[200px] md:min-h-0 overflow-hidden relative">
                       <img src={post.imageUrl} alt={post.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                      <div className="absolute top-6 left-6 px-3 py-1.5 bg-white/90 backdrop-blur-md rounded-xl text-[10px] font-black uppercase text-brand-primary border border-white">
+                      <div className="absolute top-4 left-4 sm:top-6 sm:left-6 px-3 py-1.5 bg-white/90 backdrop-blur-md rounded-xl text-[9px] sm:text-[10px] font-black uppercase text-brand-primary border border-white">
                         {post.topic}
                       </div>
                     </div>
                   )}
-                  <div className={`p-8 flex-1 flex flex-col justify-between ${!post.imageUrl ? 'md:w-full' : ''}`}>
+                  <div className={`p-6 sm:p-8 flex-1 flex flex-col justify-between ${!post.imageUrl ? 'md:w-full' : ''}`}>
                     <div className="space-y-4">
-                      <div className="flex justify-between items-start">
+                      <div className="flex justify-between items-start gap-4">
                         <div className="space-y-1">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center space-x-2">
+                          <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400 flex flex-wrap items-center gap-2">
                             <span>{post.source}</span>
-                            <span className="w-1 h-1 bg-slate-200 rounded-full" />
+                            <span className="hidden sm:inline w-1 h-1 bg-slate-200 rounded-full" />
                             <span>{formatDistanceToNow(safeDate(post.createdAt))} ago</span>
                           </p>
-                          <h3 className="text-2xl font-black font-display tracking-tight text-slate-900 dark:text-white leading-tight group-hover:text-brand-primary transition-colors italic">
+                          <h3 className="text-xl sm:text-2xl font-black font-display tracking-tight text-slate-900 dark:text-white leading-tight group-hover:text-brand-primary transition-colors italic">
                             {post.title}
                           </h3>
                         </div>
                         {post.relevance && post.relevance > 90 && (
-                          <div className="p-2 bg-amber-50 dark:bg-amber-500/10 text-amber-600 rounded-full animate-pulse">
+                          <div className="flex-shrink-0 p-2 bg-amber-50 dark:bg-amber-500/10 text-amber-600 rounded-full animate-pulse">
                             <Zap size={16} />
                           </div>
                         )}
                       </div>
-                      <p className="text-slate-600 dark:text-slate-400 text-sm line-clamp-3 leading-relaxed">
+                      <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm line-clamp-3 leading-relaxed">
                         {post.content}
                       </p>
                     </div>
                     
-                    <div className="flex items-center justify-between pt-6 border-t border-slate-50 dark:border-dark-border">
-                      <div className="flex -space-x-2">
-                        {[1,2,3].map(i => (
-                          <div key={i} className="w-6 h-6 rounded-full border-2 border-white dark:border-dark-surface bg-slate-100 flex items-center justify-center text-[8px] font-bold">
-                            U{i}
-                          </div>
-                        ))}
-                        <div className="pl-4 text-[10px] font-bold text-slate-400">12 others read this</div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-6 border-t border-slate-50 dark:border-dark-border">
+                      <div className="flex items-center">
+                        <div className="flex -space-x-2">
+                          {[1,2,3].map(i => (
+                            <div key={i} className="w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 border-white dark:border-dark-surface bg-slate-100 flex items-center justify-center text-[8px] font-bold">
+                              U{i}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="pl-3 text-[9px] sm:text-[10px] font-bold text-slate-400">12 others read</div>
                       </div>
                       
                       {post.link && post.link !== '#' ? (
@@ -297,13 +300,13 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
                           href={post.link} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="flex items-center space-x-2 text-[10px] font-black uppercase tracking-[0.2em] text-brand-primary hover:translate-x-1 transition-transform"
+                          className="flex items-center space-x-2 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-brand-primary hover:translate-x-1 transition-transform w-fit"
                         >
                           <span>Intelligence Report</span>
                           <ExternalLink size={12} />
                         </a>
                       ) : (
-                        <button className="flex items-center space-x-2 text-[10px] font-black uppercase tracking-[0.2em] text-brand-primary hover:translate-x-1 transition-transform">
+                        <button className="flex items-center space-x-2 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-brand-primary hover:translate-x-1 transition-transform w-fit">
                           <span>Read More</span>
                           <ChevronRight size={12} />
                         </button>
@@ -334,11 +337,11 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
 
         <div className="lg:col-span-4 space-y-8">
           {/* Trending Signals */}
-          <div className="bg-slate-950 p-8 rounded-[40px] text-white space-y-6 shadow-2xl shadow-indigo-500/20">
+          <div className="bg-slate-950 p-6 sm:p-8 rounded-[32px] sm:rounded-[40px] text-white space-y-6 shadow-2xl shadow-indigo-500/20">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <TrendingUp size={20} className="text-blue-400" />
-                <h3 className="text-xl font-black italic">Trending Signals</h3>
+                <h3 className="text-lg sm:text-xl font-black italic text-white">Trending Signals</h3>
               </div>
               <span className="w-2 h-2 bg-rose-500 rounded-full animate-ping" />
             </div>
@@ -351,21 +354,21 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
               ].map((item, idx) => (
                 <div key={idx} className="group cursor-pointer">
                   <div className="flex justify-between items-start">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{item.topic}</p>
+                    <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400">{item.topic}</p>
                     <span className="text-[10px] font-bold text-blue-400">{item.change}</span>
                   </div>
-                  <h4 className="mt-1 font-bold group-hover:text-blue-400 transition-colors">{item.title}</h4>
+                  <h4 className="mt-1 text-sm sm:text-base font-bold group-hover:text-blue-400 transition-colors text-white">{item.title}</h4>
                 </div>
               ))}
             </div>
             
-            <button className="w-full py-4 bg-white/10 hover:bg-white/20 border border-white/10 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
+            <button className="w-full py-4 bg-white/10 hover:bg-white/20 border border-white/10 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all">
               Comprehensive Analysis
             </button>
           </div>
 
           {/* Quick Topics */}
-          <div className="bg-white dark:bg-dark-surface p-8 rounded-[40px] border border-slate-100 dark:border-dark-border space-y-6">
+          <div className="bg-white dark:bg-dark-surface p-6 sm:p-8 rounded-[32px] sm:rounded-[40px] border border-slate-100 dark:border-dark-border space-y-6">
              <div className="flex flex-wrap gap-2">
                 {['AI Industry News', 'Competitor Trends', 'Market Analysis', 'Regulatory Updates'].map(query => (
                   <button 
@@ -375,7 +378,7 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
                       const event = { preventDefault: () => {} } as React.FormEvent;
                       handleSearch(event);
                     }}
-                    className="px-4 py-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all"
+                    className="px-3 sm:px-4 py-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all"
                   >
                     {query}
                   </button>
@@ -383,8 +386,8 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
              </div>
 
              <div className="flex items-center space-x-2 pt-4 border-t border-slate-50 dark:border-dark-border">
-                <Tag size={20} className="text-brand-primary" />
-                <h3 className="text-xl font-black text-slate-900 dark:text-white italic">Intelligence Map</h3>
+                <Tag className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary" />
+                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white italic">Intelligence Map</h3>
              </div>
              
              <div className="flex flex-wrap gap-2">
@@ -392,7 +395,7 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
                   <button 
                     key={topic}
                     onClick={() => toggleInterest(topic)}
-                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                    className={`px-3 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
                       selectedInterests.includes(topic) ? 'bg-brand-primary text-white' : 'bg-slate-50 dark:bg-dark-bg text-slate-400'
                     }`}
                   >
@@ -419,16 +422,16 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative bg-white dark:bg-dark-surface w-full max-w-2xl rounded-[40px] sm:rounded-[48px] shadow-2xl border border-slate-100 dark:border-dark-border overflow-hidden"
+              className="relative bg-white dark:bg-dark-surface w-full max-w-2xl rounded-[32px] sm:rounded-[40px] shadow-2xl border border-slate-100 dark:border-dark-border overflow-hidden m-4"
             >
-              <div className="p-6 sm:p-10 text-center space-y-6 sm:space-y-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
-                 <div className="w-16 h-16 sm:w-20 sm:h-20 bg-indigo-50 dark:bg-indigo-500/10 rounded-[24px] sm:rounded-[32px] flex items-center justify-center mx-auto text-indigo-600">
-                    <Target size={32} className="sm:w-10 sm:h-10" />
+              <div className="p-6 sm:p-8 md:p-10 text-center space-y-6 sm:space-y-8 max-h-[85vh] overflow-y-auto custom-scrollbar">
+                 <div className="w-16 h-16 sm:w-20 sm:h-20 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl sm:rounded-[32px] flex items-center justify-center mx-auto text-indigo-600">
+                    <Target size={28} className="sm:w-10 sm:h-10" />
                  </div>
                  
                  <div className="space-y-2">
-                    <h2 className="text-2xl sm:text-3xl font-black font-display italic tracking-tight text-slate-950 dark:text-white leading-tight">Curate your Feed</h2>
-                    <p className="text-slate-400 font-medium text-sm">Select common market patterns to prioritize in your global signal stream.</p>
+                    <h2 className="text-2xl sm:text-3xl font-black font-display italic tracking-tight text-slate-950 dark:text-white leading-tight">Curate Feed</h2>
+                    <p className="text-slate-400 dark:text-dark-text-muted font-medium text-xs sm:text-sm">Select market patterns to prioritize in your stream.</p>
                  </div>
 
                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
@@ -438,14 +441,14 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
                         <button
                           key={topic}
                           onClick={() => toggleInterest(topic)}
-                          className={`p-3 sm:p-4 rounded-2xl sm:rounded-3xl border-2 transition-all flex flex-col items-center space-y-2 ${
+                          className={`p-2 sm:p-4 rounded-xl sm:rounded-3xl border-2 transition-all flex flex-col items-center space-y-1 sm:space-y-2 ${
                             isSelected 
                               ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-200 dark:shadow-none' 
                               : 'bg-slate-50 dark:bg-dark-bg border-transparent text-slate-400 hover:border-slate-200 dark:hover:border-dark-border'
                           }`}
                         >
-                          <Check size={14} className={isSelected ? 'opacity-100' : 'opacity-0'} />
-                          <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest">{topic}</span>
+                          <Check size={12} className={isSelected ? 'opacity-100' : 'opacity-0'} />
+                          <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest leading-tight">{topic}</span>
                         </button>
                       );
                     })}
@@ -486,15 +489,15 @@ export default function IntelligencePage({ user, company }: { user: UserProfile;
                initial={{ opacity: 0, y: 50, scale: 0.95 }}
                animate={{ opacity: 1, y: 0, scale: 1 }}
                exit={{ opacity: 0, y: 50, scale: 0.95 }}
-               className="relative bg-white dark:bg-dark-surface w-full max-w-xl rounded-[40px] shadow-2xl overflow-hidden"
+               className="relative bg-white dark:bg-dark-surface w-full max-w-xl rounded-[32px] sm:rounded-[40px] shadow-2xl overflow-hidden m-4"
              >
-                <form onSubmit={handlePostNews} className="p-6 sm:p-10 space-y-6 sm:space-y-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
+                <form onSubmit={handlePostNews} className="p-6 sm:p-8 md:p-10 space-y-6 sm:space-y-8 max-h-[85vh] overflow-y-auto custom-scrollbar">
                    <div className="flex justify-between items-center">
                       <div className="flex items-center space-x-3">
                          <div className="p-2 sm:p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl text-indigo-600">
                            <Rss size={20} className="sm:w-6 sm:h-6" />
                          </div>
-                         <h2 className="text-xl sm:text-2xl font-black font-display italic text-slate-900 dark:text-white uppercase tracking-tight">Internal Broadcast</h2>
+                         <h2 className="text-xl sm:text-2xl font-black font-display italic text-slate-900 dark:text-white uppercase tracking-tight">Broadcast</h2>
                       </div>
                       <button type="button" onClick={() => setShowAddModal(false)} className="p-2 hover:bg-slate-50 dark:hover:bg-dark-bg rounded-xl text-slate-400">
                         <X size={20} />

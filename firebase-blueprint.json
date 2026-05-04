@@ -6,7 +6,10 @@
       "type": "object",
       "properties": {
         "name": { "type": "string", "description": "The name of the company." },
+        "subdomain": { "type": "string", "description": "The unique subdomain slug for this tenant." },
+        "logoUrl": { "type": "string", "description": "The URL of the company logo." },
         "createdAt": { "type": "string", "format": "date-time" },
+        "trialEndsAt": { "type": "string", "format": "date-time" },
         "notificationSettings": {
           "type": "object",
           "properties": {
@@ -254,6 +257,8 @@
         "netSalary": { "type": "number" },
         "totalAmount": { "type": "number" },
         "status": { "type": "string", "enum": ["Paid", "Pending"] },
+        "approvedBy": { "type": "string", "description": "UID of the admin/manager who approved." },
+        "approvedAt": { "type": "string", "format": "date-time" },
         "paidAt": { "type": "string", "format": "date-time" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
@@ -299,7 +304,7 @@
         "title": { "type": "string" },
         "description": { "type": "string" },
         "dueDate": { "type": "string", "format": "date" },
-        "status": { "type": "string", "enum": ["Todo", "In Progress", "Done"] },
+        "status": { "type": "string", "enum": ["Todo", "In Progress", "Review", "Done"] },
         "priority": { "type": "string", "enum": ["Low", "Medium", "High"] },
         "assignedTo": { "type": "string" },
         "leadId": { "type": "string" },
@@ -562,9 +567,152 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["blogId", "companyId", "eventType", "createdAt"]
+    },
+    "AnalyticsEvent": {
+      "title": "AnalyticsEvent",
+      "description": "General purpose user interaction event.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "companyId": { "type": "string" },
+        "eventName": { "type": "string" },
+        "category": { "type": "string" },
+        "metadata": { "type": "object" },
+        "path": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "eventName", "timestamp"]
+    },
+    "SupportTicket": {
+      "title": "SupportTicket",
+      "description": "A support request session.",
+      "type": "object",
+      "properties": {
+        "token": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "subject": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "active", "resolved", "closed"] },
+        "priority": { "type": "string", "enum": ["low", "medium", "high"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastMessageAt": { "type": "string", "format": "date-time" },
+        "companyId": { "type": "string" }
+      },
+      "required": ["token", "userName", "userEmail", "status", "priority", "createdAt"]
+    },
+    "SupportMessage": {
+      "title": "SupportMessage",
+      "description": "A message within a support ticket.",
+      "type": "object",
+      "properties": {
+        "ticketId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderRole": { "type": "string", "enum": ["user", "admin"] },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ticketId", "senderId", "senderName", "senderRole", "content", "createdAt"]
+    },
+    "SaasPlan": {
+      "title": "SaasPlan",
+      "description": "Definition of a global pricing tier.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "currency": { "type": "string", "default": "USD" },
+        "interval": { "type": "string", "enum": ["monthly", "yearly"] },
+        "features": { "type": "array", "items": { "type": "string" } },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "maxUsers": { "type": "number" },
+            "maxLeads": { "type": "number" },
+            "maxStorage": { "type": "number" },
+            "hasIntelligence": { "type": "boolean" },
+            "hasBlogs": { "type": "boolean" }
+          }
+        },
+        "isActive": { "type": "boolean" },
+        "isPopular": { "type": "boolean" },
+        "isScalable": { "type": "boolean" },
+        "scalingMetric": { "type": "string", "enum": ["users", "storage", "leads"] },
+        "scalingPrice": { "type": "number" },
+        "upsellPlanId": { "type": "string" },
+        "downsellPlanId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "price", "interval", "isActive"]
+    },
+    "Subscription": {
+      "title": "Subscription",
+      "description": "A company's active plan subscription.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "planId": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "past_due", "canceled", "trialing", "trial_expired"] },
+        "currentPeriodStart": { "type": "string", "format": "date-time" },
+        "currentPeriodEnd": { "type": "string", "format": "date-time" },
+        "cancelAtPeriodEnd": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "planId", "status", "currentPeriodEnd", "updatedAt"]
+    },
+    "SaasPayment": {
+      "title": "SaasPayment",
+      "description": "A financial transaction for the SaaS platform.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string", "enum": ["succeeded", "failed", "pending"] },
+        "planId": { "type": "string" },
+        "billingReason": { "type": "string", "enum": ["subscription_create", "subscription_cycle", "subscription_update"] },
+        "invoiceUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "amount", "status", "planId", "billingReason", "createdAt"]
+    },
+    "DiscountCode": {
+      "title": "DiscountCode",
+      "description": "Promotional codes for platform discounts.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "discountType": { "type": "string", "enum": ["percentage", "fixed"] },
+        "value": { "type": "number" },
+        "maxRedemptions": { "type": "number" },
+        "redemptionCount": { "type": "number" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["code", "discountType", "value", "redemptionCount", "isActive"]
     }
   },
   "firestore": {
+    "/plans/{planId}": {
+      "schema": "SaasPlan",
+      "description": "Global pricing tiers."
+    },
+    "/subscriptions/{subId}": {
+      "schema": "Subscription",
+      "description": "Platform-wide company subscriptions."
+    },
+    "/saas_payments/{paymentId}": {
+      "schema": "SaasPayment",
+      "description": "Financial transaction history."
+    },
+    "/discounts/{discountId}": {
+      "schema": "DiscountCode",
+      "description": "Active promotional codes."
+    },
+    "/analyticsEvents/{eventId}": {
+      "schema": "AnalyticsEvent",
+      "description": "Aggregated user interaction events."
+    },
     "/blogAnalyticsEvents/{eventId}": {
       "schema": "BlogAnalyticsEvent",
       "description": "Aggregated analytics events."
@@ -672,6 +820,14 @@
     "/formSubmissions/{submissionId}": {
       "schema": "FormSubmission",
       "description": "Dynamic form submissions."
+    },
+    "/supportTickets/{ticketId}": {
+      "schema": "SupportTicket",
+      "description": "Public support session tickets."
+    },
+    "/supportMessages/{messageId}": {
+      "schema": "SupportMessage",
+      "description": "Messages within support tickets."
     }
   }
 }

@@ -3,7 +3,7 @@ import { db } from '../firebase';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { UserProfile, Company } from '../types';
 import { toast } from 'sonner';
-import { Bell, Clock, Globe, Copy, Check, Layout, Plus, Trash2, GripVertical, Edit3, User as UserIcon, Mail, ShieldCheck, DollarSign, FileCheck, X, CheckSquare, Sun, Moon } from 'lucide-react';
+import { Bell, Clock, Globe, Copy, Check, Layout, Plus, Trash2, GripVertical, Edit3, User as UserIcon, Mail, ShieldCheck, DollarSign, FileCheck, X, CheckSquare, Sun, Moon, Building2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserRole, Permission } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
@@ -179,6 +179,7 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
     const formData = new FormData(e.currentTarget);
     const updates = {
       name: formData.get('name') as string,
+      subdomain: (formData.get('subdomain') as string)?.toLowerCase().replace(/[^a-z0-9-]/g, ''),
       website: formData.get('website') as string,
       phone: formData.get('phone') as string,
       industry: formData.get('industry') as string,
@@ -189,6 +190,12 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
     };
 
     try {
+      // Basic check for subdomain format
+      if (updates.subdomain && updates.subdomain.length < 3) {
+        toast.error('Subdomain must be at least 3 characters');
+        return;
+      }
+      
       await updateDoc(doc(db, 'companies', company.id), updates);
       toast.success('Company information updated');
     } catch (error) {
@@ -321,6 +328,22 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
               />
             </div>
             <div className="space-y-2">
+              <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest px-1">Workspace Subdomain</label>
+              <div className="relative">
+                <input
+                  name="subdomain"
+                  defaultValue={company?.subdomain}
+                  className="saas-input py-4 pr-32 font-bold"
+                  placeholder="acme-corp"
+                  pattern="[a-z0-9-]+"
+                  minLength={3}
+                />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 uppercase pointer-events-none">
+                  .nexvoura.com
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
               <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest px-1">Website</label>
               <input
                 name="website"
@@ -358,12 +381,21 @@ export default function SettingsPage({ user }: { user: UserProfile }) {
             </div>
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-slate-500 dark:text-dark-text-muted uppercase tracking-wider mb-2">Company Logo URL</label>
-              <input
-                name="logoUrl"
-                defaultValue={company?.logoUrl}
-                className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium text-slate-900 dark:text-white"
-                placeholder="https://example.com/logo.png"
-              />
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-slate-100 dark:bg-dark-bg rounded-xl flex items-center justify-center border border-slate-200 dark:border-dark-border overflow-hidden shrink-0">
+                  {company?.logoUrl ? (
+                    <img src={company.logoUrl} alt="Logo preview" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                  ) : (
+                    <Building2 size={24} className="text-slate-300" />
+                  )}
+                </div>
+                <input
+                  name="logoUrl"
+                  defaultValue={company?.logoUrl}
+                  className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium text-slate-900 dark:text-white"
+                  placeholder="https://example.com/logo.png"
+                />
+              </div>
             </div>
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-slate-500 dark:text-dark-text-muted uppercase tracking-wider mb-2">Bio / Description</label>

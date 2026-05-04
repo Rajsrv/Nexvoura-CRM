@@ -1,6 +1,9 @@
 import { UserProfile, Company, Permission } from '../types';
 
 export const hasPermission = (user: UserProfile, company: Company | null, permission: Permission): boolean => {
+  // Super Admins have absolute power
+  if (user.isSuperAdmin) return true;
+  
   // Admins have all permissions by default
   if (user.role === 'admin') return true;
   

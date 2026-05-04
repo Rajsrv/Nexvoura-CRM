@@ -25,6 +25,7 @@ import {
   AlignLeft,
   X,
   PlusCircle,
+  Database,
   Trash,
   MoveUp,
   MoveDown,
@@ -38,7 +39,14 @@ import {
   CircleDot,
   ShieldCheck,
   Star,
-  Sliders
+  Sliders,
+  Image,
+  Send,
+  Zap,
+  Activity,
+  ArrowRightCircle,
+  Cpu,
+  Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -68,42 +76,73 @@ import { format } from 'date-fns';
 const FIELD_TYPES = [
   { value: 'text', label: 'Short Text', icon: Type },
   { value: 'textarea', label: 'Long Text', icon: AlignLeft },
-  { value: 'email', label: 'Email', icon: Mail },
-  { value: 'tel', label: 'Phone', icon: Phone },
-  { value: 'number', label: 'Number', icon: Hash },
-  { value: 'select', label: 'Dropdown', icon: List },
-  { value: 'checkbox', label: 'Checkbox Group', icon: CheckSquare },
-  { value: 'radio', label: 'Radio Selection', icon: CircleDot },
-  { value: 'date', label: 'Date Picker', icon: Calendar },
-  { value: 'switch', label: 'Toggle Switch', icon: ToggleRight },
-  { value: 'range', label: 'Range Slider', icon: Sliders },
-  { value: 'rating', label: 'Star Rating', icon: Star },
+  { value: 'email', label: 'Email Address', icon: Mail },
+  { value: 'tel', label: 'Phone Number', icon: Phone },
+  { value: 'url', label: 'Website Link', icon: ExternalLink },
+  { value: 'number', label: 'Numeric Value', icon: Hash },
+  { value: 'select', label: 'Dropdown List', icon: List },
+  { value: 'checkbox', label: 'Multi-Check', icon: CheckSquare },
+  { value: 'radio', label: 'Single Choice', icon: CircleDot },
+  { value: 'date', label: 'Date/Day', icon: Calendar },
+  { value: 'time', label: 'Time Picker', icon: Clock },
+  { value: 'switch', label: 'Binary Toggle', icon: ToggleRight },
+  { value: 'range', label: 'Value Range', icon: Sliders },
+  { value: 'rating', label: 'Evaluation Star', icon: Star },
+  { value: 'file', label: 'File Upload', icon: Layers },
+  { value: 'media', label: 'Media Upload', icon: Image },
+  { value: 'signature', label: 'Signature', icon: FileText },
 ];
 
 const DEFAULT_STYLING: FormStyling = {
   primaryColor: '#4f46e5', // INDIGO-600
   backgroundColor: '#f8fafc', // SLATE-50
   cardColor: '#ffffff',
+  cardOpacity: 100,
+  cardBlur: false,
   textColor: '#0f172a', // SLATE-900
   labelColor: '#64748b', // SLATE-500
   buttonText: '#ffffff',
+  ctaText: 'Submit Transmission',
+  ctaIcon: 'Send',
   borderRadius: '24px',
   fontFamily: 'font-sans',
   buttonStyle: 'filled',
   formWidth: 'boxed',
+  formHeight: 'auto',
+  fieldLayout: 'list',
   headerAlignment: 'center',
-  fieldSpacing: 'comfortable'
+  fieldSpacing: 'comfortable',
+  inputStyle: 'standard',
+  shadowSize: 'md',
+  animationType: 'fade'
 };
+
+const CTA_ICONS = [
+  { value: 'Send', icon: Send },
+  { value: 'Zap', icon: Zap },
+  { value: 'Check', icon: CheckCircle },
+  { value: 'Plus', icon: Plus },
+  { value: 'ArrowRight', icon: ChevronRight },
+  { value: 'Save', icon: Save },
+  { value: 'MessageSquare', icon: MessageSquare },
+  { value: 'Database', icon: Database },
+  { value: 'ShieldCheck', icon: ShieldCheck },
+  { value: 'Sparkles', icon: Sparkles },
+  { value: 'Activity', icon: Activity },
+  { value: 'Cpu', icon: Cpu }
+];
 
 const DEFAULT_REDIRECT: FormRedirect = {
   url: '',
   delay: 3,
-  enabled: false
+  enabled: false,
+  message: 'Signal Transmitted'
 };
 
 interface SortableFieldItemProps {
   field: FormField;
   index: number;
+  allFields: FormField[];
   onUpdate: (id: string, updates: Partial<FormField>) => void;
   onRemove: (id: string) => void;
 }
@@ -111,6 +150,7 @@ interface SortableFieldItemProps {
 const SortableFieldItem: React.FC<SortableFieldItemProps> = ({ 
   field, 
   index, 
+  allFields,
   onUpdate, 
   onRemove 
 }) => {
@@ -216,6 +256,29 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
           />
         </div>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Help Text / Subtitle</label>
+          <input
+            type="text"
+            value={field.helpText || ''}
+            onChange={(e) => onUpdate(field.id, { helpText: e.target.value })}
+            placeholder="Additional guidance for the user..."
+            className="w-full bg-transparent border-b border-slate-200 dark:border-dark-border py-2 text-[11px] font-medium text-slate-400 dark:text-dark-text-muted outline-none focus:border-indigo-500 italic placeholder:text-slate-200"
+          />
+        </div>
+        <div className="space-y-4">
+          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Default Value</label>
+          <input
+            type="text"
+            value={field.defaultValue || ''}
+            onChange={(e) => onUpdate(field.id, { defaultValue: e.target.value })}
+            placeholder="Pre-filled value..."
+            className="w-full bg-transparent border-b border-slate-200 dark:border-dark-border py-2 text-[11px] font-medium text-slate-600 dark:text-dark-text-muted outline-none focus:border-indigo-500 italic placeholder:text-slate-300"
+          />
+        </div>
+      </div>
       
       {(field.type === 'select' || field.type === 'checkbox' || field.type === 'radio') && (
         <div className="space-y-3 pt-2">
@@ -251,6 +314,96 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
           </div>
         </div>
       )}
+
+      {(['text', 'textarea', 'email', 'tel', 'url'].includes(field.type)) && (
+        <div className="grid grid-cols-2 gap-4 pt-2">
+          <div>
+            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest px-1 mb-1">Min Length</label>
+            <input
+              type="number"
+              value={field.validation?.minLength || 0}
+              onChange={(e) => onUpdate(field.id, { validation: { ...field.validation, minLength: parseInt(e.target.value) } })}
+              className="w-full bg-white dark:bg-dark-surface border border-slate-100 dark:border-dark-border rounded-xl p-3 text-xs outline-none focus:border-indigo-400"
+            />
+          </div>
+          <div>
+            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest px-1 mb-1">Max Length</label>
+            <input
+              type="number"
+              value={field.validation?.maxLength || ''}
+              onChange={(e) => onUpdate(field.id, { validation: { ...field.validation, maxLength: parseInt(e.target.value) } })}
+              className="w-full bg-white dark:bg-dark-surface border border-slate-100 dark:border-dark-border rounded-xl p-3 text-xs outline-none focus:border-indigo-400"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Logic & Meta Configuration */}
+      <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-dark-border/50">
+        <div className="flex items-center justify-between p-4 bg-emerald-50/20 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 rounded-[24px]">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-black text-emerald-900 dark:text-emerald-400 uppercase italic">Conditional Visibility</span>
+            <span className="text-[9px] text-emerald-700/60 dark:text-emerald-500/40 font-medium tracking-tight uppercase">Show this node only when criteria met</span>
+          </div>
+          <button 
+            onClick={() => onUpdate(field.id, { logic: field.logic ? undefined : { showIfFieldId: '', operator: 'equals', value: '' } })}
+            className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${
+              field.logic 
+                ? 'bg-emerald-500 text-white border-emerald-400 shadow-lg shadow-emerald-500/20' 
+                : 'bg-white dark:bg-dark-surface text-slate-400 border-slate-200 dark:border-dark-border'
+            }`}
+          >
+            {field.logic ? 'Logic Active' : 'Add Logic'}
+          </button>
+        </div>
+
+        {field.logic && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-5 bg-white dark:bg-dark-surface border border-emerald-100 dark:border-emerald-900/30 rounded-[28px] grid grid-cols-1 md:grid-cols-3 gap-4"
+          >
+            <div>
+              <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Source Field</label>
+              <select
+                value={field.logic.showIfFieldId}
+                onChange={(e) => onUpdate(field.id, { logic: { ...field.logic!, showIfFieldId: e.target.value } })}
+                className="w-full p-3 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-xl text-[10px] font-bold outline-none appearance-none"
+              >
+                <option value="">Select Field...</option>
+                {allFields.filter(f => f.id !== field.id).map(f => (
+                  <option key={f.id} value={f.id}>{f.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Operator</label>
+              <select
+                value={field.logic.operator}
+                onChange={(e) => onUpdate(field.id, { logic: { ...field.logic!, operator: e.target.value as any } })}
+                className="w-full p-3 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-xl text-[10px] font-bold outline-none appearance-none"
+              >
+                <option value="equals">Equals</option>
+                <option value="not_equals">Not Equals</option>
+                <option value="contains">Contains</option>
+                <option value="not_empty">Is Not Empty</option>
+              </select>
+            </div>
+            {field.logic.operator !== 'not_empty' && (
+              <div>
+                <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Criteria Value</label>
+                <input
+                  type="text"
+                  value={field.logic.value}
+                  onChange={(e) => onUpdate(field.id, { logic: { ...field.logic!, value: e.target.value } })}
+                  placeholder="Enter value..."
+                  className="w-full p-3 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-xl text-[10px] font-bold outline-none"
+                />
+              </div>
+            )}
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 };
@@ -262,7 +415,9 @@ export const FormsPage = () => {
   const [activeTab, setActiveTab] = useState<'forms' | 'submissions'>('forms');
   const [showFormModal, setShowFormModal] = useState(false);
   const [showEmbedModal, setShowEmbedModal] = useState(false);
+  const [showSubmissionModal, setShowSubmissionModal] = useState(false);
   const [selectedForm, setSelectedForm] = useState<DynamicForm | null>(null);
+  const [selectedSubmission, setSelectedSubmission] = useState<FormSubmission | null>(null);
 
   const getEmbedCode = (formId: string) => {
     const url = `${window.location.origin}/form/${formId}`;
@@ -621,8 +776,8 @@ export const FormsPage = () => {
                     <td className="px-10 py-8 text-right">
                        <button 
                         onClick={() => {
-                          // View full submission logic
-                          toast.info('Ingesting Signal: Full view under construction');
+                          setSelectedSubmission(sub);
+                          setShowSubmissionModal(true);
                         }}
                         className="p-3 bg-white dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl text-slate-400 hover:text-indigo-600 shadow-sm transition-all"
                        >
@@ -800,6 +955,7 @@ export const FormsPage = () => {
                                   key={field.id}
                                   field={field}
                                   index={index}
+                                  allFields={fields}
                                   onUpdate={handleUpdateField}
                                   onRemove={handleRemoveField}
                                 />
@@ -844,6 +1000,138 @@ export const FormsPage = () => {
                               </div>
                             </div>
                           ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-6">
+                        <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] italic border-l-4 border-indigo-600 pl-4">Geometric Geometric</h4>
+                        <div className="grid grid-cols-2 gap-6">
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Border Radius</label>
+                            <select 
+                              value={styling.borderRadius}
+                              onChange={(e) => setStyling({...styling, borderRadius: e.target.value})}
+                              className="w-full bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl p-4 text-xs font-bold outline-none"
+                            >
+                              <option value="0px">Sharp (0px)</option>
+                              <option value="8px">Small (8px)</option>
+                              <option value="16px">Medium (16px)</option>
+                              <option value="24px">Large (24px)</option>
+                              <option value="40px">Extra (40px)</option>
+                              <option value="999px">Full (Pill)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Font Family</label>
+                            <select 
+                              value={styling.fontFamily}
+                              onChange={(e) => setStyling({...styling, fontFamily: e.target.value})}
+                              className="w-full bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl p-4 text-xs font-bold outline-none"
+                            >
+                              <option value="font-sans">Inter (Sans)</option>
+                              <option value="font-mono">JetBrains (Mono)</option>
+                              <option value="font-display">Orbitron (Display)</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-6">
+                        <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] italic border-l-4 border-indigo-600 pl-4">Architecture Layout</h4>
+                        <div className="grid grid-cols-2 gap-6">
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Field Alignment</label>
+                            <select 
+                              value={styling.fieldLayout}
+                              onChange={(e) => setStyling({...styling, fieldLayout: e.target.value as any})}
+                              className="w-full bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl p-4 text-xs font-bold outline-none"
+                            >
+                              <option value="list">List (Vertical)</option>
+                              <option value="grid">Grid (Columns)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Form Width</label>
+                            <select 
+                              value={styling.formWidth}
+                              onChange={(e) => setStyling({...styling, formWidth: e.target.value as any})}
+                              className="w-full bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl p-4 text-xs font-bold outline-none"
+                            >
+                              <option value="boxed">Boxed</option>
+                              <option value="full">Full Width</option>
+                              <option value="narrow">Narrow</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Form Height</label>
+                            <select 
+                              value={styling.formHeight}
+                              onChange={(e) => setStyling({...styling, formHeight: e.target.value as any})}
+                              className="w-full bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl p-4 text-xs font-bold outline-none"
+                            >
+                              <option value="auto">Auto</option>
+                              <option value="screen">Full Screen</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Spacing</label>
+                            <select 
+                              value={styling.fieldSpacing}
+                              onChange={(e) => setStyling({...styling, fieldSpacing: e.target.value as any})}
+                              className="w-full bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl p-4 text-xs font-bold outline-none"
+                            >
+                              <option value="compact">Compact</option>
+                              <option value="comfortable">Comfortable</option>
+                              <option value="loose">Loose</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-10">
+                      <div className="space-y-6">
+                        <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] italic border-l-4 border-indigo-600 pl-4">CTA Override</h4>
+                        <div className="space-y-6">
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Call to Action Text</label>
+                            <input
+                              type="text"
+                              value={styling.ctaText}
+                              onChange={(e) => setStyling({...styling, ctaText: e.target.value})}
+                              placeholder="e.g. Submit Transmission"
+                              className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl text-[11px] font-bold outline-none uppercase italic"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-6">
+                            <div>
+                               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Button Style</label>
+                               <select 
+                                 value={styling.buttonStyle}
+                                 onChange={(e) => setStyling({...styling, buttonStyle: e.target.value as any})}
+                                 className="w-full bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl p-4 text-xs font-bold outline-none"
+                               >
+                                 <option value="filled">Filled</option>
+                                 <option value="outline">Outline</option>
+                                 <option value="ghost">Ghost</option>
+                                 <option value="glow">Glow Pulse</option>
+                               </select>
+                            </div>
+                            <div>
+                               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">CTA Icon</label>
+                               <div className="grid grid-cols-4 gap-2">
+                                  {CTA_ICONS.map(iconObj => (
+                                    <button
+                                      key={iconObj.value}
+                                      onClick={() => setStyling({...styling, ctaIcon: iconObj.value})}
+                                      className={`p-2 rounded-lg flex items-center justify-center transition-all ${styling.ctaIcon === iconObj.value ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-dark-bg text-slate-400'}`}
+                                    >
+                                      <iconObj.icon size={14} />
+                                    </button>
+                                  ))}
+                               </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
 
@@ -918,7 +1206,7 @@ export const FormsPage = () => {
                             <textarea
                               value={styling.footerText || ''}
                               onChange={(e) => setStyling({ ...styling, footerText: e.target.value })}
-                              placeholder="e.g. Copyright 2026 Nexusvoura Analytics"
+                              placeholder="e.g. Copyright 2026 Nexvoura Analytics"
                               className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-[20px] text-xs font-medium h-24 outline-none focus:ring-4 focus:ring-indigo-500/10"
                             />
                           </div>
@@ -937,6 +1225,30 @@ export const FormsPage = () => {
                             >
                               <option value="boxed">Boxed (Max Width)</option>
                               <option value="full">Edge-to-Edge (Full)</option>
+                              <option value="narrow">Narrow (Centered)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Form Height</label>
+                            <select
+                              value={styling.formHeight || 'auto'}
+                              onChange={(e) => setStyling({ ...styling, formHeight: e.target.value as any })}
+                              className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-[20px] text-xs font-black uppercase outline-none"
+                            >
+                              <option value="auto">Auto (Content)</option>
+                              <option value="screen">Full Screen</option>
+                              <option value="tall">Tall (Flexible)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Field Layout</label>
+                            <select
+                              value={styling.fieldLayout || 'list'}
+                              onChange={(e) => setStyling({ ...styling, fieldLayout: e.target.value as any })}
+                              className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-[20px] text-xs font-black uppercase outline-none"
+                            >
+                              <option value="list">Vertical List</option>
+                              <option value="grid">Two-Column Grid</option>
                             </select>
                           </div>
                           <div>
@@ -966,16 +1278,73 @@ export const FormsPage = () => {
                             </select>
                           </div>
                           <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Header Align</label>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Input Style</label>
                             <select
-                              value={styling.headerAlignment}
-                              onChange={(e) => setStyling({ ...styling, headerAlignment: e.target.value as any })}
+                              value={styling.inputStyle || 'standard'}
+                              onChange={(e) => setStyling({ ...styling, inputStyle: e.target.value as any })}
                               className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-[20px] text-xs font-black uppercase outline-none"
                             >
-                              <option value="left">Left</option>
-                              <option value="center">Center</option>
-                              <option value="right">Right</option>
+                              <option value="standard">Standard Box</option>
+                              <option value="filled">Filled Background</option>
+                              <option value="underlined">Minimal Underline</option>
                             </select>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Shadow Density</label>
+                            <select
+                              value={styling.shadowSize || 'md'}
+                              onChange={(e) => setStyling({ ...styling, shadowSize: e.target.value as any })}
+                              className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-[20px] text-xs font-black uppercase outline-none"
+                            >
+                              <option value="none">None</option>
+                              <option value="sm">Soft (SM)</option>
+                              <option value="md">Medium (MD)</option>
+                              <option value="lg">Large (LG)</option>
+                              <option value="xl">Extra (XL)</option>
+                              <option value="2xl">Neon (2XL)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Animation Type</label>
+                            <select
+                              value={styling.animationType || 'fade'}
+                              onChange={(e) => setStyling({ ...styling, animationType: e.target.value as any })}
+                              className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-[20px] text-xs font-black uppercase outline-none"
+                            >
+                              <option value="none">Disabled</option>
+                              <option value="fade">Smooth Fade</option>
+                              <option value="slide">Slide In</option>
+                              <option value="zoom">Scale Zoom</option>
+                              <option value="stagger">Staggered List</option>
+                            </select>
+                          </div>
+                          <div className="col-span-2">
+                             <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-[24px]">
+                               <div className="flex flex-col">
+                                 <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase italic">Glassmorphism Effect</span>
+                                 <span className="text-[9px] text-slate-400 font-medium tracking-tight uppercase">Enable Card Blur & Transparency</span>
+                               </div>
+                               <div className="flex items-center space-x-4">
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-[8px] font-black text-slate-400 uppercase mb-1">{styling.cardOpacity}%</span>
+                                    <input 
+                                      type="range" min="0" max="100" 
+                                      value={styling.cardOpacity ?? 100} 
+                                      onChange={(e) => setStyling({ ...styling, cardOpacity: parseInt(e.target.value) })}
+                                      className="w-24 accent-indigo-600"
+                                    />
+                                  </div>
+                                  <button
+                                    onClick={() => setStyling({ ...styling, cardBlur: !styling.cardBlur })}
+                                    className={`w-12 h-6 rounded-full transition-all flex items-center px-1 ${styling.cardBlur ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-dark-border'}`}
+                                  >
+                                    <motion.div
+                                      animate={{ x: styling.cardBlur ? 24 : 0 }}
+                                      className="w-4 h-4 bg-white rounded-full shadow-md"
+                                    />
+                                  </button>
+                               </div>
+                             </div>
                           </div>
                           <div className="col-span-2">
                             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Font Architecture</label>
@@ -990,15 +1359,40 @@ export const FormsPage = () => {
                               <option value="font-display">Experimental Bold (Display)</option>
                             </select>
                           </div>
+                          <div className="col-span-2 space-y-6">
+                            <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] italic border-l-4 border-indigo-600 pl-4 mt-4">Call To Action (CTA)</h4>
+                            <div className="grid grid-cols-2 gap-6">
+                              <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">CTA Label Text</label>
+                                <input
+                                  type="text"
+                                  value={styling.ctaText || ''}
+                                  onChange={(e) => setStyling({ ...styling, ctaText: e.target.value })}
+                                  placeholder="Submit Transmission"
+                                  className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-[20px] text-xs font-bold outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">CTA Icon Name (Lucide)</label>
+                                <input
+                                  type="text"
+                                  value={styling.ctaIcon || ''}
+                                  onChange={(e) => setStyling({ ...styling, ctaIcon: e.target.value })}
+                                  placeholder="Send, Check, ArrowRight..."
+                                  className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-[20px] text-xs font-bold outline-none"
+                                />
+                              </div>
+                            </div>
+                          </div>
                           <div className="col-span-2">
                             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Button Aesthetic</label>
                             <div className="flex bg-slate-100 dark:bg-dark-bg p-1 rounded-2xl border border-slate-200 dark:border-dark-border">
-                              {['filled', 'outline', 'ghost'].map((style) => (
+                              {['filled', 'outline', 'ghost', 'glow'].map((style) => (
                                 <button
                                   key={style}
                                   onClick={() => setStyling({ ...styling, buttonStyle: style as any })}
                                   className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
-                                    styling.buttonStyle === style ? 'bg-white dark:bg-dark-surface shadow-sm text-indigo-600' : 'text-slate-500'
+                                    styling.buttonStyle === style ? 'bg-white dark:bg-dark-surface shadow-sm text-indigo-600 font-black' : 'text-slate-500'
                                   }`}
                                 >
                                   {style}
@@ -1226,6 +1620,96 @@ export const FormsPage = () => {
                   className="w-full py-4 bg-slate-950 dark:bg-indigo-600 text-white rounded-[24px] font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:scale-[1.01] transition-all"
                 >
                   Close Terminal
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Submission Detail Modal */}
+      <AnimatePresence>
+        {showSubmissionModal && selectedSubmission && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSubmissionModal(false)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl"
+            />
+            
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl bg-white dark:bg-dark-surface rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              <div className="p-8 border-b border-slate-100 dark:border-dark-border flex justify-between items-center bg-slate-50 dark:bg-dark-bg/20">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-emerald-500/20">
+                    <Database size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-950 dark:text-white uppercase italic tracking-tight leading-none">Signal Artifact</h3>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Full Data Node Ingestion Detail</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowSubmissionModal(false)}
+                  className="p-3 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-dark-surface rounded-2xl transition-all"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="p-8 overflow-y-auto space-y-8">
+                <div className="grid grid-cols-2 gap-6">
+                   <div className="p-6 bg-slate-50 dark:bg-dark-bg/40 rounded-3xl border border-slate-100 dark:border-dark-border">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Source Blueprint</span>
+                      <p className="text-sm font-black text-indigo-600 uppercase italic line-clamp-1">{selectedSubmission.formName}</p>
+                   </div>
+                   <div className="p-6 bg-slate-50 dark:bg-dark-bg/40 rounded-3xl border border-slate-100 dark:border-dark-border">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Timestamp</span>
+                      <p className="text-sm font-black text-slate-900 dark:text-white uppercase italic">{format(selectedSubmission.submittedAt.toDate(), 'MMM dd, HH:mm')}</p>
+                   </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] italic border-l-4 border-indigo-600 pl-4">Data Payload</h4>
+                  <div className="space-y-3">
+                    {Object.entries(selectedSubmission.data).map(([key, value]) => (
+                      <div key={key} className="p-6 bg-white dark:bg-dark-surface border border-slate-100 dark:border-dark-border rounded-[24px]">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">{key.replace(/_/g, ' ')}</span>
+                        {typeof value === 'string' && (value.startsWith('http')) ? (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-slate-600 dark:text-slate-300 break-all">{value}</span>
+                            <a 
+                              href={value} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-widest shrink-0 ml-4 border border-indigo-100 dark:border-indigo-900/40"
+                            >
+                              Open Attachment
+                            </a>
+                          </div>
+                        ) : (
+                          <p className="text-sm font-bold text-slate-900 dark:text-white leading-relaxed">
+                            {Array.isArray(value) ? value.join(', ') : String(value)}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 border-t border-slate-100 dark:border-dark-border bg-slate-50 dark:bg-dark-bg/20">
+                <button
+                  onClick={() => setShowSubmissionModal(false)}
+                  className="w-full py-4 bg-slate-950 dark:bg-indigo-600 text-white rounded-[24px] font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:scale-[1.01] transition-all"
+                >
+                  Dismiss Data View
                 </button>
               </div>
             </motion.div>

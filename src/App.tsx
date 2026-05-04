@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import { onAuthStateChanged, signOut, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, onSnapshot, addDoc, getDocs, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
 import { handleFirestoreError, OperationType } from './lib/firestore';
-import { UserProfile, Company, Invite, Lead, Task, AccessRequest, UserRole } from './types';
+import { UserProfile, Company, Invite, Lead, Task, AccessRequest, UserRole, Subscription } from './types';
 import { 
   LayoutDashboard, 
   Users, 
@@ -31,6 +31,7 @@ import {
   ShieldAlert, 
   Globe, 
   Copy,
+  CreditCard,
   BarChart as BarChartIcon,
   RefreshCcw,
   ChevronDown,
@@ -45,7 +46,8 @@ import {
   Sparkles,
   TrendingUp,
   Rss,
-  Image as ImageIcon
+  Image as ImageIcon,
+  LifeBuoy
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
@@ -76,17 +78,22 @@ import ActivityLogsPage from './components/ActivityLogsPage';
 import EmployeeProfilePage from './components/EmployeeProfilePage';
 import ChatPage from './components/ChatPage';
 import IntelligencePage from './components/IntelligencePage';
+import AttendancePage from './components/AttendancePage';
 import SelfServicePage from './components/SelfServicePage';
 import FormsPage from './components/FormsPage';
 import PublicFormPage from './components/PublicFormPage';
+import SupportPortal from './components/SupportPortal';
+import SupportAdminPage from './components/SupportAdminPage';
 import { BlogsPage } from './components/BlogsPage';
 import { BlogPostsPage } from './components/BlogPostsPage';
 import { BlogPostEditor } from './components/BlogPostEditor';
 import { BlogSettingsPage } from './components/BlogSettingsPage';
 import { BlogAnalyticsPage } from './components/BlogAnalyticsPage';
 import { MediaLibraryPage } from './components/MediaLibraryPage';
+import { SuperAdminDashboard } from './components/SuperAdminDashboard';
 import { PublicBlogPage } from './components/PublicBlogPage';
 import { PublicPostPage } from './components/PublicPostPage';
+import NexvouraLoader from './components/NexvouraLoader';
 import { logActivity } from './services/activityService';
 import { formService, DynamicForm } from './services/formService';
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext';
@@ -113,9 +120,18 @@ const generateMemberId = (companyName: string = 'NEX') => {
 
 import { hasPermission } from './lib/permissions';
 
-// --- Components ---
+import PublicPortalPage from './components/PublicPortalPage';
+import SubscriptionPage from './components/SubscriptionPage';
+import SuperAdminLogin from './components/SuperAdminLogin';
 
+import { analyticsService, EventCategory } from './services/analyticsService';
+
+// --- Components ---
 const Sidebar = ({ user, company, isOpen, setIsOpen }: { user: UserProfile; company: Company | null; isOpen: boolean; setIsOpen: (val: boolean) => void }) => {
+  const handleNavClick = (name: string) => {
+    analyticsService.trackClick(user.uid, company?.id, `nav_${name.toLowerCase()}`, { path: window.location.pathname });
+    setIsOpen(false);
+  };
   const navItems = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Intelligence', path: '/intelligence', icon: Sparkles },
@@ -125,10 +141,17 @@ const Sidebar = ({ user, company, isOpen, setIsOpen }: { user: UserProfile; comp
     { name: 'Leads', path: '/leads', icon: Globe, permission: 'leads:view' },
     { name: 'Forms', path: '/forms', icon: LayoutDashboard, permission: 'leads:manage' },
     { name: 'Tasks', path: '/tasks', icon: CheckSquare, permission: 'tasks:view' },
+    { name: 'Attendance', path: '/attendance', icon: Clock },
     { name: 'Profile', path: '/profile', icon: UserIcon },
     { name: 'Portal', path: '/self-service', icon: ShieldCheck },
+    { name: 'Billing', path: '/subscription', icon: CreditCard },
     { name: 'Settings', path: '/settings', icon: Settings, permission: 'settings:company' },
   ];
+
+  const adminItems = user.isSuperAdmin ? [
+    { name: 'SaaS Nexvoura', path: '/saas-nexvoura', icon: ShieldCheck },
+    { name: 'Support Board', path: '/support-admin', icon: LifeBuoy },
+  ] : [];
 
   const trackingItems = [
     { name: 'Employees', path: '/employees', icon: Users, permission: 'team:view' },
@@ -170,16 +193,36 @@ const Sidebar = ({ user, company, isOpen, setIsOpen }: { user: UserProfile; comp
             </button>
           </div>
 
-          <nav className="flex-1 px-3 space-y-6 overflow-y-auto custom-scrollbar pt-2">
+        <div className="flex-1 px-3 space-y-6 overflow-y-auto custom-scrollbar pt-2">
             <div className="space-y-1">
               <p className="px-3 pb-2 text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Main Menu</p>
+              {adminItems.map((item) => {
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => handleNavClick(item.name)}
+                    className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all group relative ${
+                      isActive 
+                        ? 'bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary' 
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <item.icon size={18} className={`${isActive ? 'scale-110' : 'group-hover:scale-110'} transition-transform font-bold text-brand-primary`} />
+                    <span className="text-sm font-black italic tracking-tighter uppercase text-brand-primary">
+                      {item.name}
+                    </span>
+                  </Link>
+                );
+              })}
               {filterItems(navItems).map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
                   <Link
                     key={item.path}
                     to={item.path}
-                    onClick={() => setIsOpen(false)}
+                    onClick={() => handleNavClick(item.name)}
                     className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all group relative ${
                       isActive 
                         ? 'bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary' 
@@ -210,7 +253,7 @@ const Sidebar = ({ user, company, isOpen, setIsOpen }: { user: UserProfile; comp
                     <Link
                       key={item.path}
                       to={item.path}
-                      onClick={() => setIsOpen(false)}
+                      onClick={() => handleNavClick(item.name)}
                       className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all group relative ${
                         isActive 
                           ? 'bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary' 
@@ -232,7 +275,7 @@ const Sidebar = ({ user, company, isOpen, setIsOpen }: { user: UserProfile; comp
                 })}
               </div>
             </div>
-          </nav>
+          </div>
 
           <div className="p-4 border-t border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-bg/20">
             <div className="flex items-center space-x-3 p-2 group cursor-pointer hover:bg-white dark:hover:bg-dark-surface hover:shadow-soft dark:hover:shadow-none hover:border-slate-200 dark:hover:border-dark-border border border-transparent rounded-2xl transition-all">
@@ -407,8 +450,12 @@ const Header = ({ user, company, onToggleSidebar }: { user: UserProfile; company
         <Menu size={20} />
       </button>
       <div className="hidden sm:flex items-center space-x-3">
-        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200 dark:shadow-none">
-           <LayoutDashboard size={20} />
+        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200 dark:shadow-none overflow-hidden">
+           {company?.logoUrl ? (
+             <img src={company.logoUrl} alt={company.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+           ) : (
+             <LayoutDashboard size={20} />
+           )}
         </div>
         <div>
           <h2 className="text-sm font-black text-slate-900 dark:text-white tracking-tight leading-none">
@@ -425,6 +472,17 @@ const Header = ({ user, company, onToggleSidebar }: { user: UserProfile; company
         <input 
           type="text" 
           placeholder="Search transmissions..." 
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              analyticsService.trackEvent({
+                userId: user.uid,
+                companyId: company?.id,
+                eventName: 'global_search',
+                category: EventCategory.INTERACTION,
+                metadata: { query: (e.target as HTMLInputElement).value }
+              });
+            }
+          }}
           className="bg-transparent border-none outline-none text-xs w-64 lg:w-80 font-semibold text-slate-900 dark:text-white placeholder:text-slate-400" 
         />
         <div className="text-[10px] font-black text-slate-300 ml-2 bg-slate-100 dark:bg-dark-surface px-1.5 py-0.5 rounded border border-slate-200 dark:border-dark-border">⌘K</div>
@@ -475,37 +533,37 @@ const Dashboard = ({ user, company }: { user: UserProfile, company: Company | nu
   const [pendingApprovals, setPendingApprovals] = useState(0);
   const [reminders, setReminders] = useState<Task[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [localLoading, setLocalLoading] = useState(true);
 
   useEffect(() => {
-    let leadsQ = query(collection(db, 'leads'), where('companyId', '==', user.companyId));
-    let tasksQ = query(
-      collection(db, 'tasks'),
-      where('companyId', '==', user.companyId),
-      where('status', '!=', 'Done')
-    );
-    let usersQ = query(collection(db, 'users'), where('companyId', '==', user.companyId));
-    let leaveQ = query(collection(db, 'leaveRequests'), where('companyId', '==', user.companyId), where('status', '==', 'Pending'));
-    let permQ = query(collection(db, 'permissionRequests'), where('companyId', '==', user.companyId), where('status', '==', 'pending'));
-    let accessQ = query(collection(db, 'accessRequests'), where('companyId', '==', user.companyId), where('status', '==', 'pending'));
-    let exitQ = query(collection(db, 'exitRecords'), where('companyId', '==', user.companyId), where('status', '==', 'Pending'));
-
-    if (user.role === 'sales' || user.role === 'team_lead') {
-      leadsQ = query(
-        collection(db, 'leads'), 
-        where('companyId', '==', user.companyId),
-        where('assignedTo', '==', user.uid)
-      );
-      tasksQ = query(
-        collection(db, 'tasks'),
-        where('companyId', '==', user.companyId),
-        where('assignedTo', '==', user.uid),
-        where('status', '!=', 'Done')
-      );
+    let isMounted = true;
+    
+    if (!user || !user.companyId || !user.uid) {
+      setLocalLoading(false);
+      return;
     }
 
-    const isManagerOrAdmin = user.role === 'admin' || user.role === 'manager';
+    setLocalLoading(true);
 
-    const unsubLeads = onSnapshot(leadsQ, (snapshot) => {
+    const isManagerOrAdmin = user.role === 'admin' || user.role === 'manager';
+    const isTeamLead = user.role === 'team_lead';
+
+    // Queries
+    let leadsQ = query(collection(db, 'leads'), where('companyId', '==', user.companyId));
+    let tasksQ = query(collection(db, 'tasks'), where('companyId', '==', user.companyId), where('status', '!=', 'Done'));
+    let usersQ = query(collection(db, 'users'), where('companyId', '==', user.companyId));
+
+    if (user.role === 'sales' || isTeamLead) {
+      leadsQ = query(collection(db, 'leads'), where('companyId', '==', user.companyId), where('assignedTo', '==', user.uid));
+      tasksQ = query(collection(db, 'tasks'), where('companyId', '==', user.companyId), where('assignedTo', '==', user.uid), where('status', '!=', 'Done'));
+    }
+
+    const unsubs: (() => void)[] = [];
+    const safeUnsub = (unsub: () => void) => unsubs.push(unsub);
+
+    // 1. Leads
+    safeUnsub(onSnapshot(leadsQ, (snapshot) => {
+      if (!isMounted) return;
       const leadsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Lead));
       setLeads(leadsData);
       setStats({
@@ -513,11 +571,15 @@ const Dashboard = ({ user, company }: { user: UserProfile, company: Company | nu
         new: leadsData.filter(l => l.status === 'New').length,
         converted: leadsData.filter(l => l.status === 'Converted').length
       });
+      setLocalLoading(false);
     }, (error) => {
-      console.error("Dashboard Leads snapshot error:", error);
-    });
+      console.error("Dashboard Leads error:", error);
+      if (isMounted) setLocalLoading(false);
+    }));
 
-    const unsubTasks = onSnapshot(tasksQ, (snapshot) => {
+    // 2. Tasks
+    safeUnsub(onSnapshot(tasksQ, (snapshot) => {
+      if (!isMounted) return;
       const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
       const filtered = tasks.filter(task => {
         if (!task.dueDate) return false;
@@ -525,60 +587,44 @@ const Dashboard = ({ user, company }: { user: UserProfile, company: Company | nu
         return isPast(due) || isBefore(due, addDays(new Date(), 1));
       }).sort((a, b) => parseISO(a.dueDate).getTime() - parseISO(b.dueDate).getTime());
       setReminders(filtered);
-    }, (error) => {
-      console.error("Dashboard Tasks snapshot error:", error);
-    });
+    }, (err) => console.error("Dashboard Tasks error:", err)));
 
-    const unsubUsers = onSnapshot(usersQ, (snapshot) => {
+    // 3. Users
+    safeUnsub(onSnapshot(usersQ, (snapshot) => {
+      if (!isMounted) return;
       const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
       const active = usersData.filter(u => u.status !== 'Left').length;
-      const inactive = usersData.filter(u => u.status === 'Left').length;
-      
-      // Non-admins shouldn't see salary expense details in state ideally, but we guard UI
-      const salaryExpense = isManagerOrAdmin ? usersData.reduce((acc, u) => acc + (u.salary || 0), 0) : 0;
-      
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
+      startOfMonth.setHours(0,0,0,0);
       
-      const newJoins = usersData.filter(u => {
-        if (!u.joiningDate) return false;
-        const join = new Date(u.joiningDate);
-        return join >= startOfMonth;
-      }).length;
-
       setEmployeeStats({
         total: usersData.length,
         active,
-        inactive,
-        salaryExpense,
-        newJoins
+        inactive: usersData.filter(u => u.status === 'Left').length,
+        salaryExpense: isManagerOrAdmin ? usersData.reduce((acc, u) => acc + (u.salary || 0), 0) : 0,
+        newJoins: usersData.filter(u => u.joiningDate && new Date(u.joiningDate) >= startOfMonth).length
       });
-    }, (error) => {
-      console.error("Users snapshot error:", error);
-    });
-
-    // Combine multiple approval counts - only for managers/admins
-    let lCount = 0, pCount = 0, aCount = 0, eCount = 0;
-    let unsubL = () => {}, unsubP = () => {}, unsubA = () => {}, unsubE = () => {};
+    }, (err) => console.error("Dashboard Users error:", err)));
 
     if (isManagerOrAdmin) {
-      unsubL = onSnapshot(leaveQ, (s) => { lCount = s.size; setPendingApprovals(lCount + pCount + aCount + eCount); }, (err) => console.error("Dashboard Leaves error:", err));
-      unsubP = onSnapshot(permQ, (s) => { pCount = s.size; setPendingApprovals(lCount + pCount + aCount + eCount); }, (err) => console.error("Dashboard Permissions error:", err));
-      unsubA = onSnapshot(accessQ, (s) => { aCount = s.size; setPendingApprovals(lCount + pCount + aCount + eCount); }, (err) => console.error("Dashboard Access error:", err));
-      unsubE = onSnapshot(exitQ, (s) => { eCount = s.size; setPendingApprovals(lCount + pCount + aCount + eCount); }, (err) => console.error("Dashboard Exit error:", err));
+      let lCount = 0, pCount = 0, aCount = 0, eCount = 0;
+      const updatePending = () => { if (isMounted) setPendingApprovals(lCount + pCount + aCount + eCount); };
+
+      safeUnsub(onSnapshot(query(collection(db, 'leaveRequests'), where('companyId', '==', user.companyId), where('status', '==', 'Pending')), (s) => { lCount = s.size; updatePending(); }, (err) => console.error("Dashboard Leaves error:", err)));
+      safeUnsub(onSnapshot(query(collection(db, 'permissionRequests'), where('companyId', '==', user.companyId), where('status', '==', 'pending')), (s) => { pCount = s.size; updatePending(); }, (err) => console.error("Dashboard Permissions error:", err)));
+      safeUnsub(onSnapshot(query(collection(db, 'accessRequests'), where('companyId', '==', user.companyId), where('status', '==', 'pending')), (s) => { aCount = s.size; updatePending(); }, (err) => console.error("Dashboard Access error:", err)));
+      safeUnsub(onSnapshot(query(collection(db, 'exitRecords'), where('companyId', '==', user.companyId), where('status', '==', 'Pending')), (s) => { eCount = s.size; updatePending(); }, (err) => console.error("Dashboard Exits error:", err)));
     }
 
+    const timeout = setTimeout(() => { if (isMounted) setLocalLoading(false); }, 3000);
+
     return () => {
-      unsubLeads();
-      unsubTasks();
-      unsubUsers();
-      unsubL();
-      unsubP();
-      unsubA();
-      unsubE();
+      isMounted = false;
+      clearTimeout(timeout);
+      unsubs.forEach(u => u());
     };
-  }, [user.companyId, user.role, user.uid]);
+  }, [user.uid, user.companyId, user.role]);
 
   const analyticsData = [
     { name: 'Wordpress', value: leads.filter(l => l.service === 'WordPress').length },
@@ -593,6 +639,14 @@ const Dashboard = ({ user, company }: { user: UserProfile, company: Company | nu
   ];
 
   const COLORS = ['#6366f1', '#8b5cf6', '#ec4899'];
+
+  if (localLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <NexvouraLoader label="Initializing Directives..." />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-500">
@@ -802,6 +856,11 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
   });
 
   useEffect(() => {
+    if (!user.companyId) {
+      setLoading(false);
+      return;
+    }
+
     let leadsQ = query(collection(db, 'leads'), where('companyId', '==', user.companyId));
     const teamQ = query(collection(db, 'users'), where('companyId', '==', user.companyId));
 
@@ -1077,7 +1136,7 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-white dark:bg-dark-surface rounded-[24px] p-8 max-w-lg w-full shadow-2xl border border-slate-100 dark:border-dark-border"
+              className="bg-white dark:bg-dark-surface rounded-[24px] sm:rounded-[32px] p-6 sm:p-10 max-w-lg w-full shadow-2xl border border-slate-100 dark:border-dark-border"
             >
               <div className="flex justify-between items-start mb-6">
                 <div>
@@ -1169,11 +1228,36 @@ const LeadsPage = ({ user }: { user: UserProfile }) => {
 
 const Login = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const tenantSlug = searchParams.get('tenant');
+  const [tenantCompany, setTenantCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+
+  const trackAuthEvent = (success: boolean, error?: string) => {
+    analyticsService.trackEvent({
+      userId: auth.currentUser?.uid || 'anonymous',
+      eventName: isSignUp ? 'sign_up' : 'login',
+      category: EventCategory.SYSTEM,
+      metadata: { success, error, email, isSignUp }
+    });
+  };
+
+  useEffect(() => {
+    if (tenantSlug) {
+      const fetchTenant = async () => {
+        const q = query(collection(db, 'companies'), where('subdomain', '==', tenantSlug));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          setTenantCompany({ id: snap.docs[0].id, ...snap.docs[0].data() } as Company);
+        }
+      };
+      fetchTenant();
+    }
+  }, [tenantSlug]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1183,13 +1267,16 @@ const Login = () => {
         const result = await createUserWithEmailAndPassword(auth, email, password);
         const user = result.user;
         await updateProfile(user, { displayName: name });
+        trackAuthEvent(true);
         navigate('/setup-company', { state: { name } });
       } else {
         await signInWithEmailAndPassword(auth, email, password);
+        trackAuthEvent(true);
         navigate('/');
       }
     } catch (error: any) {
       console.error('Auth Error:', error);
+      trackAuthEvent(false, error.message);
       toast.error(error.message || 'Authentication failed');
     } finally {
       setLoading(false);
@@ -1214,9 +1301,21 @@ const Login = () => {
     try {
       googleProvider.setCustomParameters({ prompt: 'select_account' });
       await signInWithPopup(auth, googleProvider);
+      analyticsService.trackEvent({
+        userId: auth.currentUser?.uid || 'anonymous',
+        eventName: 'google_auth',
+        category: EventCategory.SYSTEM,
+        metadata: { success: true }
+      });
       navigate('/');
     } catch (error: any) {
       console.error('Google Login Error:', error);
+      analyticsService.trackEvent({
+        userId: 'anonymous',
+        eventName: 'google_auth',
+        category: EventCategory.SYSTEM,
+        metadata: { success: false, error: error.message }
+      });
       if (error.code === 'auth/popup-blocked') {
         toast.error('Popup blocked. Please allow popups for this site.');
       } else {
@@ -1265,16 +1364,33 @@ const Login = () => {
         </div>
 
         {/* Form Column */}
-        <div className="flex flex-col justify-center p-8 sm:p-16 lg:p-20 bg-white dark:bg-dark-surface">
+        <div className="flex flex-col justify-center p-6 sm:p-16 lg:p-20 bg-white dark:bg-dark-surface">
           <div className="max-w-sm w-full mx-auto space-y-8">
             <div className="flex justify-between items-center lg:hidden absolute top-10 left-10 right-10">
                <h1 className="text-xl font-black italic text-brand-primary">Nexvoura</h1>
             </div>
 
             <div className="space-y-3">
-              <h1 className="text-4xl font-bold text-slate-900 dark:text-white tracking-tight">{isSignUp ? 'Create account' : 'Welcome back'}</h1>
+              {tenantCompany && (
+                <div className="flex items-center space-x-3 mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
+                  <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg overflow-hidden">
+                    {tenantCompany.logoUrl ? (
+                      <img src={tenantCompany.logoUrl} alt={tenantCompany.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                    ) : (
+                      <LayoutDashboard size={24} />
+                    )}
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight leading-none">{tenantCompany.name}</h2>
+                    <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mt-1">Authorized Portal</p>
+                  </div>
+                </div>
+              )}
+              <h1 className="text-4xl font-bold text-slate-900 dark:text-white tracking-tight">
+                {isSignUp ? 'Create account' : tenantCompany ? 'Portal Sign In' : 'Welcome back'}
+              </h1>
               <p className="text-slate-500 dark:text-dark-text-muted font-medium leading-relaxed">
-                {isSignUp ? 'Start your agency journey with the next-gen CRM.' : 'Access your pipelines and team workspace.'}
+                {isSignUp ? 'Start your agency journey with the next-gen CRM.' : tenantCompany ? `Sign in to your ${tenantCompany.name} workspace.` : 'Access your pipelines and team workspace.'}
               </p>
             </div>
 
@@ -1478,7 +1594,11 @@ const JoinWorkspace = ({ user }: { user: any }) => {
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>;
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-dark-bg">
+      <NexvouraLoader label="Verifying Credentials..." />
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-dark-bg flex items-center justify-center p-4 transition-colors duration-300">
@@ -1516,6 +1636,7 @@ const SetupCompany = ({ user }: { user: any }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [name, setName] = useState('');
+  const [subdomain, setSubdomain] = useState('');
   const [website, setWebsite] = useState('');
   const [phone, setPhone] = useState('');
   const [industry, setIndustry] = useState('');
@@ -1525,12 +1646,33 @@ const SetupCompany = ({ user }: { user: any }) => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // Auto-generate subdomain from name
+  useEffect(() => {
+    if (!subdomain && name) {
+      setSubdomain(name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, ''));
+    }
+  }, [name]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+    const finalSubdomain = subdomain.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+    if (finalSubdomain.length < 3) {
+      toast.error('Subdomain must be at least 3 characters');
+      return;
+    }
+
     setLoading(true);
     try {
-      const companyId = crypto.randomUUID?.() || Math.random().toString(36).substring(2);
+      // Uniqueness check for subdomain
+      const subSnap = await getDocs(query(collection(db, 'companies'), where('subdomain', '==', finalSubdomain)));
+      if (!subSnap.empty) {
+        toast.error('This subdomain is already taken');
+        setLoading(false);
+        return;
+      }
+
+      const companyId = 'comp_' + Math.random().toString(36).substring(2, 11);
       const batch = writeBatch(db);
 
       const companyRef = doc(db, 'companies', companyId);
@@ -1538,6 +1680,7 @@ const SetupCompany = ({ user }: { user: any }) => {
       batch.set(companyRef, {
         id: companyId,
         name: name.trim(),
+        subdomain: finalSubdomain,
         website: website.trim(),
         phone: phone.trim(),
         industry: industry.trim(),
@@ -1546,6 +1689,7 @@ const SetupCompany = ({ user }: { user: any }) => {
         description: description.trim(),
         inviteCode,
         createdAt: new Date().toISOString(),
+        trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         notificationSettings: {
           enabled: true,
           dueSoonHours: 24
@@ -1555,7 +1699,7 @@ const SetupCompany = ({ user }: { user: any }) => {
       const userRef = doc(db, 'users', user.uid);
       batch.set(userRef, {
         uid: user.uid,
-        memberId: generateMemberId(name),
+        memberId: `AD-101-${Math.random().toString(36).substring(2, 5).toUpperCase()}`,
         name: (location.state as any)?.name || user.displayName || user.email?.split('@')[0] || 'Anonymous',
         email: user.email,
         companyId,
@@ -1648,6 +1792,24 @@ const SetupCompany = ({ user }: { user: any }) => {
                 placeholder="e.g. Design Foundry"
               />
             </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest ml-1">Workspace Subdomain *</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  value={subdomain}
+                  onChange={(e) => setSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                  className="saas-input pr-32 font-bold"
+                  placeholder="acme-corp"
+                />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 uppercase pointer-events-none">
+                  .nexvoura.com
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1 italic ml-1">This will be your agency's unique workspace URL.</p>
+            </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1.5">
@@ -1700,18 +1862,31 @@ const SetupCompany = ({ user }: { user: any }) => {
 
 // --- Main App ---
 
-const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
+const AuthenticatedLayout = ({ user, originalUser, onStopImpersonation }: { user: UserProfile, originalUser: UserProfile | null, onStopImpersonation: () => void }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [company, setCompany] = useState<Company | null>(null);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [companyMembers, setCompanyMembers] = useState<UserProfile[]>([]);
   const { theme } = useTheme();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
+    if (!user.companyId) return;
+
     const unsub = onSnapshot(doc(db, 'companies', user.companyId), (snap) => {
       if (snap.exists()) {
         setCompany({ id: snap.id, ...snap.data() } as Company);
       }
     }, (err) => console.error("Company profile snapshot error:", err));
+
+    const unsubSub = onSnapshot(doc(db, 'subscriptions', user.companyId), (snap) => {
+      if (snap.exists()) {
+        setSubscription({ id: snap.id, ...snap.data() } as Subscription);
+      } else {
+        setSubscription(null);
+      }
+    }, (err) => console.error("Subscription snapshot error:", err));
 
     const q = query(
       collection(db, 'users'),
@@ -1723,14 +1898,69 @@ const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
 
     return () => {
       unsub();
+      unsubSub();
       unsubMembers();
     };
   }, [user.companyId]);
+
+  const trialDaysRemaining = React.useMemo(() => {
+    if (!company?.trialEndsAt) return null;
+    const ends = new Date(company.trialEndsAt).getTime();
+    const now = Date.now();
+    const diff = ends - now;
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  }, [company?.trialEndsAt]);
+
+  const isTrialExpired = trialDaysRemaining === 0;
+  const hasActiveSubscription = subscription?.status === 'active';
+  const isBillingPage = location.pathname === '/subscription';
+
+  useEffect(() => {
+    if (isTrialExpired && !hasActiveSubscription && !isBillingPage && company?.trialEndsAt) {
+      navigate('/subscription');
+    }
+  }, [isTrialExpired, hasActiveSubscription, isBillingPage, navigate, company?.trialEndsAt]);
 
   return (
     <AuthContext.Provider value={{ user, company }}>
       <PresenceProvider user={user} companyMembers={companyMembers}>
         <div className={`min-h-screen font-sans transition-colors duration-500 selection:bg-brand-primary/20 ${theme === 'dark' ? 'dark bg-dark-bg' : 'bg-[#f8f9fc]'}`}>
+          {originalUser && (
+            <div className="bg-rose-600 text-white py-2 px-4 flex items-center justify-center space-x-4 sticky top-0 z-[60] shadow-lg animate-in slide-in-from-top duration-300">
+              <div className="flex items-center space-x-2 shrink-0">
+                <ShieldAlert size={16} />
+                <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Impersonation Mode</span>
+              </div>
+              <p className="text-[11px] font-bold truncate">
+                Viewing as <span className="underline">{user.name}</span>
+              </p>
+              <button 
+                onClick={onStopImpersonation}
+                className="bg-white text-rose-600 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-rose-50 transition-colors shadow-sm shrink-0"
+              >
+                Stop
+              </button>
+            </div>
+          )}
+
+          {!hasActiveSubscription && company?.trialEndsAt && (
+            <div className={`py-2 px-4 shadow-sm relative z-[55] flex items-center justify-center space-x-4 transition-colors ${isTrialExpired ? 'bg-rose-500 text-white' : 'bg-indigo-600 text-white'}`}>
+              <Clock size={14} className={isTrialExpired ? 'animate-pulse' : ''} />
+              <p className="text-[10px] font-black uppercase tracking-widest">
+                {isTrialExpired 
+                  ? 'Trial Expired. Your workspace access is limited. Please select a plan to restore satellite comms.' 
+                  : `Free Trial Active: ${trialDaysRemaining} days remaining in your operational window.`}
+              </p>
+              {!isBillingPage && (
+                <Link 
+                  to="/subscription" 
+                  className="bg-white text-slate-900 px-3 py-0.5 rounded-full text-[9px] font-black uppercase hover:bg-slate-100 transition-colors"
+                >
+                  {isTrialExpired ? 'Select Plan' : 'Upgrade Now'}
+                </Link>
+              )}
+            </div>
+          )}
           {/* Atmosphere Layer */}
           <div className="atmosphere">
             <div className="atmosphere-blob w-[500px] h-[500px] bg-indigo-500/30 -top-48 -left-48 animate-[pulse_8s_infinite]" />
@@ -1749,6 +1979,7 @@ const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/leads" element={<LeadsPage user={user} />} />
                 <Route path="/tasks" element={<TasksPage user={user} />} />
+                <Route path="/attendance" element={<AttendancePage user={user} company={company} />} />
                 <Route path="/blogs" element={<BlogsPage />} />
                 <Route path="/blogs/:blogId/posts" element={<BlogPostsPage />} />
                 <Route path="/blogs/:blogId/posts/:postId" element={<BlogPostEditor />} />
@@ -1764,10 +1995,34 @@ const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
                 <Route path="/activity" element={(user.role === 'admin' || user.role === 'manager') ? <ActivityLogsPage user={user} /> : <Navigate to="/" />} />
                 <Route path="/intelligence" element={<IntelligencePage user={user} company={company} />} />
                 <Route path="/self-service" element={<SelfServicePage />} />
+                <Route path="/subscription" element={<SubscriptionPage />} />
                 <Route path="/forms" element={<FormsPage />} />
                 <Route path="/settings" element={<SettingsPage user={user} />} />
+                <Route path="/support-admin" element={user.isSuperAdmin ? <SupportAdminPage /> : <Navigate to="/" />} />
+                <Route path="/support-portal" element={<SupportPortal />} />
+                <Route path="/saas-nexvoura" element={user.isSuperAdmin ? <SuperAdminDashboard /> : <Navigate to="/" />} />
+                <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </main>
+
+            {/* Support Floating Button */}
+            {!user.isSuperAdmin && location.pathname !== '/support-portal' && (
+              <motion.div 
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="fixed bottom-8 right-8 z-[100]"
+              >
+                <Link 
+                  to="/support-portal"
+                  className="w-16 h-16 bg-brand-primary text-white rounded-[24px] shadow-2xl shadow-brand-primary/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all group relative"
+                >
+                  <LifeBuoy size={28} className="group-hover:rotate-45 transition-transform duration-500" />
+                  <span className="absolute right-full mr-4 px-4 py-2 bg-slate-900/90 text-white text-[10px] font-black uppercase tracking-widest rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                    Neural Support Link
+                  </span>
+                </Link>
+              </motion.div>
+            )}
           </div>
         </div>
       </PresenceProvider>
@@ -1778,6 +2033,7 @@ const AuthenticatedLayout = ({ user }: { user: UserProfile }) => {
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [originalProfile, setOriginalProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionLogged, setSessionLogged] = useState(false);
 
@@ -1793,6 +2049,7 @@ export default function App() {
 
   useEffect(() => {
     let unsubscribeProfile: (() => void) | null = null;
+    let unsubscribeImpersonatedProfile: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (u) => {
       setUser(u);
@@ -1801,24 +2058,54 @@ export default function App() {
         unsubscribeProfile();
         unsubscribeProfile = null;
       }
+      if (unsubscribeImpersonatedProfile) {
+        unsubscribeImpersonatedProfile();
+        unsubscribeImpersonatedProfile = null;
+      }
 
       if (u) {
         try {
+          // AUTO-ADMIN FOR DEVELOPER
+          const DEV_EMAIL = 'rajsaurav7585@gmail.com';
+          
           const docRef = doc(db, 'users', u.uid);
-          // Use onSnapshot for real-time profile updates (e.g. after setup or role change)
-          unsubscribeProfile = onSnapshot(docRef, (docSnap) => {
+          unsubscribeProfile = onSnapshot(docRef, async (docSnap) => {
             if (docSnap.exists()) {
-              const data = docSnap.data() as UserProfile;
-              if (!data.memberId) {
-                // Auto-generate missing Member ID for existing users
-                const mid = generateMemberId();
-                updateDoc(docRef, { memberId: mid });
+              let data = docSnap.data() as UserProfile;
+              
+              // Ensure developer is always Super Admin
+              if (u.email === DEV_EMAIL && !data.isSuperAdmin) {
+                await updateDoc(docRef, { isSuperAdmin: true });
+                // The snapshot will trigger again with the new data
+                return;
               }
-              setProfile(data);
+
+              const impersonatingUid = localStorage.getItem('impersonating_uid');
+
+              if (data.isSuperAdmin && impersonatingUid) {
+                setOriginalProfile(data);
+                // Listen to the impersonated user profile
+                if (unsubscribeImpersonatedProfile) unsubscribeImpersonatedProfile();
+                
+                unsubscribeImpersonatedProfile = onSnapshot(doc(db, 'users', impersonatingUid), (impSnap) => {
+                  if (impSnap.exists()) {
+                    setProfile({ uid: impSnap.id, ...impSnap.data() } as UserProfile);
+                  } else {
+                    localStorage.removeItem('impersonating_uid');
+                    setProfile(data);
+                    setOriginalProfile(null);
+                  }
+                  setLoading(false);
+                });
+              } else {
+                setProfile(data);
+                setOriginalProfile(null);
+                setLoading(false);
+              }
             } else {
               setProfile(null);
+              setLoading(false);
             }
-            setLoading(false);
           }, (error) => {
             handleFirestoreError(error, OperationType.GET, `users/${u.uid}`);
             setLoading(false);
@@ -1830,6 +2117,7 @@ export default function App() {
         }
       } else {
         setProfile(null);
+        setOriginalProfile(null);
         setLoading(false);
       }
     });
@@ -1837,20 +2125,49 @@ export default function App() {
     return () => {
       unsubscribeAuth();
       if (unsubscribeProfile) unsubscribeProfile();
+      if (unsubscribeImpersonatedProfile) unsubscribeImpersonatedProfile();
     };
   }, []);
+
+  const handleStopImpersonation = () => {
+    localStorage.removeItem('impersonating_uid');
+    if (originalProfile) {
+      setProfile(originalProfile);
+      setOriginalProfile(null);
+      toast.success('Successfully exited impersonation mode');
+    }
+  };
 
   return (
     <Router>
       <Toaster position="top-right" richColors />
-      <MainContent user={user} profile={profile} loading={loading} />
+      <MainContent 
+        user={user} 
+        profile={profile} 
+        originalProfile={originalProfile} 
+        onStopImpersonation={handleStopImpersonation}
+        loading={loading} 
+      />
     </Router>
   );
 }
 
-function MainContent({ user, profile, loading }: { user: any, profile: UserProfile | null, loading: boolean }) {
+function MainContent({ user, profile, originalProfile, onStopImpersonation, loading }: { user: any, profile: UserProfile | null, originalProfile: UserProfile | null, onStopImpersonation: () => void, loading: boolean }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { theme } = useTheme();
+
+  useEffect(() => {
+    if (profile) {
+      analyticsService.trackEvent({
+        userId: profile.uid,
+        companyId: profile.companyId,
+        eventName: 'page_view',
+        category: EventCategory.NAVIGATION,
+        path: location.pathname,
+      });
+    }
+  }, [location.pathname, profile?.uid]);
 
   useEffect(() => {
     if (user && !profile && !loading && window.location.pathname === '/') {
@@ -1864,7 +2181,7 @@ function MainContent({ user, profile, loading }: { user: any, profile: UserProfi
   if (loading) {
     return (
       <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${theme === 'dark' ? 'bg-dark-bg' : 'bg-slate-50'}`}>
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <NexvouraLoader label="Establishing Secure Frequency..." />
       </div>
     );
   }
@@ -1883,6 +2200,8 @@ function MainContent({ user, profile, loading }: { user: any, profile: UserProfi
       <Route path="/blog/:slug" element={<PublicBlogPage />} />
       <Route path="/blog/:slug/widget" element={<PublicBlogPage isWidget={true} />} />
       <Route path="/blog/:slug/:postSlug" element={<PublicPostPage />} />
+      <Route path="/portal/:subdomain" element={<PublicPortalPage />} />
+      <Route path="/saas-nexvoura/login" element={<SuperAdminLogin />} />
       
       <Route
         path="/*"
@@ -1890,7 +2209,11 @@ function MainContent({ user, profile, loading }: { user: any, profile: UserProfi
           user ? (
             profile ? (
               <NotificationProvider>
-                <AuthenticatedLayout user={profile} />
+                <AuthenticatedLayout 
+                  user={profile} 
+                  originalUser={originalProfile} 
+                  onStopImpersonation={onStopImpersonation} 
+                />
               </NotificationProvider>
             ) : (
               <Navigate to="/setup-company" />

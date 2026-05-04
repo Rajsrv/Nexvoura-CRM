@@ -4,9 +4,12 @@ import { fileURLToPath } from "url";
 import "dotenv/config";
 import { startNotificationCron, sendPayslipEmail } from "./server/notifications.ts";
 import { createEmployeeAccount } from "./server/auth.ts";
+import { GoogleGenAI } from "@google/genai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
 async function startServer() {
   const app = express();
@@ -17,6 +20,43 @@ async function startServer() {
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", message: "Nexvoura API is running" });
+  });
+
+  // AI Intelligence Search API
+  app.post("/api/intelligence/search", async (req, res) => {
+    try {
+      const { query } = req.body;
+      if (!query) return res.status(400).json({ error: "Query is required" });
+
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(500).json({ error: "Gemini API key not configured on server" });
+      }
+
+      const prompt = `Search for real-time information regarding: "${query}". 
+      Return the information as a JSON array of IntelligencePost objects.
+      Each object must have: title, content (summary), topic, source, link (if found), and relevance (0-100).
+      Topic must be one of: Technology, Economy, Policy, Success Stories, Compliance, Security, Health, Finance, Events.
+      Ensure the news is current and highly relevant.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: { 
+          responseMimeType: "application/json",
+          tools: [{ googleSearch: {} }] 
+        }
+      });
+      
+      const jsonStr = response.text;
+      if (!jsonStr) {
+        return res.status(500).json({ error: "AI failed to generate response" });
+      }
+
+      res.json(JSON.parse(jsonStr));
+    } catch (error: any) {
+      console.error("AI Intelligence Search Failed:", error);
+      res.status(500).json({ error: error.message || "Failed to conduct search" });
+    }
   });
 
   // Multi-tenant Lead Submission API (Public)

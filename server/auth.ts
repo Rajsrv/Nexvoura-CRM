@@ -1,32 +1,4 @@
-import admin from 'firebase-admin';
-import fs from 'fs';
-import path from 'path';
-
-// Load Firebase config
-const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-let auth: admin.auth.Auth | null = null;
-let db: admin.firestore.Firestore | null = null;
-
-try {
-  if (fs.existsSync(configPath)) {
-    const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    
-    // Initialize Admin SDK
-    if (!admin.apps.length) {
-      admin.initializeApp({
-        projectId: firebaseConfig.projectId,
-      });
-    }
-    
-    auth = admin.auth();
-    // Use the specific firestoreDatabaseId from the config
-    db = admin.firestore(firebaseConfig.firestoreDatabaseId);
-  } else {
-    console.warn('⚠️ firebase-applet-config.json not found at:', configPath);
-  }
-} catch (error) {
-  console.error('❌ Error initializing Firebase in auth service:', error);
-}
+import { auth, db } from './firebaseAdmin.ts';
 
 export async function createEmployeeAccount(adminUid: string, employeeData: any) {
   if (!auth || !db) throw new Error('Firebase Admin not initialized');

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { db } from '../firebase';
 import { useAuth } from '../App';
+import NexvouraLoader from './NexvouraLoader';
 import { UserProfile, BankDetails, GovernmentId, SalaryHike, EmployeeDocument } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
@@ -106,7 +107,7 @@ export default function EmployeeProfilePage() {
         userId: employeeId,
         type: 'profile_update',
         title: 'Registry Updated',
-        message: 'Your personal security profile has been updated in the Nexus database.',
+        message: 'Your personal security profile has been updated in the Nexvoura database.',
         link: `/profile/${employeeId}`
       });
 
@@ -265,7 +266,7 @@ export default function EmployeeProfilePage() {
       
       doc.setFontSize(10);
       doc.setTextColor(100);
-      doc.text(`Nexus Internal Document - Generated: ${format(new Date(), 'PPP p')}`, 14, 32);
+      doc.text(`Nexvoura Internal Document - Generated: ${format(new Date(), 'PPP p')}`, 14, 32);
       
       const basicData = [
         ['Full Name', employee.name],
@@ -322,8 +323,8 @@ export default function EmployeeProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
+      <div className="flex items-center justify-center p-20">
+        <NexvouraLoader label="Fetching Operative Profile" size="md" />
       </div>
     );
   }

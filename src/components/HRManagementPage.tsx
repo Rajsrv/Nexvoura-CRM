@@ -701,7 +701,7 @@ function LeaveTab({ requests, user, companyId, isAdmin, team }: { requests: any[
          </button>
       </div>
 
-      <div className="grid-auto-fit">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {requests.sort((a,b) => b.createdAt.localeCompare(a.createdAt)).map(req => {
           const requester = team.find(t => t.uid === req.employeeId);
           return (
@@ -760,7 +760,7 @@ function LeaveTab({ requests, user, companyId, isAdmin, team }: { requests: any[
         {showApply && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowApply(false)} className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white dark:bg-dark-surface w-full max-w-md rounded-[40px] p-10 overflow-hidden shadow-2xl border dark:border-dark-border">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white dark:bg-dark-surface w-full max-w-md rounded-[32px] sm:rounded-[40px] p-6 sm:p-10 overflow-hidden shadow-2xl border dark:border-dark-border">
               <div className="mb-8">
                 <h3 className="text-3xl font-black italic tracking-tighter text-slate-950 dark:text-white">Request Break</h3>
                 <p className="text-slate-400 dark:text-dark-text-muted text-xs font-bold uppercase tracking-widest mt-1">Resource Redirection Protocol</p>
@@ -848,7 +848,7 @@ function PerformanceTab({ reviews, team, companyId, isAdmin, user }: { reviews: 
          )}
       </div>
 
-      <div className="grid-auto-fit">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
          {reviews.sort((a,b) => b.createdAt.localeCompare(a.createdAt)).map(review => {
            const evaluee = team.find(t => t.uid === review.employeeId);
            const reviewer = team.find(t => t.uid === review.reviewerId);
@@ -1064,10 +1064,10 @@ function ShiftTab({ shifts, companyId, isAdmin }: { shifts: Shift[], companyId: 
         {showAdd && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAdd(false)} className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white dark:bg-dark-surface w-full max-w-md rounded-[40px] p-10 overflow-hidden shadow-2xl border dark:border-dark-border">
-              <div className="mb-8">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white dark:bg-dark-surface w-full max-w-md rounded-[32px] sm:rounded-[40px] p-6 sm:p-10 overflow-hidden shadow-2xl border dark:border-dark-border">
+              <div className="mb-8 text-center sm:text-left">
                 <h3 className="text-3xl font-black italic tracking-tighter text-slate-950 dark:text-white">Define Shift</h3>
-                <p className="text-slate-400 dark:text-dark-text-muted text-xs font-bold uppercase tracking-widest mt-1">Strategic boundary definition</p>
+                <p className="text-slate-400 dark:text-dark-text-muted text-xs font-bold uppercase tracking-widest mt-2">Strategic boundary definition</p>
               </div>
 
               <div className="space-y-6">
@@ -1281,10 +1281,10 @@ function HolidayTab({ holidays, companyId, isAdmin }: { holidays: Holiday[], com
         {showAdd && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAdd(false)} className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white dark:bg-dark-surface w-full max-w-md rounded-[40px] p-10 overflow-hidden shadow-2xl border dark:border-dark-border">
-              <div className="mb-8">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white dark:bg-dark-surface w-full max-w-md rounded-[32px] sm:rounded-[40px] p-6 sm:p-10 overflow-hidden shadow-2xl border dark:border-dark-border">
+              <div className="mb-8 text-center sm:text-left">
                 <h3 className="text-3xl font-black italic tracking-tighter text-slate-950 dark:text-white">Add Holiday</h3>
-                <p className="text-slate-400 dark:text-dark-text-muted text-xs font-bold uppercase tracking-widest mt-1">Calendar Event Configuration</p>
+                <p className="text-slate-400 dark:text-dark-text-muted text-xs font-bold uppercase tracking-widest mt-2">Calendar Event Configuration</p>
               </div>
 
               <div className="space-y-6">
@@ -1417,10 +1417,10 @@ function DocumentTab({ documents, team, companyId, isAdmin }: { documents: Emplo
         {showAdd && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAdd(false)} className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white dark:bg-dark-surface w-full max-w-md rounded-[40px] p-10 overflow-hidden shadow-2xl border dark:border-dark-border">
-              <div className="mb-8">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white dark:bg-dark-surface w-full max-w-md rounded-[32px] sm:rounded-[40px] p-6 sm:p-10 overflow-hidden shadow-2xl border dark:border-dark-border">
+              <div className="mb-8 text-center sm:text-left">
                 <h3 className="text-3xl font-black italic tracking-tighter text-slate-950 dark:text-white">Store Document</h3>
-                <p className="text-slate-400 dark:text-dark-text-muted text-xs font-bold uppercase tracking-widest mt-1">Institutional Memory Archive</p>
+                <p className="text-slate-400 dark:text-dark-text-muted text-xs font-bold uppercase tracking-widest mt-2">Institutional Memory Archive</p>
               </div>
 
               <div className="space-y-6">

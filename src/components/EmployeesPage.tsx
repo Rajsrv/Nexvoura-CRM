@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs } from 'firebase/firestore';
-import { UserProfile, Invite, AccessRequest, UserRole, Company, Department, EmployeeStatus, Lead, AppNotification, NotificationType } from '../types';
+import { UserProfile, Invite, AccessRequest, UserRole, Company, Department, EmployeeStatus, Lead, AppNotification, NotificationType, Holiday, Shift } from '../types';
 import { useNotifications } from '../contexts/NotificationContext';
-import { Plus, Trash2, Mail, Shield, User as UserIcon, Check, X, Copy, Globe, Edit2, Phone, Briefcase, Calendar as CalendarIcon, DollarSign, TrendingUp, Users, Search, Download, FileSpreadsheet, FileText, Lock, Bell } from 'lucide-react';
+import { usePresence } from '../contexts/PresenceContext';
+import { Plus, Trash2, Mail, Shield, User as UserIcon, Check, X, Copy, Globe, Edit2, Phone, Briefcase, Calendar as CalendarIcon, DollarSign, TrendingUp, Users, Search, Download, FileSpreadsheet, FileText, Lock, Bell, Circle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
-import { format } from 'date-fns';
+import { format, isSameDay, parseISO } from 'date-fns';
 import { logActivity } from '../services/activityService';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -15,11 +16,13 @@ import * as XLSX from 'xlsx';
 
 export default function EmployeesPage({ user, company }: { user: UserProfile, company: Company | null }) {
   const navigate = useNavigate();
+  const { presenceMap } = usePresence();
   const [team, setTeam] = useState<UserProfile[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [requests, setRequests] = useState<AccessRequest[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [shifts, setShifts] = useState<any[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [activeTab, setActiveTab] = useState<'members' | 'invites'>('members');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [addMethod, setAddMethod] = useState<'invite' | 'manual'>('invite');
@@ -66,6 +69,7 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
   const canManage = isAdmin || isManager;
 
   const roleHierarchy: Record<UserRole, number> = {
+    'super_admin': 5,
     'admin': 4,
     'manager': 3,
     'team_lead': 2,
@@ -78,7 +82,12 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
     // Fetch shifts for assignment
     const shiftsQ = query(collection(db, 'shifts'), where('companyId', '==', user.companyId));
     const unsubShifts = onSnapshot(shiftsQ, (snap) => {
-      setShifts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setShifts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Shift)));
+    });
+
+    const holidaysQ = query(collection(db, 'holidays'), where('companyId', '==', user.companyId));
+    const unsubHolidays = onSnapshot(holidaysQ, (snap) => {
+      setHolidays(snap.docs.map(d => ({ id: d.id, ...d.data() } as Holiday)));
     });
 
     if (user.role === 'sales') {
@@ -125,6 +134,7 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
 
       return () => {
         unsubShifts();
+        unsubHolidays();
         unsubTeam();
         unsubInvites();
         unsubRequests();
@@ -132,6 +142,28 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
       };
     }
   }, [user.companyId, user.uid, user.role]);
+
+  const checkShiftConflicts = (shiftId: string) => {
+    if (!shiftId) return [];
+    const shift = shifts.find(s => s.id === shiftId);
+    if (!shift) return [];
+
+    const conflicts: string[] = [];
+    const currentYear = new Date().getFullYear();
+
+    holidays.forEach(holiday => {
+      const holidayDate = parseISO(holiday.date);
+      // Check current and next year for potential recurring conflicts
+      if (holidayDate.getFullYear() === currentYear || holidayDate.getFullYear() === currentYear + 1) {
+        const dayOfWeek = holidayDate.getDay(); // 0 is Sunday
+        if (shift.workDays.includes(dayOfWeek)) {
+          conflicts.push(`Shift conflicts with "${holiday.name}" (Occurs on a ${format(holidayDate, 'EEEE')})`);
+        }
+      }
+    });
+
+    return conflicts;
+  };
 
   useEffect(() => {
     if (editingMember) {
@@ -224,7 +256,7 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
         const docRef = await addDoc(collection(db, 'users'), newUser);
         await updateDoc(docRef, { uid: docRef.id });
         result = { success: true, user: { ...newUser, uid: docRef.id } };
-        toast.success(isAdmin ? `Employee ${name} added directly to Nexus` : `Employee ${name} recorded. Awaiting admin approval.`);
+        toast.success(isAdmin ? `Employee ${name} added directly to Nexvoura` : `Employee ${name} recorded. Awaiting admin approval.`);
       }
 
       logActivity(user, 'EMPLOYEE_EDIT', `Manually created personnel record for ${name} (${isAdmin ? 'Active' : 'Pending Approval'})`, result.user?.uid || '', name);
@@ -393,6 +425,21 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
     }
   };
 
+  const handleDeleteMember = async (member: UserProfile) => {
+    if (!window.confirm(`Are you sure you want to permanently remove ${member.name}? This will purge all associated personnel data.`)) return;
+    
+    try {
+      setLoading(true);
+      await deleteDoc(doc(db, 'users', member.uid));
+      toast.success(`Personnel record for ${member.name} has been purged from system.`);
+      logActivity(user, 'EMPLOYEE_EDIT', `Permanently removed member ${member.name}`, member.uid, member.name);
+    } catch (error) {
+      toast.error('Failed to purge personnel record');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const activeMembers = team.filter(m => m.status !== 'Pending Approval');
   const pendingOnboarding = team.filter(m => m.status === 'Pending Approval');
   const pendingHikes = team.flatMap(emp => 
@@ -520,7 +567,7 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
       const doc = new jsPDF();
       
       doc.setFontSize(18);
-      doc.text(`${company?.name || 'Nexus Agency'} - Personnel Report`, 14, 20);
+      doc.text(`${company?.name || 'Nexvoura Agency'} - Personnel Report`, 14, 20);
       doc.setFontSize(10);
       doc.text(`Generated on: ${format(new Date(), 'yyyy-MM-dd HH:mm')}`, 14, 26);
       doc.text(`Extracted by: ${user.name}`, 14, 30);
@@ -758,21 +805,31 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                       className="group hover:bg-slate-50 dark:hover:bg-dark-bg/30 transition-all cursor-pointer"
                       onClick={() => navigate(`/employees/${member.uid}`)}
                     >
-                      <td className="px-8 py-5">
-                         <div className="flex items-center space-x-4">
-                           <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-dark-bg flex items-center justify-center overflow-hidden shrink-0 border border-slate-300 dark:border-dark-border shadow-sm">
-                             {member.photoURL ? (
-                               <img src={member.photoURL} alt={member.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                             ) : (
-                               <span className="text-sm font-black text-slate-600 dark:text-dark-text-muted">{member.name[0]}</span>
-                             )}
-                           </div>
-                           <div className="min-w-0">
-                             <div className="font-black text-slate-900 dark:text-white text-sm italic">{member.name}</div>
-                             <div className="text-[10px] text-slate-500 dark:text-dark-text-muted font-bold uppercase tracking-widest truncate">{member.email}</div>
-                           </div>
-                         </div>
-                      </td>
+                       <td className="px-8 py-5">
+                          <div className="flex items-center space-x-4">
+                            <div className="relative">
+                              <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-dark-bg flex items-center justify-center overflow-hidden shrink-0 border border-slate-300 dark:border-dark-border shadow-sm">
+                                {member.photoURL ? (
+                                  <img src={member.photoURL} alt={member.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                ) : (
+                                  <span className="text-sm font-black text-slate-600 dark:text-dark-text-muted">{member.name[0]}</span>
+                                )}
+                              </div>
+                              {presenceMap[member.uid]?.status === 'online' && (
+                                <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-white dark:border-dark-surface rounded-full shadow-lg shadow-emerald-500/40" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center space-x-2">
+                                <div className="font-black text-slate-900 dark:text-white text-sm italic">{member.name}</div>
+                                {presenceMap[member.uid]?.status === 'online' && (
+                                  <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-1.5 py-0.5 rounded-full border border-emerald-500/20">Live</span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-slate-500 dark:text-dark-text-muted font-bold uppercase tracking-widest truncate">{member.email}</div>
+                            </div>
+                          </div>
+                       </td>
                       <td className="px-8 py-5">
                          <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
                            member.role === 'admin' ? 'bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/30 shadow-sm' :
@@ -826,16 +883,28 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                           </button>
                           
                           {isAdmin && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingMember(member);
-                              }}
-                              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                              title="Edit Member"
-                            >
-                              <Edit2 size={16} />
-                            </button>
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingMember(member);
+                                }}
+                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                title="Edit Member"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteMember(member);
+                                }}
+                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                title="Remove Member"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -979,7 +1048,7 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                 <Mail size={14} className="text-amber-500" />
                 <span>External Access Invitations</span>
               </h3>
-              <div className="grid-auto-fit">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {invites.length > 0 ? (
                   invites.map((invite) => (
                 <div key={invite.id} className="bg-white dark:bg-dark-surface p-8 rounded-[40px] border border-slate-200 dark:border-dark-border shadow-lg shadow-slate-200/10 dark:shadow-none space-y-6 hover:border-blue-100 dark:hover:border-indigo-500/30 hover:shadow-2xl transition-all duration-500 relative overflow-hidden group">
@@ -1048,7 +1117,7 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-white dark:bg-dark-surface rounded-[40px] p-10 max-w-2xl w-full shadow-2xl relative overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar border border-slate-100 dark:border-dark-border"
+              className="bg-white dark:bg-dark-surface rounded-[32px] sm:rounded-[40px] p-6 sm:p-10 max-w-2xl w-full shadow-2xl relative overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar border border-slate-100 dark:border-dark-border"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/50 dark:bg-indigo-500/10 rounded-bl-[80px] -z-10" />
               <button 
@@ -1137,7 +1206,8 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                         placeholder="john@company.com" 
                         className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-dark-bg text-sm font-bold text-slate-950 dark:text-white placeholder:text-slate-400 shadow-sm" 
                       />
-                                       <div>
+                    </div>
+                    <div>
                       <label className="block text-[10px] font-black text-slate-600 dark:text-dark-text-muted uppercase tracking-widest mb-2 px-1 italic">Clearance Level</label>
                       <select 
                         value={manualEntry.role}
@@ -1220,7 +1290,6 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                       </div>
                     </div>
                  </div>
-                  </div>
                   <button
                     disabled={loading}
                     className="w-full bg-slate-950 dark:bg-indigo-600 text-white p-5 rounded-[24px] font-black text-xs uppercase tracking-[0.3em] hover:bg-indigo-600 dark:hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-2xl shadow-slate-950/20 dark:shadow-none active:scale-95 mt-4"
@@ -1289,7 +1358,7 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
                     >
                       <option value="Sales" className="dark:bg-dark-surface">Sales (Outreach)</option>
                       <option value="Dev" className="dark:bg-dark-surface">Development (Build)</option>
-                      <option value="Support" className="dark:bg-dark-surface">Support (Nexus)</option>
+                      <option value="Support" className="dark:bg-dark-surface">Support (Nexvoura)</option>
                     </select>
                   </div>
 
@@ -1389,6 +1458,8 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
             stats={getStatsForUser(viewingMember.uid)}
             user={user}
             company={company}
+            shifts={shifts}
+            checkShiftConflicts={checkShiftConflicts}
             onClose={() => setViewingMember(null)}
           />
         )}
@@ -1473,7 +1544,23 @@ export default function EmployeesPage({ user, company }: { user: UserProfile, co
 );
 }
 
-function EmployeeProfileModal({ member, stats, user, company, onClose }: { member: UserProfile, stats: any, user: UserProfile, company: Company | null, onClose: () => void }) {
+function EmployeeProfileModal({ 
+  member, 
+  stats, 
+  user, 
+  company, 
+  shifts, 
+  checkShiftConflicts,
+  onClose 
+}: { 
+  member: UserProfile, 
+  stats: any, 
+  user: UserProfile, 
+  company: Company | null, 
+  shifts: Shift[], 
+  checkShiftConflicts: (id: string) => string[],
+  onClose: () => void 
+}) {
   const isAuthorizedToSeeSalary = user.role === 'admin' || member.uid === user.uid;
 
   return (
@@ -1540,7 +1627,7 @@ function EmployeeProfileModal({ member, stats, user, company, onClose }: { membe
               <div className="p-3 bg-white dark:bg-dark-surface rounded-2xl w-fit mb-4 shadow-sm text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 dark:group-hover:bg-indigo-600 group-hover:text-white transition-all">
                 <CalendarIcon size={20} />
               </div>
-              <p className="text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-1">Nexus Tenure</p>
+              <p className="text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-1">Nexvoura Tenure</p>
               <h4 className="text-xl font-black text-slate-900 dark:text-white italic">
                 {member.joiningDate ? new Date(member.joiningDate).toLocaleDateString() : 'Pending'}
               </h4>
@@ -1573,8 +1660,47 @@ function EmployeeProfileModal({ member, stats, user, company, onClose }: { membe
                    <Globe size={16} />
                 </div>
                 <div>
-                  <p className="text-[9px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Nexus Location</p>
+                  <p className="text-[9px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Nexvoura Location</p>
                   <p className="text-xs font-bold text-slate-900 dark:text-white">{member.department || 'Field Ops'}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-4 p-4 bg-slate-50/50 dark:bg-dark-bg/50 rounded-2xl border border-slate-100 dark:border-dark-border">
+                <div className="p-2 bg-white dark:bg-dark-surface rounded-xl text-slate-400 dark:text-dark-text-muted">
+                   <Clock size={16} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[9px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">Work Shift</p>
+                  {(user.role === 'admin' || user.role === 'manager') ? (
+                    <select
+                      value={member.shiftId || ''}
+                      onChange={async (e) => {
+                        const newShiftId = e.target.value;
+                        const conflicts = checkShiftConflicts(newShiftId);
+                        
+                        if (conflicts.length > 0) {
+                          const proceed = window.confirm(`Shift Assignment Alert:\n\n${conflicts.join('\n')}\n\nDo you want to proceed anyway?`);
+                          if (!proceed) return;
+                        }
+
+                        try {
+                          await updateDoc(doc(db, 'users', member.uid), { shiftId: newShiftId });
+                          toast.success('Shift assignment updated');
+                        } catch (error) {
+                          toast.error('Failed to update shift');
+                        }
+                      }}
+                      className="text-xs font-bold text-slate-900 dark:text-white bg-transparent border-none p-0 focus:ring-0 cursor-pointer w-full"
+                    >
+                      <option value="">Not Assigned</option>
+                      {shifts.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-xs font-bold text-slate-900 dark:text-white">
+                      {member.shiftId ? (shifts.find(s => s.id === member.shiftId)?.name || 'Standard Shift') : 'Not Assigned'}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center space-x-4 p-4 bg-indigo-50/50 dark:bg-indigo-500/10 rounded-2xl border border-indigo-100 dark:border-indigo-500/20">

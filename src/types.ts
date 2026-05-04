@@ -1,6 +1,91 @@
-export type UserRole = 'admin' | 'manager' | 'team_lead' | 'sales';
+export type UserRole = 'admin' | 'manager' | 'team_lead' | 'sales' | 'super_admin';
 export type EmployeeStatus = 'Active' | 'On Leave' | 'Left' | 'Pending Approval';
 export type Department = 'Sales' | 'Dev' | 'Support';
+
+export interface SaasPlan {
+  id: string;
+  name: string;
+  price: number;
+  currency: string;
+  interval: 'monthly' | 'yearly';
+  features: string[];
+  limits: {
+    maxUsers: number;
+    maxLeads: number;
+    maxStorage: number; // in MB
+    hasIntelligence: boolean;
+    hasBlogs: boolean;
+  };
+  isActive: boolean;
+  isPopular?: boolean;
+  isScalable?: boolean;
+  scalingMetric?: 'users' | 'storage' | 'leads';
+  scalingPrice?: number;
+  upsellPlanId?: string;
+  downsellPlanId?: string;
+}
+
+export interface Subscription {
+  id: string;
+  companyId: string;
+  planId: string;
+  status: 'active' | 'past_due' | 'canceled' | 'trialing' | 'trial_expired';
+  startDate?: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  cancelAtPeriodEnd: boolean;
+  updatedAt: string;
+}
+
+export interface SystemSettings {
+  id: string;
+  paymentGateway: {
+    provider: 'stripe' | 'razorpay' | 'paypal' | 'cashfree' | 'phonepe' | 'none';
+    stripePublicKey?: string;
+    stripeSecretKey?: string;
+    razorpayKeyId?: string;
+    razorpayKeySecret?: string;
+    cashfreeAppId?: string;
+    cashfreeSecretKey?: string;
+    phonepeMerchantId?: string;
+    phonepeSaltKey?: string;
+    phonepeSaltIndex?: string;
+    mode: 'test' | 'live';
+    enabled: boolean;
+  };
+  taxRate?: number; // Percentage, e.g., 18
+  taxInclusive?: boolean; // Whether tax is included in the base price
+  updatedAt: string;
+}
+
+export interface SaasPayment {
+  id: string;
+  companyId: string;
+  amount: number;
+  currency: string;
+  status: 'succeeded' | 'failed' | 'pending';
+  planId: string;
+  billingReason: 'subscription_create' | 'subscription_cycle' | 'subscription_update';
+  billingPeriod?: 'monthly' | 'yearly';
+  discountApplied?: {
+    code: string;
+    amount: number;
+  };
+  taxAmount?: number;
+  invoiceUrl?: string;
+  createdAt: string;
+}
+
+export interface DiscountCode {
+  id: string;
+  code: string;
+  discountType: 'percentage' | 'fixed';
+  value: number;
+  maxRedemptions?: number;
+  redemptionCount: number;
+  expiresAt?: string;
+  isActive: boolean;
+}
 
 export interface AccessRequest {
   id: string;
@@ -32,6 +117,10 @@ export interface Company {
     dueSoonUnit?: 'hours' | 'minutes';
   };
   taskStatuses?: string[];
+  subscriptionId?: string;
+  isSuperAdminCompany?: boolean; // For the platform owner company
+  subdomain?: string;
+  trialEndsAt?: string;
 }
 
 export type Permission = 
@@ -104,6 +193,7 @@ export interface UserProfile {
   permissions?: Permission[]; // Overrides based on role
   reportsTo?: string; // UID of manager
   interests?: string[];
+  isSuperAdmin?: boolean; // Global flag for SaaS management
 }
 
 export interface IntelligencePost {
@@ -140,6 +230,7 @@ export interface Shift {
   name: string;
   startTime: string; // HH:mm
   endTime: string; // HH:mm
+  bufferMinutes: number; // Grace period
   type: 'Full-time' | 'Night' | 'Remote' | 'Hybrid';
   workDays: number[]; // 0-6 (Sun-Sat)
   createdAt: string;
@@ -184,11 +275,15 @@ export interface Attendance {
   id: string;
   companyId: string;
   employeeId: string;
+  employeeName: string;
   date: string; // YYYY-MM-DD
   checkIn: string; // ISO string
   checkOut?: string; // ISO string
-  status: 'On-time' | 'Late' | 'Absent';
-  location?: { lat: number; lng: number };
+  status: 'On-time' | 'Late' | 'Absent' | 'Present' | 'Half-day';
+  shiftId?: string;
+  workHours?: number;
+  location?: { lat: number; lng: number; address?: string };
+  notes?: string;
 }
 
 export interface LeaveRequest {
@@ -253,13 +348,15 @@ export interface Attachment {
   createdAt: string;
 }
 
+export type TaskStatus = 'Todo' | 'In Progress' | 'Done' | 'Review';
+
 export interface Task {
   id: string;
   companyId: string;
   title: string;
   description: string;
   dueDate: string;
-  status: string;
+  status: TaskStatus;
   priority: 'Low' | 'Medium' | 'High';
   assignedTo?: string;
   leadId?: string;
@@ -301,6 +398,8 @@ export interface PayrollRecord {
   netSalary: number;
   totalAmount: number; // total Gross or Net? Usually totalAmount in existing code was gross? No, totalAmount was base + bonus - deduction.
   status: 'Paid' | 'Pending';
+  approvedBy?: string;
+  approvedAt?: string;
   paidAt?: string;
   createdAt: string;
 }
@@ -351,9 +450,47 @@ export interface ChatMessage {
 
 export interface UserPresence {
   uid: string;
-  status: 'online' | 'offline';
+  status: 'online' | 'offline' | 'away' | 'busy' | 'dnd' | 'break' | 'lunch';
   lastSeen: string;
   typingIn: string | null;
+  story?: {
+    content: string;
+    mediaUrl?: string;
+    mediaType?: 'image' | 'video';
+    expiresAt: string;
+    createdAt: string;
+  };
+}
+
+export interface SupportTicket {
+  id: string;
+  token: string;
+  userEmail: string;
+  userName: string;
+  subject: string;
+  status: 'open' | 'active' | 'resolved' | 'closed';
+  priority: 'low' | 'medium' | 'high';
+  createdAt: string;
+  lastMessageAt: string;
+  companyId?: string;
+}
+
+export interface SupportMessage {
+  id: string;
+  ticketId: string;
+  senderId: string;
+  senderName: string;
+  senderRole: 'user' | 'admin';
+  content: string;
+  createdAt: string;
+}
+
+export interface ContactGroup {
+  id: string;
+  name: string;
+  memberIds: string[];
+  companyId: string;
+  createdBy: string;
 }
 
 export interface AppNotification {

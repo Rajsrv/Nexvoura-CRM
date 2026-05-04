@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import { UserProfile, Permission, PermissionRequest, UserRole } from '../types';
-import { Shield, Check, X, Clock, AlertCircle, Info, ChevronRight, Lock, Unlock, Zap, User as UserIcon, Settings, Search, Filter } from 'lucide-react';
+import { Shield, Check, X, Clock, AlertCircle, Info, ChevronRight, Lock, Unlock, Zap, User as UserIcon, Settings, Search, Filter, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -28,6 +28,7 @@ const AVAILABLE_PERMISSIONS: { id: Permission; label: string; description: strin
 ];
 
 const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  super_admin: AVAILABLE_PERMISSIONS.map(p => p.id),
   admin: AVAILABLE_PERMISSIONS.map(p => p.id),
   manager: ['leads:view', 'leads:edit', 'leads:assign', 'tasks:view', 'tasks:edit', 'tasks:assign', 'team:view', 'team:invite', 'blog:view', 'blog:manage', 'media:manage'],
   team_lead: ['leads:view', 'leads:edit', 'tasks:view', 'tasks:edit', 'tasks:assign', 'team:view', 'blog:view', 'blog:manage', 'media:manage'],
@@ -36,12 +37,16 @@ const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 
 export function PermissionsPage({ user }: { user: UserProfile }) {
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [requests, setRequests] = useState<PermissionRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [permissionRequests, setPermissionRequests] = useState<PermissionRequest[]>([]);
+  const [accessRequests, setAccessRequests] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const [requestData, setRequestData] = useState({ permission: '' as Permission, reason: '' });
+  const [requestMode, setRequestMode] = useState<'permission' | 'role'>('permission');
+  const [requestData, setRequestData] = useState({ permission: '' as Permission, role: 'manager' as UserRole, reason: '' });
+  const [activeView, setActiveView] = useState<'directory' | 'manual'>('directory');
+  const [requestTab, setRequestTab] = useState<'permissions' | 'roles'>('permissions');
 
   const isAdmin = user.role === 'admin';
   const isManager = user.role === 'manager';
@@ -56,21 +61,69 @@ export function PermissionsPage({ user }: { user: UserProfile }) {
       setLoading(false);
     });
 
-    // Fetch permission requests
-    const requestsQuery = query(
+    const permissionRequestsQuery = query(
       collection(db, 'permissionRequests'), 
       where('companyId', '==', user.companyId),
       orderBy('createdAt', 'desc')
     );
-    const unsubscribeRequests = onSnapshot(requestsQuery, (snap) => {
-      setRequests(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PermissionRequest)));
+    const unsubscribePermissionRequests = onSnapshot(permissionRequestsQuery, (snap) => {
+      setPermissionRequests(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PermissionRequest)));
+    });
+
+    const accessRequestsQuery = query(
+      collection(db, 'accessRequests'),
+      where('companyId', '==', user.companyId),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribeAccessRequests = onSnapshot(accessRequestsQuery, (snap) => {
+      setAccessRequests(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
     });
 
     return () => {
       unsubscribeUsers();
-      unsubscribeRequests();
+      unsubscribePermissionRequests();
+      unsubscribeAccessRequests();
     };
   }, [user.companyId]);
+
+  const changeUserRole = async (targetUser: UserProfile, newRole: UserRole) => {
+    if (!isAdmin && !isManager) return;
+    
+    // Check hierarchy
+    if (isManager && (targetUser.role === 'admin' || targetUser.role === 'manager' || newRole === 'admin' || newRole === 'manager')) {
+      toast.error('Insufficient clearance to assign high-level roles');
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'users', targetUser.uid), { role: newRole });
+      toast.success(`Role updated to ${newRole}`);
+      if (selectedUser?.uid === targetUser.uid) {
+        setSelectedUser({ ...targetUser, role: newRole });
+      }
+    } catch (error) {
+      toast.error('Failed to update role');
+    }
+  };
+
+  const submitRoleRequest = async (requestedRole: UserRole, reason: string) => {
+    try {
+      await addDoc(collection(db, 'accessRequests'), {
+        userId: user.uid,
+        userName: user.name,
+        companyId: user.companyId,
+        requestedRole,
+        reason,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      });
+      toast.success('Role upgrade request submitted');
+      setShowRequestModal(false);
+    } catch (error) {
+      toast.error('Submission failed');
+    }
+  };
 
   const togglePermission = async (targetUser: UserProfile, permission: Permission) => {
     if (!isAdmin && !isManager) return;
@@ -145,7 +198,7 @@ export function PermissionsPage({ user }: { user: UserProfile }) {
       });
       toast.success('Access request submitted');
       setShowRequestModal(false);
-      setRequestData({ permission: '' as Permission, reason: '' });
+      setRequestData({ permission: '' as Permission, role: 'manager' as UserRole, reason: '' });
     } catch (error) {
       toast.error('Submission failed');
     }
@@ -163,24 +216,45 @@ export function PermissionsPage({ user }: { user: UserProfile }) {
         <div className="space-y-1">
           <div className="flex items-center space-x-2 text-indigo-600 dark:text-indigo-400 mb-1">
              <Shield size={18} />
-             <span className="text-[10px] font-black uppercase tracking-widest">Security Nexus</span>
+             <span className="text-[10px] font-black uppercase tracking-widest">Security Nexvoura</span>
           </div>
           <h1 className="text-3xl font-black tracking-tight text-slate-950 dark:text-white font-display italic leading-none">Access Control</h1>
           <p className="text-slate-500 dark:text-dark-text-muted font-medium">Manage hierarchical permissions and operative clearance</p>
         </div>
         
-        {!isAdmin && (
-          <button 
-            onClick={() => setShowRequestModal(true)}
-            className="saas-button-primary px-6 py-3 shadow-xl shadow-indigo-500/20 dark:shadow-none flex items-center space-x-2 group"
-          >
-            <Zap size={18} className="group-hover:animate-pulse" />
-            <span>Request Access</span>
-          </button>
-        )}
+        <div className="flex items-center space-x-4">
+          <div className="flex bg-slate-100 dark:bg-dark-bg p-1 rounded-2xl border border-slate-200 dark:border-dark-border">
+            <button
+              onClick={() => setActiveView('directory')}
+              className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                activeView === 'directory' ? 'bg-white dark:bg-dark-surface shadow-lg text-slate-900 dark:text-white' : 'text-slate-500'
+              }`}
+            >
+              Directory
+            </button>
+            <button
+              onClick={() => setActiveView('manual')}
+              className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                activeView === 'manual' ? 'bg-white dark:bg-dark-surface shadow-lg text-slate-900 dark:text-white' : 'text-slate-500'
+              }`}
+            >
+              Manual
+            </button>
+          </div>
+          {!isAdmin && (
+            <button 
+              onClick={() => setShowRequestModal(true)}
+              className="saas-button-primary px-6 py-3 shadow-xl shadow-indigo-500/20 dark:shadow-none flex items-center space-x-2 group"
+            >
+              <Zap size={18} className="group-hover:animate-pulse" />
+              <span>Request Access</span>
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-10">
+      {activeView === 'directory' ? (
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-10">
         {/* User List */}
         <div className="xl:col-span-2 space-y-6">
           <div className="bg-[#fcfcfc] dark:bg-dark-surface border border-slate-100 dark:border-dark-border rounded-[32px] p-6 shadow-sm overflow-hidden">
@@ -239,45 +313,64 @@ export function PermissionsPage({ user }: { user: UserProfile }) {
               >
                 <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-bl-full -z-10" />
                 
-                <div className="flex justify-between items-start mb-10">
+                <div className="flex justify-between items-start mb-6">
                    <div>
                       <h2 className="text-2xl font-black text-slate-950 dark:text-dark-text mb-1">{selectedUser.name}</h2>
                       <p className="text-xs font-bold text-slate-400 dark:text-dark-text-muted uppercase tracking-widest">{selectedUser.role} clearance profile</p>
                    </div>
-                   <div className="flex items-center space-x-2 bg-slate-950 dark:bg-white text-white dark:text-indigo-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                      <Shield size={14} className="text-indigo-400 dark:text-indigo-600" />
-                      <span>Level {selectedUser.role === 'admin' ? '4' : selectedUser.role === 'manager' ? '3' : '2'}</span>
+                   <div className="flex flex-col items-end space-y-2">
+                     <div className="flex items-center space-x-2 bg-slate-950 dark:bg-white text-white dark:text-indigo-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                        <Shield size={14} className="text-indigo-400 dark:text-indigo-600" />
+                        <span>Level {selectedUser.role === 'admin' ? '4' : selectedUser.role === 'manager' ? '3' : '2'}</span>
+                     </div>
+                     {(isAdmin || isManager) && (
+                       <select 
+                         value={selectedUser.role}
+                         onChange={(e) => changeUserRole(selectedUser, e.target.value as UserRole)}
+                         className="text-[9px] font-black uppercase bg-slate-100 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-lg px-2 py-1 outline-none text-slate-600 dark:text-dark-text"
+                       >
+                         <option value="sales">Sales</option>
+                         <option value="team_lead">Team Lead</option>
+                         <option value="manager">Manager</option>
+                         <option value="admin">Admin</option>
+                       </select>
+                     )}
                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   {AVAILABLE_PERMISSIONS.map(perm => {
-                     const isGranted = (selectedUser.permissions || DEFAULT_ROLE_PERMISSIONS[selectedUser.role] || []).includes(perm.id);
-                     const canEdit = isAdmin || (isManager && selectedUser.role !== 'admin' && selectedUser.role !== 'manager');
-                     
-                     return (
-                       <div 
-                         key={perm.id} 
-                         onClick={() => canEdit && togglePermission(selectedUser, perm.id)}
-                         className={`p-4 rounded-3xl border transition-all flex items-center justify-between group ${
-                           isGranted 
-                            ? 'bg-indigo-50/30 dark:bg-indigo-500/10 border-indigo-100 dark:border-indigo-500/30' 
-                            : 'bg-slate-50 dark:bg-dark-bg border-slate-100 dark:border-dark-border'
-                         } ${canEdit ? 'cursor-pointer hover:shadow-lg' : 'cursor-default opacity-80'}`}
-                       >
-                          <div className="flex items-center space-x-4">
-                             <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${isGranted ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-200 dark:bg-dark-surface text-slate-400 dark:text-dark-text-muted'}`}>
-                                {isGranted ? <Shield size={18} /> : <Lock size={18} />}
-                             </div>
-                             <div>
-                                <p className="text-xs font-black uppercase tracking-widest text-slate-950 dark:text-dark-text">{perm.label}</p>
-                                <p className="text-[10px] text-slate-500 dark:text-dark-text-muted font-medium">{perm.description}</p>
-                             </div>
-                          </div>
-                          {isGranted && <Check size={20} className="text-indigo-600 dark:text-indigo-400" />}
-                       </div>
-                     );
-                   })}
+                <div className="space-y-8">
+                  <div>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dark-text-muted mb-4 px-1">Active Clearances</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                       {AVAILABLE_PERMISSIONS.map(perm => {
+                         const isGranted = (selectedUser.permissions || DEFAULT_ROLE_PERMISSIONS[selectedUser.role] || []).includes(perm.id);
+                         const canEdit = isAdmin || (isManager && selectedUser.role !== 'admin' && selectedUser.role !== 'manager');
+                         
+                         return (
+                           <div 
+                             key={perm.id} 
+                             onClick={() => canEdit && togglePermission(selectedUser, perm.id)}
+                             className={`p-4 rounded-3xl border transition-all flex items-center justify-between group ${
+                               isGranted 
+                                ? 'bg-indigo-50/30 dark:bg-indigo-500/10 border-indigo-100 dark:border-indigo-500/30' 
+                                : 'bg-slate-50 dark:bg-dark-bg border-slate-100 dark:border-dark-border'
+                             } ${canEdit ? 'cursor-pointer hover:shadow-lg' : 'cursor-default opacity-80'}`}
+                           >
+                              <div className="flex items-center space-x-4">
+                                 <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${isGranted ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-200 dark:bg-dark-surface text-slate-400 dark:text-dark-text-muted'}`}>
+                                    {isGranted ? <Shield size={18} /> : <Lock size={18} />}
+                                 </div>
+                                 <div className="min-w-0">
+                                    <p className="text-xs font-black uppercase tracking-widest text-slate-950 dark:text-dark-text truncate">{perm.label}</p>
+                                    <p className="text-[9px] text-slate-500 dark:text-dark-text-muted font-medium truncate">{perm.description}</p>
+                                 </div>
+                              </div>
+                              {isGranted && <Check size={20} className="text-indigo-600 dark:text-indigo-400 shrink-0" />}
+                           </div>
+                         );
+                       })}
+                    </div>
+                  </div>
                 </div>
               </motion.div>
             ) : (
@@ -294,58 +387,121 @@ export function PermissionsPage({ user }: { user: UserProfile }) {
         {/* Sidebar: Requests */}
         <div className="space-y-6">
            <div className="bg-slate-950 rounded-[32px] p-6 text-white overflow-hidden relative shadow-2xl">
-              <div className="relative z-10 flex items-center space-x-3 mb-6">
-                 <div className="w-10 h-10 bg-indigo-500/20 text-indigo-400 rounded-xl flex items-center justify-center">
-                    <Clock size={20} />
-                 </div>
-                 <div>
-                    <h3 className="font-bold text-sm">System Logs</h3>
-                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Clearance Requests</p>
+              <div className="relative z-10 flex items-center justify-between mb-8">
+                 <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-indigo-500/20 text-indigo-400 rounded-xl flex items-center justify-center">
+                       <Clock size={20} />
+                    </div>
+                    <div>
+                       <h3 className="font-bold text-sm">Clearance Logs</h3>
+                       <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Awaiting Authorization</p>
+                    </div>
                  </div>
               </div>
 
-              <div className="relative z-10 space-y-4">
-                 {requests.length === 0 ? (
-                   <div className="text-center py-10 opacity-40">
-                      <p className="text-xs font-bold uppercase tracking-widest">No Active Logs</p>
-                   </div>
-                 ) : (
-                   requests.map(req => (
-                     <div key={req.id} className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-3">
-                        <div className="flex items-center justify-between">
-                           <div className="flex items-center space-x-2">
-                              <Shield size={12} className="text-indigo-400" />
-                              <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300">{req.requestedPermission}</span>
+              <div className="flex space-x-2 mb-6 relative z-10">
+                <button 
+                  onClick={() => setRequestTab('permissions')}
+                  className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${requestTab === 'permissions' ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-500 hover:text-white'}`}
+                >
+                  Permissions ({permissionRequests.filter(r => r.status === 'pending').length})
+                </button>
+                <button 
+                  onClick={() => setRequestTab('roles')}
+                  className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${requestTab === 'roles' ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-500 hover:text-white'}`}
+                >
+                  Roles ({accessRequests.length})
+                </button>
+              </div>
+
+              <div className="relative z-10 space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                 {requestTab === 'permissions' ? (
+                   permissionRequests.length === 0 ? (
+                    <div className="text-center py-10 opacity-40">
+                       <p className="text-[10px] font-bold uppercase tracking-widest">No Permission Requests</p>
+                    </div>
+                   ) : (
+                    permissionRequests.map(req => (
+                      <div key={req.id} className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-3">
+                         <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                               <Shield size={12} className="text-indigo-400" />
+                               <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300">{req.requestedPermission}</span>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                              req.status === 'pending' ? 'bg-amber-500/20 text-amber-400' :
+                              req.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400' :
+                              'bg-rose-500/20 text-rose-400'
+                            }`}>
+                              {req.status}
+                            </span>
+                         </div>
+                         <p className="text-xs font-bold">{req.userName}</p>
+                         <p className="text-[10px] text-slate-400 italic">"{req.reason}"</p>
+                         
+                         {req.status === 'pending' && (isAdmin || isManager) && (
+                           <div className="flex gap-2 pt-2">
+                              <button 
+                                onClick={() => handleResolveRequest(req, 'approved')}
+                                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-black uppercase py-2 rounded-lg transition-colors border-b-2 border-emerald-700 active:border-b-0 active:translate-y-0.5"
+                              >
+                                Grant
+                              </button>
+                              <button
+                                onClick={() => handleResolveRequest(req, 'rejected')}
+                                className="flex-1 bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase py-2 rounded-lg transition-colors"
+                              >
+                                Deny
+                              </button>
                            </div>
-                           <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                             req.status === 'pending' ? 'bg-amber-500/20 text-amber-400' :
-                             req.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400' :
-                             'bg-rose-500/20 text-rose-400'
-                           }`}>
-                             {req.status}
-                           </span>
-                        </div>
-                        <p className="text-xs font-bold">{req.userName}</p>
-                        <p className="text-[10px] text-slate-400 italic">"{req.reason}"</p>
-                        
-                        {req.status === 'pending' && (isAdmin || isManager) && (
-                          <div className="flex gap-2 pt-2">
-                             <button 
-                               onClick={() => handleResolveRequest(req, 'approved')}
-                               className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-black uppercase py-2 rounded-lg transition-colors"
-                             >
-                               Grant
-                             </button>
-                             <button
-                               onClick={() => handleResolveRequest(req, 'rejected')}
-                               className="flex-1 bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase py-2 rounded-lg transition-colors"
-                             >
-                               Deny
-                             </button>
-                          </div>
-                        )}
-                     </div>
-                   ))
+                         )}
+                      </div>
+                    ))
+                   )
+                 ) : (
+                   accessRequests.length === 0 ? (
+                    <div className="text-center py-10 opacity-40">
+                       <p className="text-[10px] font-bold uppercase tracking-widest">No Role Requests</p>
+                    </div>
+                   ) : (
+                    accessRequests.map(req => (
+                      <div key={req.id} className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-3">
+                         <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                               <Zap size={12} className="text-amber-400" />
+                               <span className="text-[10px] font-black uppercase tracking-widest text-amber-300">{req.requestedRole}</span>
+                            </div>
+                            <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-amber-500/20 text-amber-400">
+                              PENDING
+                            </span>
+                         </div>
+                         <p className="text-xs font-bold">{req.userName}</p>
+                         <p className="text-[10px] text-slate-400 italic">"{req.reason || 'Requested role upgrade'}"</p>
+                         
+                         {(isAdmin || isManager) && (
+                           <div className="flex gap-2 pt-2">
+                              <button 
+                                onClick={() => {
+                                  const targetUser = users.find(u => u.uid === req.userId);
+                                  if (targetUser) changeUserRole(targetUser, req.requestedRole);
+                                  // We should also delete/resolve this request, but for now just approve role
+                                  updateDoc(doc(db, 'accessRequests', req.id), { status: 'approved' });
+                                }}
+                                className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white text-[9px] font-black uppercase py-2 rounded-lg transition-colors border-b-2 border-indigo-700 active:border-b-0 active:translate-y-0.5"
+                              >
+                                Promote
+                              </button>
+                              <button
+                                onClick={() => updateDoc(doc(db, 'accessRequests', req.id), { status: 'rejected' })}
+                                className="flex-1 bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase py-2 rounded-lg transition-colors"
+                              >
+                                Deny
+                              </button>
+                           </div>
+                         )}
+                      </div>
+                    ))
+                   )
                  )}
               </div>
               <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-600/10 rounded-full blur-[80px] -z-0" />
@@ -373,6 +529,101 @@ export function PermissionsPage({ user }: { user: UserProfile }) {
            </div>
         </div>
       </div>
+      ) : (
+        <div className="saas-card bg-white dark:bg-dark-surface p-12 max-w-4xl mx-auto space-y-12">
+           <div className="text-center space-y-4">
+              <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 rounded-[32px] flex items-center justify-center mx-auto mb-6 shadow-xl">
+                 <ShieldCheck size={40} />
+              </div>
+              <h2 className="text-4xl font-black text-slate-950 dark:text-white uppercase tracking-tighter italic">Access Command Manual</h2>
+              <p className="text-slate-500 dark:text-dark-text-muted font-medium max-w-lg mx-auto">The hierarchical protocol governing user permissions and authorization across the Nexvoura Network.</p>
+           </div>
+
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8">
+              <div className="p-8 bg-slate-100 dark:bg-dark-bg/60 rounded-[40px] space-y-6">
+                 <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 bg-slate-950 text-white rounded-2xl flex items-center justify-center font-black">L-0</div>
+                    <div>
+                       <h4 className="text-lg font-black uppercase text-slate-950 dark:text-white">External Signal</h4>
+                       <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Public Layer</p>
+                    </div>
+                 </div>
+                 <p className="text-xs font-medium text-slate-500 leading-relaxed">External leads and clients interacting via public forms and blogs. Zero internal authenticated access granted.</p>
+              </div>
+
+              <div className="p-8 bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/40 rounded-[40px] space-y-6">
+                 <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center font-black">L-1</div>
+                    <div>
+                       <h4 className="text-lg font-black uppercase text-slate-950 dark:text-white">Operative (Sales)</h4>
+                       <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Execution Layer</p>
+                    </div>
+                 </div>
+                 <ul className="space-y-2">
+                    {['View assigned leads', 'Manage personal tasks', 'Individual attendance logging', 'Chat communication'].map((p, i) => (
+                      <li key={i} className="flex items-center space-x-2 text-xs font-medium text-slate-600 dark:text-dark-text-muted">
+                         <Check size={14} className="text-emerald-500" />
+                         <span>{p}</span>
+                      </li>
+                    ))}
+                 </ul>
+              </div>
+
+              <div className="p-8 bg-indigo-600 text-white rounded-[40px] space-y-6 shadow-2xl shadow-indigo-600/30">
+                 <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 bg-white text-indigo-600 rounded-2xl flex items-center justify-center font-black">L-2</div>
+                    <div>
+                       <h4 className="text-lg font-black uppercase">Command (Manager)</h4>
+                       <p className="text-[10px] font-black text-indigo-200 uppercase tracking-widest">Strategy Layer</p>
+                    </div>
+                 </div>
+                 <ul className="space-y-2">
+                    {['Full CRM visibility', 'HR & Attendance management', 'Form & Blog architecture', 'Member permission requests'].map((p, i) => (
+                      <li key={i} className="flex items-center space-x-2 text-xs font-bold text-indigo-50">
+                         <Check size={14} className="text-indigo-200" />
+                         <span>{p}</span>
+                      </li>
+                    ))}
+                 </ul>
+              </div>
+
+              <div className="p-8 bg-slate-950 text-white rounded-[40px] space-y-6 shadow-2xl relative overflow-hidden">
+                 <div className="relative z-10 space-y-6">
+                    <div className="flex items-center space-x-4">
+                        <div className="w-12 h-12 bg-indigo-500 text-white rounded-2xl flex items-center justify-center font-black shadow-lg shadow-indigo-500/40 animate-pulse">L-3</div>
+                        <div>
+                           <h4 className="text-lg font-black uppercase">System Admin</h4>
+                           <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Governing Layer</p>
+                        </div>
+                    </div>
+                    <ul className="space-y-2">
+                        {['Complete system settings', 'Financial & Payroll access', 'Global employee controls', 'Security protocol override'].map((p, i) => (
+                          <li key={i} className="flex items-center space-x-2 text-xs font-bold text-slate-300">
+                             <Check size={14} className="text-indigo-400" />
+                             <span>{p}</span>
+                          </li>
+                        ))}
+                    </ul>
+                 </div>
+                 <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-600/20 blur-[60px] -z-0" />
+              </div>
+           </div>
+
+           <div className="p-10 border-2 border-slate-100 dark:border-dark-border border-dashed rounded-[44px]">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dark-text-muted mb-8 text-center italic">Authorization Protocol Delta</h3>
+              <div className="space-y-6 italic">
+                 <div className="flex items-start space-x-4">
+                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-dark-bg flex items-center justify-center shrink-0">1</div>
+                    <p className="text-xs text-slate-500 font-medium leading-relaxed">Personnel can only modify clearances for agents of <span className="text-brand-primary font-black">strictly lower</span> priority levels.</p>
+                 </div>
+                 <div className="flex items-start space-x-4">
+                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-dark-bg flex items-center justify-center shrink-0">2</div>
+                    <p className="text-xs text-slate-500 font-medium leading-relaxed">Escalation requests are logged in real-time and require <span className="text-brand-primary font-black">Admin Approval</span> via the Synchronization Logs.</p>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
 
       {/* Access Request Modal */}
       <AnimatePresence>
@@ -403,19 +654,50 @@ export function PermissionsPage({ user }: { user: UserProfile }) {
               </div>
 
               <div className="space-y-6">
-                 <div>
-                   <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-3 px-1">Requested Module</label>
-                   <select 
-                     className="saas-input appearance-none bg-slate-50 dark:bg-dark-bg text-slate-950 dark:text-dark-text"
-                     value={requestData.permission}
-                     onChange={(e) => setRequestData({ ...requestData, permission: e.target.value as Permission })}
+                 <div className="flex p-1 bg-slate-100 dark:bg-dark-bg rounded-2xl border border-slate-200 dark:border-dark-border">
+                   <button 
+                     onClick={() => setRequestMode('permission')}
+                     className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${requestMode === 'permission' ? 'bg-white dark:bg-dark-surface shadow-md text-indigo-600' : 'text-slate-500'}`}
                    >
-                     <option value="">Select clearance...</option>
-                     {AVAILABLE_PERMISSIONS.map(p => (
-                       <option key={p.id} value={p.id}>{p.label}</option>
-                     ))}
-                   </select>
+                     Permission
+                   </button>
+                   <button 
+                     onClick={() => setRequestMode('role')}
+                     className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${requestMode === 'role' ? 'bg-white dark:bg-dark-surface shadow-md text-indigo-600' : 'text-slate-500'}`}
+                   >
+                     Role
+                   </button>
                  </div>
+
+                 {requestMode === 'permission' ? (
+                   <div>
+                     <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-3 px-1">Requested Module</label>
+                     <select 
+                       className="saas-input appearance-none bg-slate-50 dark:bg-dark-bg text-slate-950 dark:text-dark-text"
+                       value={requestData.permission}
+                       onChange={(e) => setRequestData({ ...requestData, permission: e.target.value as Permission })}
+                     >
+                       <option value="">Select clearance...</option>
+                       {AVAILABLE_PERMISSIONS.map(p => (
+                         <option key={p.id} value={p.id}>{p.label}</option>
+                       ))}
+                     </select>
+                   </div>
+                 ) : (
+                   <div>
+                     <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-3 px-1">Requested Role</label>
+                     <select 
+                       className="saas-input appearance-none bg-slate-50 dark:bg-dark-bg text-slate-950 dark:text-dark-text"
+                       value={requestData.role}
+                       onChange={(e) => setRequestData({ ...requestData, role: e.target.value as UserRole })}
+                     >
+                       <option value="sales">Sales</option>
+                       <option value="team_lead">Team Lead</option>
+                       <option value="manager">Manager</option>
+                       <option value="admin">Admin</option>
+                     </select>
+                   </div>
+                 )}
                  <div>
                    <label className="block text-[10px] font-black text-slate-400 dark:text-dark-text-muted uppercase tracking-widest mb-3 px-1">Justification</label>
                    <textarea 
@@ -426,7 +708,13 @@ export function PermissionsPage({ user }: { user: UserProfile }) {
                    />
                  </div>
                  <button 
-                   onClick={submitRequest}
+                   onClick={() => {
+                     if (requestMode === 'permission') {
+                       submitRequest();
+                     } else {
+                       submitRoleRequest(requestData.role, requestData.reason);
+                     }
+                   }}
                    className="w-full saas-button-primary py-4 shadow-2xl shadow-indigo-200 dark:shadow-none"
                  >
                     Submit Authorization Log

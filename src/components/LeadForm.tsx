@@ -5,6 +5,8 @@ import { handleFirestoreError, OperationType } from '../lib/firestore';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 
+import { analyticsService } from '../services/analyticsService';
+
 export default function LeadForm({ companyId }: { companyId: string }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -25,6 +27,7 @@ export default function LeadForm({ companyId }: { companyId: string }) {
         status: 'New',
         createdAt: new Date().toISOString()
       });
+      analyticsService.trackFormSubmit('public_user', companyId, 'lead_form', { service: formData.service });
       toast.success('Thank you! We will contact you soon.');
       setFormData({ name: '', email: '', phone: '', service: 'WordPress', message: '' });
     } catch (error) {

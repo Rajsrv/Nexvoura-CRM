@@ -18,10 +18,16 @@ service cloud.firestore {
     }
 
     function isCompanyMember(companyId) {
+      // Pre-fetch user data once per evaluation
       let userData = getUserData(request.auth.uid);
       return isSignedIn() && 
              userData != null &&
-             userData.companyId == companyId;
+             (userData.isSuperAdmin == true || userData.companyId == companyId);
+    }
+
+    function isMemberOfSameCompany(otherCompanyId) {
+       let userData = getUserData(request.auth.uid);
+       return isSignedIn() && userData != null && userData.companyId == otherCompanyId;
     }
 
     function incoming() {
@@ -40,53 +46,73 @@ service cloud.firestore {
       let userData = getUserData(request.auth.uid);
       return isSignedIn() && 
              userData != null &&
-             userData.role in roles;
+             (userData.role in roles || userData.isSuperAdmin == true);
     }
 
     function isAdmin() {
       return hasRole(['admin']);
     }
 
+    function isSuperAdmin() {
+      let user = getUserData(request.auth.uid);
+      return isSignedIn() && user != null && user.isSuperAdmin == true;
+    }
+
     function isManager() {
       return hasRole(['manager', 'admin']);
+    }
+    
+    function isOwnCompany(data) {
+      let user = getUserData(request.auth.uid);
+      return isSignedIn() && user != null && (user.isSuperAdmin == true || data.companyId == user.companyId);
     }
 
     // -------------------------------------------------------------------------
     // 1. Companies
     // -------------------------------------------------------------------------
     match /companies/{companyId} {
-      allow get: if isCompanyMember(companyId);
-      allow list: if isAdmin();
+      allow get: if isSignedIn();
+      allow list: if isSignedIn(); // Allowed for subdomain uniqueness checks and finding company
       allow create: if isSignedIn();
-      allow update, delete: if isAdmin() && isCompanyMember(companyId);
+      allow update, delete: if isSignedIn() && (isSuperAdmin() || (isAdmin() && isCompanyMember(companyId)));
     }
 
     // -------------------------------------------------------------------------
     // 2. Users (Personnel)
     // -------------------------------------------------------------------------
     match /users/{userId} {
-      allow get: if isSignedIn() && (request.auth.uid == userId || (getUserData(request.auth.uid) != null && getUserData(request.auth.uid).companyId == resource.data.companyId));
-      allow list: if isSignedIn() && (getUserData(request.auth.uid) != null && resource.data.companyId == getUserData(request.auth.uid).companyId);
+      allow get: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin() || isMemberOfSameCompany(resource.data.companyId));
+      allow list: if isSignedIn() && (isSuperAdmin() || isMemberOfSameCompany(resource.data.companyId));
       
       function isValidUser(data) {
         return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
                data.email is string && data.email.size() > 0 &&
                data.companyId is string &&
-               data.role in ['admin', 'manager', 'team_lead', 'sales'];
+               data.role in ['admin', 'manager', 'team_lead', 'sales', 'super_admin'];
       }
 
-      allow create: if isManager() && isCompanyMember(incoming().companyId) && isValidUser(incoming());
+      allow create: if isSignedIn() && (
+        // Self-registration: Users can create their own profile once
+        (request.auth.uid == userId) ||
+        // Standard creation: Manager/Admin adding someone else
+        (isManager() && isCompanyMember(incoming().companyId))
+      ) && isValidUser(incoming());
       
       allow update: if isSignedIn() && (
-        // Self-update limited fields
-        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'photoURL', 'interests', 'pfp', 'memberId'])) || 
-        // Manager hierarchy control (Manager can update same-company users but not their role/company)
+        // Self-update: strictly prevent self-elevation to super admin
+        (request.auth.uid == userId && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'photoURL', 'interests', 'pfp', 'memberId', 'notifications']) ||
+          // Allow setting basic info on first setup, but NOT isSuperAdmin unless the requester IS already a super admin
+          (existing().companyId == null && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'email', 'companyId', 'role', 'memberId', 'uid', 'createdAt']))
+        )) || 
+        // Manager hierarchy control: Cannot elevate someone to super admin
         (isManager() && 
-         getUserData(request.auth.uid).companyId == existing().companyId && 
+         isMemberOfSameCompany(existing().companyId) && 
          incoming().companyId == existing().companyId &&
+         incoming().isSuperAdmin == existing().get('isSuperAdmin', false) &&
          (incoming().role == existing().role || isAdmin())) || 
-        // Admin total control
-        isAdmin()
+        // Super Admin: Can do anything
+        isSuperAdmin()
       );
     }
 
@@ -94,15 +120,30 @@ service cloud.firestore {
     // 3. CRM (Leads & Tasks)
     // -------------------------------------------------------------------------
     match /leads/{leadId} {
-      allow get: if isCompanyMember(resource.data.companyId) && (isAdmin() || isManager() || resource.data.assignedTo == request.auth.uid);
-      allow list: if isCompanyMember(resource.data.companyId) && (isAdmin() || isManager() || resource.data.assignedTo == request.auth.uid);
-      allow write: if isCompanyMember(incoming().companyId) && (isAdmin() || isManager() || hasRole(['sales']));
+      allow get: if isSignedIn() && isOwnCompany(resource.data) && (isAdmin() || isManager() || resource.data.assignedTo == request.auth.uid);
+      allow list: if isSignedIn() && isOwnCompany(resource.data) && (isAdmin() || isManager() || resource.data.assignedTo == request.auth.uid);
+      allow write: if isSignedIn() && isOwnCompany(incoming()) && (isAdmin() || isManager() || hasRole(['sales']));
     }
 
     match /tasks/{taskId} {
-      allow get: if isCompanyMember(resource.data.companyId) && (isAdmin() || isManager() || resource.data.assignedTo == request.auth.uid);
-      allow list: if isCompanyMember(resource.data.companyId) && (isAdmin() || isManager() || resource.data.assignedTo == request.auth.uid);
-      allow write: if isCompanyMember(incoming().companyId) && (isAdmin() || isManager() || hasRole(['team_lead', 'sales', 'manager']));
+      allow get: if isSignedIn() && isOwnCompany(resource.data) && (isAdmin() || isManager() || resource.data.assignedTo == request.auth.uid);
+      allow list: if isSignedIn() && isOwnCompany(resource.data) && (isAdmin() || isManager() || resource.data.assignedTo == request.auth.uid);
+      
+      function isValidTask(data) {
+        return data.companyId is string &&
+               data.title is string && data.title.size() > 0 &&
+               data.status in ['Todo', 'In Progress', 'Done', 'Review'] &&
+               data.priority in ['Low', 'Medium', 'High'];
+      }
+
+      allow create: if isSignedIn() && isOwnCompany(incoming()) && (isAdmin() || isManager() || hasRole(['team_lead', 'sales', 'manager'])) && isValidTask(incoming());
+      
+      allow update: if isSignedIn() && (
+        (isOwnCompany(existing()) && (isAdmin() || isManager() || hasRole(['team_lead', 'manager']))) ||
+        (existing().assignedTo == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'subtasks', 'startedAt', 'completedAt']))
+      ) && isValidTask(incoming());
+      
+      allow delete: if isSignedIn() && isOwnCompany(existing()) && (isAdmin() || isManager());
     }
 
     match /taskTemplates/{templateId} {
@@ -277,7 +318,7 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // 7. Presence
+    // 7. Presence & Contact Groups
     // -------------------------------------------------------------------------
     match /userPresence/{userId} {
       allow read: if isSignedIn() && (
@@ -287,6 +328,26 @@ service cloud.firestore {
       
       allow write: if isSignedIn() && request.auth.uid == userId && 
                     (getUserData(request.auth.uid) != null && incoming().companyId == getUserData(request.auth.uid).companyId);
+    }
+
+    match /contactGroups/{groupId} {
+      allow read, write: if isSignedIn() && (
+        (isSuperAdmin() || (resource.data.companyId != null && isMemberOfSameCompany(resource.data.companyId))) ||
+        (incoming().companyId != null && isMemberOfSameCompany(incoming().companyId))
+      );
+    }
+
+    // -------------------------------------------------------------------------
+    // 8. Support System
+    // -------------------------------------------------------------------------
+    match /supportTickets/{ticketId} {
+      allow create: if true;
+      allow read, update: if isSuperAdmin() || true; 
+    }
+
+    match /supportMessages/{messageId} {
+      allow create: if true;
+      allow read: if isSuperAdmin() || true;
     }
 
     // -------------------------------------------------------------------------
@@ -391,10 +452,51 @@ service cloud.firestore {
                data.url is string &&
                data.type in ['image', 'video', 'document'];
       }
-      allow read: if isCompanyMember(resource.data.companyId);
+      allow read: if isCompanyMember(resource.data.companyId) || isSuperAdmin();
       allow create: if isManager() && isCompanyMember(incoming().companyId) && isValidAsset(incoming());
       allow update: if isManager() && isCompanyMember(existing().companyId) && isValidAsset(incoming());
       allow delete: if isManager() && isCompanyMember(resource.data.companyId);
+    }
+
+    // 11. General Analytics
+    match /analyticsEvents/{eventId} {
+      function isValidAnalyticsEvent(data) {
+        return data.userId is string && data.userId.size() <= 128 &&
+               data.companyId is string && data.companyId.size() <= 128 &&
+               data.eventName is string && data.eventName.size() <= 200 &&
+               data.category in ['navigation', 'interaction', 'form', 'system'] &&
+               data.metadata is map &&
+               data.path is string && data.path.size() <= 512 &&
+               data.timestamp == request.time;
+      }
+      allow create: if isValidAnalyticsEvent(incoming());
+      allow read: if isSuperAdmin();
+    }
+
+    // 10. SaaS Nexvoura (Global)
+    match /plans/{planId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    match /subscriptions/{subId} {
+      allow read: if isSuperAdmin() || isCompanyMember(subId);
+      allow write: if isSuperAdmin() || (isAdmin() && isCompanyMember(subId));
+    }
+
+    match /saas_payments/{paymentId} {
+      allow read: if isSuperAdmin() || isCompanyMember(resource.data.companyId);
+      allow write: if isSuperAdmin() || (isAdmin() && isCompanyMember(incoming().companyId));
+    }
+
+    match /discounts/{codeId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
+    }
+
+    match /system/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
   }
 }

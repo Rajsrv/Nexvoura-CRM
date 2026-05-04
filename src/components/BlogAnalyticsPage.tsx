@@ -33,6 +33,8 @@ import {
   Area 
 } from 'recharts';
 
+import NexvouraLoader from './NexvouraLoader';
+
 export const BlogAnalyticsPage = () => {
   const { blogId } = useParams<{ blogId: string }>();
   const navigate = useNavigate();
@@ -67,7 +69,7 @@ export const BlogAnalyticsPage = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-950">
-        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <NexvouraLoader label="Assembling Analytics Matrix" size="lg" />
       </div>
     );
   }
